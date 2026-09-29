@@ -1,12 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LA">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="JaiGram">
   <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed"/>
-      <stop offset="100%" stop-color="#ec4899"/>
+    <linearGradient id="jgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff2a85"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="18" fill="#0b1020"/>
-  <rect x="8" y="8" width="48" height="48" rx="15" fill="url(#g)"/>
-  <path d="M22 18v22h12" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M38 40l4-12 4 12m-7-4h6" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="16" fill="#080312"/>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="url(#jgGrad)" stroke-width="1.5" stroke-opacity="0.6"/>
+  <!-- Bag Handle -->
+  <path d="M 26 24 C 26 16, 38 16, 38 24" fill="none" stroke="url(#jgGrad)" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Bag Body -->
+  <path d="M 20 26 L 44 26 L 47 48 C 47 50, 45 52, 43 52 L 21 52 C 19 52, 17 50, 17 48 Z" fill="#140929" stroke="url(#jgGrad)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- G symbol -->
+  <path d="M 36 36 C 36 33, 34 31, 32 31 C 28 31, 26 34, 26 39 C 26 44, 28 47, 32 47 C 35 47, 37 45, 37 42 L 31 42" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
+

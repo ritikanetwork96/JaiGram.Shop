@@ -3,12 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <script>
+    // Permanent Login Check: If customer is ALREADY logged in, instantly forward them so they never see the login form again
+    (function() {
+      try {
+        var raw = localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session');
+        var sess = raw ? JSON.parse(raw) : null;
+        if (sess && typeof sess === 'object' && (sess.email || sess.uid)) {
+          document.documentElement.style.display = 'none';
+          var params = new URLSearchParams(window.location.search);
+          var dest = params.get('returnUrl') || sessionStorage.getItem('linkadda_pending_destination') || sessionStorage.getItem('jaigram_pending_destination') || 'user/index.html';
+          if (dest.includes('login.html')) dest = 'user/index.html';
+          window.location.replace(dest);
+        }
+      } catch (_) {}
+    })();
+  </script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Sign In — JaiGram Shop</title>
   <meta name="description" content="Sign in to JaiGram Shop to access your digital vault, instant downloads, and exclusive collections." />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#ff2a85" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="JaiGram" />
+  <link rel="apple-touch-icon" href="images/pwa-icon-192.jpg" />
+  <link rel="stylesheet" href="pwa.css" />
 
   <!-- Fonts & FontAwesome -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1681,6 +1704,6 @@
       });
     }
   </script>
-
+  <script src="pwa-controller.js"></script>
 </body>
 </html>

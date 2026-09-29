@@ -69,7 +69,10 @@
   <!-- User Dashboard Stylesheet -->
   <link rel="stylesheet" href="user.css?v=20260929_report_sheet_v4" />
   <link rel="stylesheet" href="../shared/payment-gateway.css?v=20260929_v2" />
+  <link rel="stylesheet" href="../pwa.css" />
   <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="manifest" href="../manifest.json" />
+  <link rel="apple-touch-icon" href="../images/pwa-icon-192.jpg" />
 </head>
 <body>
 
@@ -111,6 +114,13 @@
         <button type="button" class="nav-currency-chip" id="navCurrencyPill" onclick="toggleCurrencyQuick()" title="Switch Currency (INR ₹ / USD $)">
           <span class="currency-flag-icon" id="navCurrencyFlag">🇮🇳</span>
           <span class="currency-code-text" id="navCurrencyCode">₹ INR</span>
+        </button>
+
+        <!-- Download App PWA Trigger Button -->
+        <button type="button" class="nav-action-btn" id="navInstallAppBtn" onclick="window.triggerPwaInstall()" title="Download JaiGram Shop App" style="color: #ff2a85;">
+          <span class="bell-icon-wrap">
+            <i class="fa-solid fa-download"></i>
+          </span>
         </button>
 
         <!-- Wishlist Trigger Button -->
@@ -295,6 +305,17 @@
             </a>
           </li>
 
+          <!-- Download App (PWA) -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" onclick="window.triggerPwaInstall()" style="color: #ff2a85;">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-cloud-arrow-down" style="color: #ff2a85;"></i>
+                <span>Download App</span>
+              </div>
+              <span style="font-size: 10px; background: rgba(255,42,133,0.18); border: 1px solid rgba(255,42,133,0.3); color: #ff2a85; padding: 2px 7px; border-radius: 10px; font-weight: 700;">APP</span>
+            </a>
+          </li>
+
           <!-- Logout -->
           <li class="sidebar-nav-item">
             <a href="javascript:void(0)" class="sidebar-nav-link" onclick="handleLogout()" style="color: #f87171;">
@@ -371,6 +392,18 @@
               </div>
             </div>
           </div>
+        <!-- ━━ JAIGRAM PWA APP INSTALL BANNER (POST-LOGIN) ━━ -->
+        <div class="jaigram-pwa-user-banner" id="userDashboardPwaBanner" style="margin-top: 18px; margin-bottom: 24px;">
+          <div class="pwa-user-banner-left">
+            <img src="../images/pwa-icon.svg" alt="JaiGram App" class="pwa-user-banner-icon" onerror="this.src='../images/pwa-icon-192.jpg'" />
+            <div class="pwa-user-banner-text">
+              <h4>Download JaiGram Shop App</h4>
+              <p>Install on your phone or desktop for 1-tap instant vault access, faster downloads & permanent saved login.</p>
+            </div>
+          </div>
+          <button type="button" class="pwa-user-banner-btn" onclick="window.triggerPwaInstall()">
+            <i class="fa-solid fa-download"></i> Install App
+          </button>
         </div>
 
         <!-- ━━ 3 KEY METRIC STAT CARDS ━━ -->
@@ -2707,5 +2740,6 @@
 
   <!-- User Dashboard Script -->
   <script src="user.js?v=20260929_report_sheet_v4"></script>
+  <script src="../pwa-controller.js"></script>
 </body>
 </html>

@@ -1,0 +1,437 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   JAIGRAM SHOP — PROGRESSIVE WEB APP (PWA) STYLES
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+:root {
+  --pwa-primary: #ff2a85;
+  --pwa-ruby: #e11d48;
+  --pwa-violet: #8b5cf6;
+  --pwa-dark: #080312;
+  --pwa-card-bg: rgba(14, 8, 28, 0.94);
+  --pwa-border: rgba(255, 42, 133, 0.28);
+  --pwa-glow: rgba(255, 42, 133, 0.35);
+  --pwa-text: #ffffff;
+  --pwa-muted: #94a3b8;
+}
+
+/* ━━ 1. APP SPLASH SCREEN OVERLAY ━━ */
+.jaigram-pwa-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: radial-gradient(circle at center, #13082a 0%, #050209 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+  pointer-events: all;
+}
+
+.jaigram-pwa-splash.hide-splash {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.pwa-splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.pwa-splash-icon {
+  width: 110px;
+  height: 110px;
+  border-radius: 28px;
+  box-shadow: 0 0 35px var(--pwa-glow), 0 10px 25px rgba(0, 0, 0, 0.8);
+  animation: pwaPulse 2.2s ease-in-out infinite;
+  object-fit: cover;
+}
+
+.pwa-splash-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+}
+
+.pwa-splash-title span {
+  background: linear-gradient(135deg, #ff2a85 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.pwa-splash-sub {
+  font-size: 13px;
+  color: var(--pwa-muted);
+  letter-spacing: 0.5px;
+}
+
+.pwa-splash-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(255, 42, 133, 0.18);
+  border-top-color: #ff2a85;
+  border-radius: 50%;
+  animation: pwaSpin 0.8s linear infinite;
+  margin-top: 10px;
+}
+
+/* ━━ 2. FIRST-VISIT PWA INSTALL POPUP (BOTTOM SHEET / BANNER) ━━ */
+.jaigram-pwa-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99998;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.jaigram-pwa-popup-backdrop.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.jaigram-pwa-card {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  width: calc(100% - 32px);
+  max-width: 440px;
+  background: var(--pwa-card-bg);
+  border: 1px solid var(--pwa-border);
+  border-radius: 24px;
+  padding: 22px 20px 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 42, 133, 0.2);
+  z-index: 99999;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--pwa-text);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  box-sizing: border-box;
+}
+
+.jaigram-pwa-card.active {
+  transform: translateX(-50%) translateY(0);
+}
+
+.pwa-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.pwa-card-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pwa-card-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  object-fit: cover;
+  box-shadow: 0 4px 18px var(--pwa-glow);
+  flex-shrink: 0;
+}
+
+.pwa-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pwa-card-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pwa-badge-verified {
+  font-size: 11px;
+  padding: 2px 7px;
+  background: rgba(16, 185, 129, 0.18);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 20px;
+  font-weight: 700;
+}
+
+.pwa-card-sub {
+  font-size: 12.5px;
+  color: var(--pwa-muted);
+}
+
+.pwa-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.pwa-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.pwa-card-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pwa-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.pwa-feature-item i {
+  color: #ff2a85;
+  font-size: 13px;
+}
+
+.pwa-card-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pwa-btn-install {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ff2a85 0%, #e11d48 50%, #8b5cf6 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  padding: 13px 18px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(255, 42, 133, 0.4);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.pwa-btn-install:active {
+  transform: scale(0.98);
+}
+
+.pwa-btn-cancel {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.07);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 13px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.pwa-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+/* ━━ 3. DASHBOARD / USER PORTAL DOWNLOAD CARD / BADGE ━━ */
+.jaigram-pwa-user-banner {
+  background: linear-gradient(135deg, rgba(255, 42, 133, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
+  border: 1px solid rgba(255, 42, 133, 0.3);
+  border-radius: 18px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  animation: pwaBannerFadeIn 0.4s ease;
+}
+
+.pwa-user-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pwa-user-banner-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 0 14px rgba(255, 42, 133, 0.35);
+  flex-shrink: 0;
+}
+
+.pwa-user-banner-text h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 2px;
+}
+
+.pwa-user-banner-text p {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.pwa-user-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, #ff2a85 0%, #8b5cf6 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(255, 42, 133, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.pwa-user-banner-btn:active {
+  transform: scale(0.97);
+}
+
+/* ━━ 4. FLOATING DOWNLOAD APP ACTION BUTTON (MOBILE STOREFRONT) ━━ */
+.pwa-floating-install-pill {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  z-index: 999;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ff2a85 0%, #8b5cf6 100%);
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(255, 42, 133, 0.45);
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s ease, opacity 0.3s ease;
+  animation: pwaFloatPill 3s ease-in-out infinite;
+}
+
+.pwa-floating-install-pill:hover {
+  transform: translateY(-2px);
+}
+
+/* ━━ 5. IOS STEP-BY-STEP INSTALL GUIDE MODAL ━━ */
+.pwa-ios-modal {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  width: calc(100% - 32px);
+  max-width: 400px;
+  background: #110920;
+  border: 1px solid rgba(255, 42, 133, 0.4);
+  border-radius: 22px;
+  padding: 22px;
+  z-index: 100000;
+  color: #ffffff;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+  transition: transform 0.35s ease;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.pwa-ios-modal.active {
+  transform: translateX(-50%) translateY(0);
+}
+
+.pwa-ios-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  font-size: 13.5px;
+  color: #e2e8f0;
+}
+
+.pwa-ios-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ff2a85;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ━━ KEYFRAMES ━━ */
+@keyframes pwaSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pwaPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(255, 42, 133, 0.5)); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 0 35px rgba(255, 42, 133, 0.8)); }
+}
+
+@keyframes pwaFloatPill {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes pwaBannerFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .jaigram-pwa-card {
+    bottom: 16px;
+    padding: 18px 16px 16px;
+    border-radius: 20px;
+  }
+  .pwa-card-icon {
+    width: 50px;
+    height: 50px;
+  }
+}

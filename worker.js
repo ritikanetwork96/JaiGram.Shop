@@ -15,6 +15,7 @@ import sellerAuthHandler from './api/seller/auth.js';
 import sellerProductsHandler from './api/seller/products.js';
 import reportsHandler from './api/reports.js';
 import mediaHandler from './api/media.js';
+import { RUNTIME_ENV } from './runtime-secrets.js';
 
 const ROUTE_HANDLERS = {
   'orders': ordersHandler,
@@ -38,12 +39,22 @@ export default {
     // ━━ 1. SERVERLESS API ROUTER (/api/*) ━━
     if (url.pathname.startsWith('/api/')) {
       // 1a. Inject Cloudflare Worker environment secrets into process.env
-      if (env && typeof env === 'object') {
-        if (typeof globalThis.process === 'undefined') {
-          globalThis.process = { env: {} };
-        } else if (!globalThis.process.env) {
-          globalThis.process.env = {};
+      if (typeof globalThis.process === 'undefined') {
+        globalThis.process = { env: {} };
+      } else if (!globalThis.process.env) {
+        globalThis.process.env = {};
+      }
+
+      // First apply RUNTIME_ENV bridged from Cloudflare build variables
+      if (typeof RUNTIME_ENV === 'object') {
+        for (const [k, v] of Object.entries(RUNTIME_ENV)) {
+          if (v && typeof v === 'string') {
+            globalThis.process.env[k] = v;
+          }
         }
+      }
+
+      if (env && typeof env === 'object') {
         for (const [k, v] of Object.entries(env)) {
           if (typeof v === 'string') {
             globalThis.process.env[k] = v;
@@ -110,8 +121,7 @@ export default {
         url: request.url,
         headers,
         query,
-        body,
-        env,
+        env: { ...(typeof RUNTIME_ENV === 'object' ? RUNTIME_ENV : {}), ...(env || {}) },
       };
 
       const res = {

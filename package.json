@@ -4,6 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/sync-env.mjs",
+    "build": "node scripts/sync-env.mjs",
     "dev": "node dev-server.mjs",
     "start": "node dev-server.mjs"
   },

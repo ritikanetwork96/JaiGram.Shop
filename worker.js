@@ -49,6 +49,27 @@ export default {
             globalThis.process.env[k] = v;
           }
         }
+        // Explicitly map known keys in case env uses non-enumerable getters
+        const knownKeys = [
+          'BREVO_API_KEY',
+          'BREVO_SENDER_EMAIL',
+          'BREVO_SENDER_NAME',
+          'AUTH_SECRET',
+          'admin',
+          'password',
+          'FIREBASE_API_KEY',
+          'R2_ENDPOINT',
+          'R2_ACCESS_KEY_ID',
+          'R2_SECRET_ACCESS_KEY',
+          'R2_BUCKET',
+          'R2_REGION',
+          'R2_PUBLIC_URL',
+        ];
+        for (const key of knownKeys) {
+          if (env[key] !== undefined && env[key] !== null) {
+            globalThis.process.env[key] = String(env[key]);
+          }
+        }
       }
 
       // 1b. Match route handler
@@ -90,6 +111,7 @@ export default {
         headers,
         query,
         body,
+        env,
       };
 
       const res = {

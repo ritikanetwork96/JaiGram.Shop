@@ -130,13 +130,13 @@ export default async function handler(req, res) {
       });
     }
 
-    const apiKey = (process.env.BREVO_API_KEY || '').trim();
+    const apiKey = (process.env.BREVO_API_KEY || req?.env?.BREVO_API_KEY || '').trim();
     if (!apiKey) {
       return res.status(500).json({ error: 'Brevo API key is not configured on the server.' });
     }
 
-    const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
-    const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
+    const senderEmail = (process.env.BREVO_SENDER_EMAIL || req?.env?.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
+    const senderName = (process.env.BREVO_SENDER_NAME || req?.env?.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
 
     // Generate 6-digit OTP and signed token (valid for 5 minutes)
     const otp = generateOtp();

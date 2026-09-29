@@ -401,10 +401,36 @@
               <p>Install on your phone or desktop for 1-tap instant vault access, faster downloads & permanent saved login.</p>
             </div>
           </div>
-          <button type="button" class="pwa-user-banner-btn" onclick="window.triggerPwaInstall()">
-            <i class="fa-solid fa-download"></i> Install App
-          </button>
+          <div class="pwa-user-banner-right">
+            <button type="button" class="pwa-user-banner-btn" onclick="window.triggerPwaInstall()">
+              <i class="fa-solid fa-download"></i> Install App
+            </button>
+            <button type="button" class="pwa-user-banner-close" onclick="dismissUserPwaBanner()" title="Dismiss banner" aria-label="Dismiss">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
         </div>
+        <script>
+          (function() {
+            try {
+              var isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || localStorage.getItem('jaigram_pwa_installed') === 'true' || localStorage.getItem('jaigram_user_banner_dismissed') === 'true';
+              if (isInstalled) {
+                var el = document.getElementById('userDashboardPwaBanner');
+                if (el) el.style.display = 'none';
+              }
+            } catch (_) {}
+          })();
+          function dismissUserPwaBanner() {
+            var b = document.getElementById('userDashboardPwaBanner');
+            if (b) {
+              b.style.opacity = '0';
+              b.style.transform = 'translateY(-8px)';
+              setTimeout(function() { b.remove(); }, 300);
+            }
+            localStorage.setItem('jaigram_user_banner_dismissed', 'true');
+          }
+          window.dismissUserPwaBanner = dismissUserPwaBanner;
+        </script>
 
         <!-- ━━ 3 KEY METRIC STAT CARDS ━━ -->
         <div class="dashboard-stats-grid">

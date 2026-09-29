@@ -8,6 +8,8 @@
 
   let deferredInstallPrompt = null;
   const DISMISS_KEY = 'jaigram_pwa_dismissed';
+  const INSTALLED_KEY = 'jaigram_pwa_installed';
+  const USER_BANNER_DISMISS_KEY = 'jaigram_user_banner_dismissed';
   const DISMISS_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours dismissal cooldown
 
   // 1. Detect Standalone / Already Installed PWA Mode
@@ -16,7 +18,8 @@
       window.matchMedia('(display-mode: standalone)').matches ||
       window.navigator.standalone === true ||
       document.referrer.includes('android-app://') ||
-      window.location.search.includes('source=pwa')
+      window.location.search.includes('source=pwa') ||
+      localStorage.getItem(INSTALLED_KEY) === 'true'
     );
   }
 
@@ -29,8 +32,8 @@
     );
   }
 
-  // 3. Register Service Worker
-  if ('serviceWorker' in navigator) {
+  // 3. Register Service Worker (HTTP/HTTPS only)
+  if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
         .register('/sw.js')
@@ -43,9 +46,25 @@
     });
   }
 
-  // 4. Capture native beforeinstallprompt event
+  // 4. Clean up any installed banners if already running in standalone or marked installed
+  function cleanUpInstalledUi() {
+    if (isRunningStandalone()) {
+      const banner = document.getElementById('userDashboardPwaBanner');
+      if (banner) banner.remove();
+      const navBtn = document.getElementById('navInstallAppBtn');
+      if (navBtn) navBtn.remove();
+      const card = document.getElementById('jaigramPwaPopupCard');
+      if (card) card.remove();
+    }
+    if (localStorage.getItem(USER_BANNER_DISMISS_KEY) === 'true') {
+      const banner = document.getElementById('userDashboardPwaBanner');
+      if (banner) banner.remove();
+    }
+  }
+
+  // 5. Capture native beforeinstallprompt event
   window.addEventListener('beforeinstallprompt', (e) => {
-    // Prevent the mini-infobar from appearing on mobile
+    // Prevent mini-infobar from appearing on mobile
     e.preventDefault();
     deferredInstallPrompt = e;
     window.jaigramInstallPromptReady = true;
@@ -53,17 +72,16 @@
     console.log('PWA: Native install prompt captured & ready.');
   });
 
-  // 5. Handle appinstalled event
+  // 6. Handle appinstalled event (User downloaded app -> Completely disappear)
   window.addEventListener('appinstalled', () => {
     deferredInstallPrompt = null;
-    localStorage.setItem('jaigram_pwa_installed', 'true');
+    localStorage.setItem(INSTALLED_KEY, 'true');
     hideInstallPopup();
-    const banner = document.getElementById('jaigramUserPwaBanner');
-    if (banner) banner.style.display = 'none';
+    cleanUpInstalledUi();
     console.log('PWA: JaiGram Shop app installed successfully!');
   });
 
-  // 6. Universal Trigger for App Installation
+  // 7. Universal Trigger for App Installation
   window.triggerPwaInstall = async function () {
     if (deferredInstallPrompt) {
       try {
@@ -71,7 +89,9 @@
         const choice = await deferredInstallPrompt.userChoice;
         console.log('PWA: User choice:', choice.outcome);
         if (choice.outcome === 'accepted') {
+          localStorage.setItem(INSTALLED_KEY, 'true');
           hideInstallPopup();
+          cleanUpInstalledUi();
         }
         deferredInstallPrompt = null;
       } catch (err) {
@@ -85,21 +105,16 @@
     }
   };
 
-  // 7. Inject & Show First-Visit Install Popup
+  // 8. Inject & Show First-Visit Install Popup (NON-BLOCKING: Zero backdrop overlay)
   function injectInstallPopup() {
     if (document.getElementById('jaigramPwaPopupCard')) return;
 
-    // Backdrop
-    const backdrop = document.createElement('div');
-    backdrop.id = 'jaigramPwaBackdrop';
-    backdrop.className = 'jaigram-pwa-popup-backdrop';
-
-    // Card
+    // Card (Floats at bottom without full-screen click interception)
     const card = document.createElement('div');
     card.id = 'jaigramPwaPopupCard';
     card.className = 'jaigram-pwa-card';
     card.setAttribute('role', 'dialog');
-    card.setAttribute('aria-modal', 'true');
+    card.setAttribute('aria-modal', 'false');
     card.innerHTML = `
       <div class="pwa-card-header">
         <div class="pwa-card-brand">
@@ -141,7 +156,6 @@
       </div>
     `;
 
-    document.body.appendChild(backdrop);
     document.body.appendChild(card);
 
     // Event listeners
@@ -156,12 +170,11 @@
 
     document.getElementById('pwaCloseCardBtn')?.addEventListener('click', closeHandler);
     document.getElementById('pwaCardCancelBtn')?.addEventListener('click', closeHandler);
-    backdrop.addEventListener('click', closeHandler);
   }
 
   function showInstallPopup() {
     if (isRunningStandalone()) return;
-    if (localStorage.getItem('jaigram_pwa_installed') === 'true') return;
+    if (localStorage.getItem(INSTALLED_KEY) === 'true') return;
 
     // Check dismissal cooldown
     const lastDismissed = Number(localStorage.getItem(DISMISS_KEY) || 0);
@@ -171,21 +184,20 @@
 
     injectInstallPopup();
     setTimeout(() => {
-      const backdrop = document.getElementById('jaigramPwaBackdrop');
       const card = document.getElementById('jaigramPwaPopupCard');
-      if (backdrop) backdrop.classList.add('active');
       if (card) card.classList.add('active');
     }, 100);
   }
 
   function hideInstallPopup() {
-    const backdrop = document.getElementById('jaigramPwaBackdrop');
     const card = document.getElementById('jaigramPwaPopupCard');
-    if (card) card.classList.remove('active');
-    if (backdrop) backdrop.classList.remove('active');
+    if (card) {
+      card.classList.remove('active');
+      setTimeout(() => card.remove(), 400);
+    }
   }
 
-  // 8. iOS Add to Home Screen Modal Guide
+  // 9. iOS Add to Home Screen Modal Guide
   function showIosGuide() {
     let guide = document.getElementById('jaigramIosModal');
     if (!guide) {
@@ -218,40 +230,9 @@
     guide.classList.add('active');
   }
 
-  // 9. Post-Login Dashboard Banner Injection
-  window.initUserDashboardPwaBanner = function (containerSelector) {
-    if (isRunningStandalone()) return;
-    if (localStorage.getItem('jaigram_pwa_installed') === 'true') return;
-
-    const container = document.querySelector(containerSelector || '#dashboardMainContent, .user-content-area, .user-overview');
-    if (!container || document.getElementById('jaigramUserPwaBanner')) return;
-
-    const banner = document.createElement('div');
-    banner.id = 'jaigramUserPwaBanner';
-    banner.className = 'jaigram-pwa-user-banner';
-    banner.innerHTML = `
-      <div class="pwa-user-banner-left">
-        <img src="/images/pwa-icon.svg" alt="App" class="pwa-user-banner-icon" onerror="this.src='/images/pwa-icon-192.jpg'" />
-        <div class="pwa-user-banner-text">
-          <h4>Download JaiGram Shop App</h4>
-          <p>Get faster 1-tap vault access and never lose your digital library.</p>
-        </div>
-      </div>
-      <button type="button" class="pwa-user-banner-btn" id="pwaDashboardInstallBtn">
-        <i class="fa-solid fa-download"></i> Install App
-      </button>
-    `;
-
-    container.prepend(banner);
-
-    document.getElementById('pwaDashboardInstallBtn')?.addEventListener('click', () => {
-      window.triggerPwaInstall();
-    });
-  };
-
-  // 10. Native App Splash Screen (Triggers on initial boot in standalone mode)
+  // 10. Native App Splash Screen (Triggers ONLY when launched from home screen icon)
   function initSplashScreen() {
-    if (!isRunningStandalone()) return;
+    if (!window.matchMedia('(display-mode: standalone)').matches && window.navigator.standalone !== true) return;
 
     const splash = document.createElement('div');
     splash.id = 'jaigramPwaSplash';
@@ -270,8 +251,8 @@
     window.addEventListener('load', () => {
       setTimeout(() => {
         splash.classList.add('hide-splash');
-        setTimeout(() => splash.remove(), 500);
-      }, 650);
+        setTimeout(() => splash.remove(), 450);
+      }, 500);
     });
   }
 
@@ -288,14 +269,23 @@
     } catch (_) {}
   }
 
+  window.cleanUpInstalledUi = cleanUpInstalledUi;
+
   // 12. Auto-Initialize on DOM Ready
   document.addEventListener('DOMContentLoaded', () => {
     syncCustomerSessions();
+    cleanUpInstalledUi();
     initSplashScreen();
 
-    // Trigger first-visit popup after 2 seconds on storefront
-    const isStorefront = window.location.pathname.endsWith('index.html') || window.location.pathname === '/' || window.location.pathname === '';
-    if (isStorefront) {
+    // Trigger first-visit popup after 2 seconds on ROOT STOREFRONT ONLY (Never inside user portal or admin!)
+    const path = (window.location.pathname || '').toLowerCase();
+    const isRootStorefront = (path === '/' || path === '' || path.endsWith('/index.html')) &&
+      !path.includes('/user') &&
+      !path.includes('/admin') &&
+      !path.includes('/seller') &&
+      !path.includes('/payment');
+
+    if (isRootStorefront) {
       setTimeout(showInstallPopup, 2000);
     }
   });

@@ -81,41 +81,30 @@
   margin-top: 10px;
 }
 
-/* ━━ 2. FIRST-VISIT PWA INSTALL POPUP (BOTTOM SHEET / BANNER) ━━ */
+/* ━━ 2. FIRST-VISIT PWA INSTALL POPUP (NON-BLOCKING) ━━ */
 .jaigram-pwa-popup-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 99998;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-
-.jaigram-pwa-popup-backdrop.active {
-  opacity: 1;
-  visibility: visible;
+  display: none !important;
+  pointer-events: none !important;
 }
 
 .jaigram-pwa-card {
   position: fixed;
   bottom: 24px;
   left: 50%;
-  transform: translateX(-50%) translateY(120%);
+  transform: translateX(-50%) translateY(140%);
   width: calc(100% - 32px);
   max-width: 440px;
-  background: var(--pwa-card-bg);
-  border: 1px solid var(--pwa-border);
+  background: #110920;
+  border: 1px solid rgba(255, 42, 133, 0.4);
   border-radius: 24px;
-  padding: 22px 20px 20px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 42, 133, 0.2);
+  padding: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 30px rgba(255, 42, 133, 0.25);
   z-index: 99999;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  color: var(--pwa-text);
+  color: #ffffff;
   font-family: 'Plus Jakarta Sans', sans-serif;
   box-sizing: border-box;
+  pointer-events: auto;
 }
 
 .jaigram-pwa-card.active {
@@ -269,8 +258,8 @@
 
 /* ━━ 3. DASHBOARD / USER PORTAL DOWNLOAD CARD / BADGE ━━ */
 .jaigram-pwa-user-banner {
-  background: linear-gradient(135deg, rgba(255, 42, 133, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
-  border: 1px solid rgba(255, 42, 133, 0.3);
+  background: linear-gradient(135deg, rgba(255, 42, 133, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid rgba(255, 42, 133, 0.28);
   border-radius: 18px;
   padding: 16px 20px;
   display: flex;
@@ -278,8 +267,9 @@
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 22px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
   animation: pwaBannerFadeIn 0.4s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .pwa-user-banner-left {
@@ -289,25 +279,70 @@
 }
 
 .pwa-user-banner-icon {
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border-radius: 14px;
   object-fit: cover;
-  box-shadow: 0 0 14px rgba(255, 42, 133, 0.35);
+  box-shadow: 0 4px 16px rgba(255, 42, 133, 0.35);
   flex-shrink: 0;
 }
 
 .pwa-user-banner-text h4 {
   font-size: 15px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 2px;
+  font-weight: 800;
+  color: #0f172a; /* Sharp high contrast dark text for light mode */
+  margin: 0 0 3px;
+  letter-spacing: -0.2px;
 }
 
 .pwa-user-banner-text p {
-  font-size: 12px;
-  color: #94a3b8;
+  font-size: 12.5px;
+  color: #475569; /* Clear readable subtitle for light mode */
   margin: 0;
+  line-height: 1.4;
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] .jaigram-pwa-user-banner,
+body.dark-theme .jaigram-pwa-user-banner {
+  background: linear-gradient(135deg, rgba(255, 42, 133, 0.14) 0%, rgba(139, 92, 246, 0.14) 100%);
+  border-color: rgba(255, 42, 133, 0.38);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .pwa-user-banner-text h4,
+body.dark-theme .pwa-user-banner-text h4 {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .pwa-user-banner-text p,
+body.dark-theme .pwa-user-banner-text p {
+  color: #cbd5e1;
+}
+
+.pwa-user-banner-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pwa-user-banner-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pwa-user-banner-close:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .pwa-user-banner-btn {

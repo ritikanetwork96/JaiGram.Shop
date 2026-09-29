@@ -116,14 +116,7 @@ export default async function handler(req, res) {
     const email = String(body.email || req.query?.email || '').trim().toLowerCase();
 
     if (!isValidEmail(email)) {
-      return res.status(400).json({
-        error: 'Please provide a valid email address.',
-        debug: {
-          receivedEmail: email,
-          bodyType: typeof req.body,
-          body: req.body,
-        },
-      });
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
     }
 
     const now = Date.now();

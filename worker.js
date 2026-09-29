@@ -139,6 +139,7 @@ export default {
         url: request.url,
         headers,
         query,
+        body,
         env: { ...(typeof RUNTIME_ENV === 'object' ? RUNTIME_ENV : {}), ...(env || {}) },
       };
 

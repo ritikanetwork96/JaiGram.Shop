@@ -104,11 +104,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const email = String(body.email || '').trim().toLowerCase();
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (_) {
+        body = {};
+      }
+    }
+    body = body || {};
+    const email = String(body.email || req.query?.email || '').trim().toLowerCase();
 
     if (!isValidEmail(email)) {
-      return res.status(400).json({ error: 'Please provide a valid email address.' });
+      return res.status(400).json({
+        error: 'Please provide a valid email address.',
+        debug: {
+          receivedEmail: email,
+          bodyType: typeof req.body,
+          body: req.body,
+        },
+      });
     }
 
     const now = Date.now();

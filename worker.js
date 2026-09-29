@@ -102,11 +102,29 @@ export default {
 
       let body = null;
       if (method !== 'GET' && method !== 'HEAD') {
-        const text = await request.text();
-        try {
-          body = JSON.parse(text);
-        } catch (_) {
-          body = text;
+        const ct = (headers['content-type'] || '').toLowerCase();
+        if (ct.includes('application/json')) {
+          try {
+            body = await request.json();
+          } catch (_) {
+            try {
+              const text = await request.text();
+              body = JSON.parse(text);
+            } catch (_) {
+              body = null;
+            }
+          }
+        } else {
+          try {
+            const text = await request.text();
+            try {
+              body = JSON.parse(text);
+            } catch (_) {
+              body = text;
+            }
+          } catch (_) {
+            body = null;
+          }
         }
       }
 

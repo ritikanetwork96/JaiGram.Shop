@@ -470,3 +470,112 @@ body.dark-theme .pwa-user-banner-text p {
     height: 50px;
   }
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   JAIGRAM LUXURY MICRO-ANIMATIONS & PERFORMANCE OPTIMIZATIONS
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* 1. Global Smooth Interaction & Fast Tap Feedback */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 2. Interactive Action Button Tap / Click Response */
+button,
+.btn-lux-cta,
+.section-action-btn-pink,
+.hero-chip-btn,
+.nav-currency-chip,
+.nav-action-btn,
+.stat-metric-card,
+.sidebar-nav-link {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button:active,
+.btn-lux-cta:active,
+.section-action-btn-pink:active,
+.hero-chip-btn:active,
+.nav-currency-chip:active,
+.nav-action-btn:active,
+.pwa-user-banner-btn:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.1s ease !important;
+}
+
+/* 3. Card Hover Lifts & Cyber Glow Reflections */
+.stat-metric-card,
+.mp-product-card,
+.followed-store-card,
+.activity-item-card,
+.dashboard-hero-card,
+.bottom-widget-card {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease !important;
+  will-change: transform;
+}
+
+.stat-metric-card:hover,
+.mp-product-card:hover,
+.followed-store-card:hover,
+.bottom-widget-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 14px 32px -4px rgba(0, 0, 0, 0.18), 0 0 22px rgba(255, 42, 133, 0.15) !important;
+}
+
+/* 4. Product Thumb Zoom on Card Hover */
+.mp-card-thumb-wrap img,
+.product-thumb-wrap img,
+.store-avatar-img,
+.moc-thumbnail {
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform;
+}
+
+.mp-product-card:hover .mp-card-thumb-wrap img,
+.dashboard-product-card:hover .product-thumb-wrap img {
+  transform: scale(1.04) !important;
+}
+
+/* 5. Silky-Smooth Tab Transition */
+.tab-view-content.active {
+  animation: tabViewSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  will-change: transform, opacity;
+}
+
+@keyframes tabViewSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 6. Subtle Breathing Glow on Live Status Badges & Crowns */
+.hero-status-pill,
+.logo-shop-pill,
+.terminal-crown-tag,
+.badge-icon-box.star-icon {
+  animation: cyberBadgeGlow 3s ease-in-out infinite alternate !important;
+}
+
+@keyframes cyberBadgeGlow {
+  0% { box-shadow: 0 0 8px rgba(255, 42, 133, 0.2); }
+  100% { box-shadow: 0 0 20px rgba(255, 42, 133, 0.5); }
+}
+
+/* 7. Shimmer Skeleton Loading for Images */
+.image-loading-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.8s infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

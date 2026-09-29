@@ -58,6 +58,8 @@ export function handleCors(req, res, methods = 'GET, POST, OPTIONS') {
     origin.endsWith('.jaigram.shop') ||
     origin === 'https://linkadda.shop' ||
     origin.endsWith('.linkadda.shop') ||
+    origin.endsWith('.workers.dev') ||
+    origin.endsWith('.pages.dev') ||
     origin.startsWith('http://localhost:') ||
     origin.startsWith('http://127.0.0.1:') ||
     origin.includes('vercel.app');

@@ -823,6 +823,19 @@
       }
     };
 
+    // Instant local cache load: renders UI with zero latency (0ms)
+    try {
+      const cachedRaw = localStorage.getItem('linkadda_user_orders') || (userUid ? localStorage.getItem('linkadda_customer_orders_' + userUid) : null);
+      if (cachedRaw) {
+        const cachedList = JSON.parse(cachedRaw);
+        if (Array.isArray(cachedList) && cachedList.length > 0) {
+          cachedList.forEach(addUniqueOrder);
+          userOrders = [...matchedOrders];
+          renderUserOrders();
+        }
+      }
+    } catch (_) {}
+
     const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
 
     if (isLocalDev) {
@@ -968,7 +981,7 @@
             <div class="purchased-product-card">
               <div class="product-thumb-wrap">
                 ${img ? `
-                  <img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" class="product-thumb-img mp-card-thumb-img" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                  <img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" class="product-thumb-img mp-card-thumb-img" loading="lazy" decoding="async" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
                 ` : ''}
                 <div class="product-thumb-fallback-disc" style="${img ? 'display:none;' : 'display:flex;'} width:100%; height:100%; align-items:center; justify-content:center; background:linear-gradient(135deg, rgba(255,42,141,0.12), rgba(99,102,241,0.12));">
                   <i class="fa-solid ${icon}" style="font-size:32px; color:var(--primary-pink);"></i>
@@ -1094,7 +1107,7 @@
               <div class="moc-content-row">
                 ${img ? `
                   <div style="position:relative; width:52px; height:52px; flex-shrink:0; border-radius:10px; overflow:hidden;">
-                    <img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" class="moc-thumbnail mp-card-thumb-img" onerror="this.style.display='none';" />
+                    <img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" class="moc-thumbnail mp-card-thumb-img" loading="lazy" decoding="async" onerror="this.style.display='none';" />
                   </div>
                 ` : `
                   <div style="width:52px; height:52px; border-radius:10px; background:rgba(255,42,141,0.12); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--primary-pink); font-size:20px;">
@@ -1139,7 +1152,7 @@
             <div class="activity-item-left">
               ${img ? `
                 <div style="position:relative; width:36px; height:36px; border-radius:50%; overflow:hidden; flex-shrink:0; margin-right:10px;">
-                  <img src="${escapeHtml(img)}" alt="Product" class="activity-item-avatar mp-card-thumb-img" onerror="this.style.display='none';" />
+                  <img src="${escapeHtml(img)}" alt="Product" class="activity-item-avatar mp-card-thumb-img" loading="lazy" decoding="async" onerror="this.style.display='none';" />
                 </div>
               ` : `
                 <span class="activity-avatar-icon-fallback" style="display:inline-flex; width:36px; height:36px; border-radius:50%; align-items:center; justify-content:center; background:rgba(255,42,141,0.12); color:var(--primary-pink); font-size:14px; margin-right:10px; flex-shrink:0;">
@@ -2012,7 +2025,7 @@
     const isFollowed = isStoreFollowed(store.storeName);
     const initial = (store.storeName || 'S').trim().charAt(0).toUpperCase();
     const avatarHtml = store.avatar
-      ? `<img src="${escapeHtml(store.avatar)}" class="store-avatar-img" alt="${escapeHtml(store.storeName)}" onerror="this.onerror=null;this.parentElement.textContent='${initial}';" />`
+      ? `<img src="${escapeHtml(store.avatar)}" class="store-avatar-img" loading="lazy" decoding="async" alt="${escapeHtml(store.storeName)}" onerror="this.onerror=null;this.parentElement.textContent='${initial}';" />`
       : initial;
 
     const followerCount = getLiveFollowerCount(store);

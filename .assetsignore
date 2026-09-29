@@ -1,0 +1,10 @@
+# Cloudflare Wrangler Static Assets Ignore
+.git
+.git/**
+node_modules
+node_modules/**
+.env
+.env.*
+.vscode
+scratch
+*.log

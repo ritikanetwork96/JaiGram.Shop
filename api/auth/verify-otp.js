@@ -74,13 +74,23 @@ export default async function handler(req, res) {
     const uid = deriveCustomerId(email);
     const fallbackName = formatFallbackName(email);
 
+    // Generate tamper-proof session token for customer profile operations
+    const sessionSecret = getAuthSecret();
+    const sessionSignature = crypto.createHmac('sha256', sessionSecret).update(`customer:${uid}:${email}`).digest('hex');
+    const sessionToken = `${uid}.${sessionSignature}`;
+
     // Reconcile and unify with existing database record
     let existing = null;
     try {
-      const { fetchCustomerRecord, saveCustomerRecord } = await import('./customer.js');
-      existing = await fetchCustomerRecord(uid, null);
+      const { fetchCustomerRecord, saveCustomerRecord, getFirebaseAdminToken } = await import('./customer.js');
+      const adminToken = typeof getFirebaseAdminToken === 'function' ? await getFirebaseAdminToken() : null;
+      existing = await fetchCustomerRecord(uid, adminToken);
 
-      const finalDisplayName = displayName || existing?.displayName || fallbackName;
+      const hasSavedCustomName = Boolean(
+        existing?.hasSavedName || 
+        (existing?.displayName && existing.displayName !== fallbackName && existing.displayName !== 'Customer')
+      );
+      const finalDisplayName = displayName || (hasSavedCustomName ? existing.displayName : fallbackName);
       const existingProviders = Array.isArray(existing?.providers)
         ? existing.providers
         : (existing?.provider ? [existing.provider] : []);
@@ -90,20 +100,24 @@ export default async function handler(req, res) {
         uid,
         email,
         displayName: finalDisplayName,
+        hasSavedName: hasSavedCustomName,
+        sessionToken,
         provider: 'email_otp',
         providers: mergedProviders,
         verified: true,
+        walletBalance: existing?.walletBalance !== undefined ? (Number(existing.walletBalance) === 120 ? 0.00 : Number(existing.walletBalance)) : 0.00,
         createdAt: existing?.createdAt || Date.now(),
         lastLoginAt: Date.now(),
         updatedAt: Date.now(),
       };
 
-      await saveCustomerRecord(uid, customerUser, null);
+      await saveCustomerRecord(uid, customerUser, adminToken);
 
       return res.status(200).json({
         success: true,
         user: customerUser,
-        isNew: !existing,
+        token: sessionToken,
+        isNew: !hasSavedCustomName,
         message: 'Email verification successful.',
       });
     } catch (saveErr) {
@@ -114,9 +128,12 @@ export default async function handler(req, res) {
       uid,
       email,
       displayName: displayName || existing?.displayName || fallbackName,
+      hasSavedName: Boolean(existing?.hasSavedName),
+      sessionToken,
       provider: 'email_otp',
       providers: Array.from(new Set([...(existing?.providers || []), 'email_otp'])),
       verified: true,
+      walletBalance: existing?.walletBalance !== undefined ? (Number(existing.walletBalance) === 120 ? 0.00 : Number(existing.walletBalance)) : 0.00,
       createdAt: existing?.createdAt || Date.now(),
       lastLoginAt: Date.now(),
     };
@@ -124,6 +141,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       user: fallbackCustomerUser,
+      token: sessionToken,
+      isNew: !existing?.hasSavedName,
       message: 'Email verification successful.',
     });
   } catch (err) {

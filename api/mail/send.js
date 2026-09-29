@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     }
 
     const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
-    const senderName = (process.env.BREVO_SENDER_NAME || 'Linkadda Shop').trim();
+    const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
 
     const brevoPayload = {
       sender: body.sender || { name: senderName, email: senderEmail },

@@ -62,6 +62,148 @@ function formatDate(ts) {
   return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// ━━ SELLER PROFILE AVATAR MANAGEMENT (DIRECT DEVICE UPLOAD ONLY - NO URLS) ━━
+function syncSellerAvatarUI(avatarData) {
+  const avatar = avatarData !== undefined ? avatarData : (currentSeller?.avatar || '');
+  const initial = (currentSeller?.storeName || currentSeller?.ownerName || 'S').trim().charAt(0).toUpperCase();
+
+  const topAvatar = document.getElementById('seller-avatar');
+  if (topAvatar) {
+    if (avatar) {
+      topAvatar.innerHTML = `<img src="${avatar}" class="seller-avatar-img" alt="Store Logo" onerror="this.onerror=null;this.parentElement.textContent='${initial}';" />`;
+    } else {
+      topAvatar.textContent = initial;
+    }
+  }
+
+  const profHeroAvatar = document.getElementById('prof-hero-avatar');
+  const btnRemove = document.getElementById('btn-remove-avatar-chip');
+  if (profHeroAvatar) {
+    if (avatar) {
+      profHeroAvatar.innerHTML = `<img src="${avatar}" class="seller-avatar-img" alt="Store Logo" onerror="this.onerror=null;this.parentElement.textContent='${initial}';" />`;
+      if (btnRemove) btnRemove.style.display = 'inline-flex';
+    } else {
+      profHeroAvatar.textContent = initial;
+      if (btnRemove) btnRemove.style.display = 'none';
+    }
+  }
+}
+
+function compressImageToDataUri(file, maxWidth = 400, maxHeight = 400, quality = 0.88) {
+  return new Promise((resolve, reject) => {
+    if (file.type === 'image/svg+xml') {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        const size = Math.min(width, height);
+        const startX = (width - size) / 2;
+        const startY = (height - size) / 2;
+
+        const targetSize = Math.min(size, maxWidth);
+        const canvas = document.createElement('canvas');
+        canvas.width = targetSize;
+        canvas.height = targetSize;
+        const ctx = canvas.getContext('2d');
+
+        ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
+
+        const dataUri = canvas.toDataURL('image/webp', quality) || canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUri);
+      };
+      img.onerror = () => reject(new Error('Failed to parse uploaded image.'));
+      img.src = readerEvent.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+let avatarListenersBound = false;
+function setupAvatarUploadListeners() {
+  if (avatarListenersBound) return;
+  avatarListenersBound = true;
+
+  const fileInput = document.getElementById('seller-avatar-file-input');
+  const triggerBtn = document.getElementById('btn-trigger-avatar-upload');
+  const uploadChip = document.getElementById('btn-upload-avatar-chip');
+  const avatarWrap = document.getElementById('prof-avatar-wrap');
+  const removeBtn = document.getElementById('btn-remove-avatar-chip');
+
+  const openPicker = () => {
+    if (fileInput) fileInput.click();
+  };
+
+  if (triggerBtn) triggerBtn.addEventListener('click', (e) => { e.stopPropagation(); openPicker(); });
+  if (uploadChip) uploadChip.addEventListener('click', (e) => { e.stopPropagation(); openPicker(); });
+  if (avatarWrap) avatarWrap.addEventListener('click', () => { openPicker(); });
+
+  if (fileInput) {
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        showToast('Please upload an image file (PNG, JPG, WebP, or SVG).', 'error');
+        return;
+      }
+
+      if (file.size > 8 * 1024 * 1024) {
+        showToast('Image size exceeds 8MB. Please choose a smaller photo.', 'error');
+        return;
+      }
+
+      try {
+        showToast('Optimizing photo...', 'info');
+        const compressedBase64 = await compressImageToDataUri(file, 400, 400, 0.88);
+        if (!currentSeller) currentSeller = {};
+        currentSeller.avatar = compressedBase64;
+        syncSellerAvatarUI(compressedBase64);
+
+        // Auto-save to server immediately for instant persistence
+        try {
+          await updateSellerProfile({ avatar: compressedBase64 });
+          showToast('Store photo updated successfully!', 'success');
+        } catch (saveErr) {
+          showToast('Store photo ready. Click Save Profile to apply.', 'info');
+        }
+      } catch (err) {
+        console.error('Avatar error:', err);
+        showToast('Could not process image. Please try another photo.', 'error');
+      } finally {
+        fileInput.value = '';
+      }
+    });
+  }
+
+  if (removeBtn) {
+    removeBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (confirm('Remove your store photo and reset to default monogram?')) {
+        if (!currentSeller) currentSeller = {};
+        currentSeller.avatar = '';
+        syncSellerAvatarUI('');
+        try {
+          await updateSellerProfile({ avatar: '' });
+          showToast('Store photo removed.', 'info');
+        } catch (e) {
+          showToast('Click Save Profile to commit photo removal.', 'info');
+        }
+      }
+    });
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════
 // DASHBOARD INITIALIZATION
 // ══════════════════════════════════════════════════════════════════
@@ -85,11 +227,9 @@ export async function initSellerDashboard() {
   const emailEl = document.getElementById('seller-email');
   if (emailEl) emailEl.textContent = currentSeller.email;
 
-  const avatarEl = document.getElementById('seller-avatar');
-  if (avatarEl) {
-    const initial = (currentSeller.storeName || currentSeller.ownerName || 'S').trim().charAt(0).toUpperCase();
-    avatarEl.textContent = initial;
-  }
+  // Sync avatar and attach device file upload listener (No URLs allowed)
+  syncSellerAvatarUI();
+  setupAvatarUploadListeners();
 
   // Pre-fill Profile & Settings Form Fields
   populateProfileForm();
@@ -100,7 +240,7 @@ export async function initSellerDashboard() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      if (confirm('Are you sure you want to log out of LinkAdda Seller Hub?')) {
+      if (confirm('Are you sure you want to log out of JaiGram Seller Hub?')) {
         logoutSeller();
       }
     });
@@ -116,6 +256,7 @@ export async function initSellerDashboard() {
     loadCategories(),
     loadSellerProducts(),
     loadSellerOrders(),
+    loadSellerFollowers(),
   ]);
 
   setupEventListeners();
@@ -163,13 +304,20 @@ function populateProfileForm() {
   const payoutUpi = document.getElementById('seller-upi-input');
   if (payoutUpi) payoutUpi.value = savedUpi;
 
+  const profCat = document.getElementById('prof-category');
+  if (profCat) profCat.value = currentSeller.category || '';
+
   // Sync Creator Brand Showcase Banner in Profile tab
-  const profHeroAvatar = document.getElementById('prof-hero-avatar');
-  if (profHeroAvatar) profHeroAvatar.textContent = (currentSeller.storeName || 'S').trim().charAt(0).toUpperCase();
+  syncSellerAvatarUI();
   const profHeroStore = document.getElementById('prof-hero-store-name');
   if (profHeroStore) profHeroStore.textContent = currentSeller.storeName || 'Creator Store';
   const profHeroEmail = document.getElementById('prof-hero-email');
   if (profHeroEmail) profHeroEmail.textContent = currentSeller.email || '';
+  const profHeroCat = document.getElementById('prof-hero-category');
+  if (profHeroCat) profHeroCat.textContent = currentSeller.category || 'General';
+  const profHeroFollowers = document.getElementById('prof-hero-followers');
+  const followerCount = Number(currentSeller.followerCount || currentSeller.followers || 0);
+  if (profHeroFollowers) profHeroFollowers.textContent = `${followerCount.toLocaleString('en-IN')} Followers`;
   const profHeroUpi = document.getElementById('prof-hero-upi');
   if (profHeroUpi) profHeroUpi.textContent = savedUpi || 'Not Set';
 }
@@ -191,33 +339,29 @@ async function loadCategories() {
     }
   } catch (_) {}
 
-  if (allCategories.length === 0) {
-    allCategories = [
-      '🌟 Desi Mix Collection',
-      'Snap & Insta Influencer Drops',
-      'BHABHI HOT PACK',
-      'COLLEGE GIRLS',
-      'Tango Hot Videos',
-      'TAMIL MALLU',
-      'ALL IN ONE',
-      'TOP RATED',
-      'HIDDEN CAMERA',
-      'INTERNATIONAL',
-      'ENGLISH PACK',
-      'Japanese Videos Pack'
-    ];
-  }
-
-  // Populate editor category dropdown
-  const catSelect = document.getElementById('product-category');
-  if (catSelect) {
-    const opts = allCategories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`);
-    opts.push('<option value="__custom__">➕ + Custom Category (Type your own)...</option>');
-    catSelect.innerHTML = opts.join('');
-  }
+  // Collect dynamic categories from seller's own products
+  const prodCats = Array.from(new Set(sellerProducts.map(p => p.category).filter(Boolean)));
+  allCategories = Array.from(new Set([...allCategories, ...prodCats]));
 
   // Populate toolbar category filter
   syncToolbarCategoryFilter();
+}
+
+// Fetch live follower count for this seller
+async function loadSellerFollowers() {
+  if (!currentSeller) return;
+  try {
+    const sId = currentSeller.id || '';
+    const sName = currentSeller.storeName || '';
+    const res = await fetch(`/api/seller/auth?action=get_store_followers&sellerId=${encodeURIComponent(sId)}&storeName=${encodeURIComponent(sName)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data.followerCount === 'number') {
+        currentSeller.followerCount = data.followerCount;
+        updateMetrics();
+      }
+    }
+  } catch (_) {}
 }
 
 function syncToolbarCategoryFilter() {
@@ -321,9 +465,21 @@ async function loadSellerOrders() {
           // STRICT SECURITY RULE: If admin has not approved the order, do NOT show to seller
           if (!isApproved) continue;
 
+          // STRICT PRIVACY: Seller must NEVER see customer payment screenshots, UTR or personal details
+          const safeOrd = { ...ord };
+          delete safeOrd.screenshot;
+          delete safeOrd.paymentProof;
+          delete safeOrd.screenshotUrl;
+          delete safeOrd.proof;
+          delete safeOrd.proofUrl;
+          delete safeOrd.receipt;
+          delete safeOrd.receiptUrl;
+          delete safeOrd.screenshotBase64;
+          delete safeOrd.utr;
+
           sellerOrders.push({
             id,
-            ...ord,
+            ...safeOrd,
             isApproved: true,
             customerName: 'Verified Buyer', // PRIVACY: Anonymize buyer for seller
             customerEmail: '',
@@ -392,6 +548,15 @@ function updateMetrics() {
   if (viewsEl) viewsEl.textContent = totalViews.toLocaleString('en-IN');
   const likesEl = document.getElementById('stat-total-likes');
   if (likesEl) likesEl.textContent = totalLikes.toLocaleString('en-IN');
+
+  // Store Followers
+  const followersCountEl = document.getElementById('stat-total-followers');
+  const fCount = Number(currentSeller?.followerCount || currentSeller?.followers || 0);
+  if (followersCountEl) followersCountEl.textContent = fCount.toLocaleString('en-IN');
+  const heroFollowers = document.getElementById('hero-followers-count');
+  if (heroFollowers) heroFollowers.textContent = fCount.toLocaleString('en-IN');
+  const profHeroFollowers = document.getElementById('prof-hero-followers');
+  if (profHeroFollowers) profHeroFollowers.textContent = `${fCount.toLocaleString('en-IN')} Followers`;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -459,7 +624,48 @@ function renderProducts() {
   if (emptyState) emptyState.style.display = 'none';
 
   container.innerHTML = list.map(p => {
-    const imgUrl = p.image || p.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
+    const rawImg = p.coverImage || p.image || p.thumbnail || p.thumbnailUrl || (Array.isArray(p.images) && p.images[0]) || (Array.isArray(p.galleryImages) && p.galleryImages[0]) || '';
+    let imgUrl = String(rawImg || '').trim();
+    if (imgUrl.includes('placeholder.svg') || imgUrl.includes('favicon.svg') || !imgUrl) {
+      imgUrl = '';
+    } else if (imgUrl.includes('media.jaigram.shop/')) {
+      imgUrl = imgUrl.startsWith('http') ? imgUrl : `https://${imgUrl.replace(/^\/+/, '')}`;
+    } else if (imgUrl.includes('media.linkadda.shop/')) {
+      const sub = imgUrl.split('media.linkadda.shop/')[1].replace(/^\/+/, '');
+      imgUrl = `https://media.jaigram.shop/${sub}`;
+    } else if (imgUrl.includes('r2.cloudflarestorage.com/')) {
+      let sub = imgUrl.split('r2.cloudflarestorage.com/')[1].replace(/^\/+/, '');
+      if (sub.startsWith('linkadda-media/')) sub = sub.replace(/^linkadda-media\//, '');
+      if (sub.startsWith('jaigram-media/')) sub = sub.replace(/^jaigram-media\//, '');
+      imgUrl = `https://media.jaigram.shop/${sub}`;
+    } else if (imgUrl.includes('/products/productsgallery/')) {
+      imgUrl = imgUrl.replace('/products/productsgallery/', '/productsgallery/');
+    } else if (imgUrl.includes('srv1942099.hstgr.cloud') || imgUrl.includes('hstgr.cloud') || imgUrl.includes('rustfs')) {
+      let sub = '';
+      if (imgUrl.includes('/linkadda-media/')) {
+        sub = imgUrl.split('/linkadda-media/')[1];
+      } else if (imgUrl.includes('/jaigram-media/')) {
+        sub = imgUrl.split('/jaigram-media/')[1];
+      } else {
+        const parts = imgUrl.split('/');
+        sub = parts.slice(3).join('/');
+      }
+      sub = (sub || '').replace(/^\/+/, '');
+      if (sub && !sub.includes('/') && sub.match(/\.(jpg|jpeg|png|webp|gif|svg|avif|mp4|webm|mov|m4v)$/i)) {
+        sub = `products/${sub}`;
+      }
+      imgUrl = `https://media.jaigram.shop/${sub}`;
+    } else if (imgUrl.startsWith('products/') || imgUrl.startsWith('productsgallery/') || imgUrl.startsWith('categories/') || imgUrl.startsWith('seller_products/') || imgUrl.startsWith('orders/')) {
+      imgUrl = `https://media.jaigram.shop/${imgUrl}`;
+    } else if (imgUrl.startsWith('/media/')) {
+      imgUrl = `https://media.jaigram.shop/${imgUrl.replace(/^\/media\//, '')}`;
+    } else if (imgUrl.startsWith('images/') || imgUrl.startsWith('/images/')) {
+      imgUrl = imgUrl.startsWith('/') ? imgUrl : `/${imgUrl}`;
+    } else if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:') || imgUrl.startsWith('blob:')) {
+      // Direct external URL
+    } else if (imgUrl.match(/\.(jpg|jpeg|png|webp|gif|svg|avif)$/i)) {
+      imgUrl = `https://media.jaigram.shop/products/${imgUrl.replace(/^\/+/, '')}`;
+    }
     const priceINR = Number(p.priceINR || p.price || 0);
     const origPriceINR = Number(p.originalPrice || p.originalPriceINR || 0);
     const priceUSD = p.priceUSD || '';
@@ -481,9 +687,11 @@ function renderProducts() {
     return `
       <div class="seller-product-card" data-id="${escapeHtml(p.id)}">
         <div class="product-thumb-wrap">
-          <img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(p.name || 'Pack')}" class="product-thumb" onerror="this.src='/favicon.svg'" />
-          <div class="product-thumb-overlay"></div>
-          <span class="product-badge-float product-badge-${escapeHtml(badgeStyle)}">${escapeHtml(badgeText)}</span>
+          ${imgUrl ? `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(p.name || 'Pack')}" class="product-thumb" onerror="if(!this._tried){this._tried=true; const c=this.src.split('?')[0]; if(this.src!==c){this.src=c;}else{this.style.opacity='0.4';}}" />` : `<div class="product-thumb-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:24px;"><i class="fa-solid fa-photo-film"></i></div>`}
+          ${p.status === 'pending' || p.status === 'pending_approval'
+            ? `<span class="product-badge-float" style="background: #f59e0b; color: #fff; font-weight: 800; box-shadow: 0 2px 8px rgba(245,158,11,0.4);"><i class="fa-solid fa-clock"></i> PENDING APPROVAL</span>`
+            : `<span class="product-badge-float product-badge-${escapeHtml(badgeStyle)}">${escapeHtml(badgeText)}</span>`
+          }
           ${discountPct > 0 ? `<span class="product-discount-float">${discountPct}% OFF</span>` : ''}
         </div>
         
@@ -642,7 +850,7 @@ export function openShareModal(product) {
   if (nameEl) nameEl.textContent = packTitle;
   if (inputEl) inputEl.value = shareUrl;
 
-  const shareText = `Check out "${packTitle}" on LinkAdda: ${shareUrl}`;
+  const shareText = `Check out "${packTitle}" on JaiGram: ${shareUrl}`;
 
   if (waBtn) {
     waBtn.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
@@ -709,7 +917,7 @@ async function executeDeleteProduct() {
   closeDeleteModal();
 
   try {
-    showToast('Deleting pack from LinkAdda...', 'info');
+    showToast('Deleting pack from JaiGram...', 'info');
 
     const res = await fetch(getApiUrl('/api/seller/products'), {
       method: 'POST',
@@ -1181,7 +1389,7 @@ function setPublishingState(isLoading, isEditing = false, isSuccess = false) {
         bannerPulse.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
       }
       if (bannerTitle) bannerTitle.textContent = isEditing ? 'Saving Pack Changes...' : 'Publishing Pack Live...';
-      if (bannerSub) bannerSub.textContent = 'Syncing pack with LinkAdda storefront & database. Please wait...';
+      if (bannerSub) bannerSub.textContent = 'Syncing pack with JaiGram storefront & database. Please wait...';
     }
   } else if (isSuccess) {
     buttons.forEach(btn => {
@@ -1246,29 +1454,11 @@ export function openProductModal(product = null) {
     sellerInput.value = resolvedStoreName;
   }
 
-  // Category options
-  const catSelect = document.getElementById('product-category');
-  const customCatWrap = document.getElementById('custom-category-wrap');
-  const customCatInput = document.getElementById('product-custom-category');
+  // Category text input
+  const catInput = document.getElementById('product-category');
   const productCategory = (product ? (product.category || '') : '').trim();
-  const isExistingCategoryKnown = Boolean(productCategory && allCategories.includes(productCategory));
-
-  if (catSelect) {
-    const opts = allCategories.map(c => `
-      <option value="${escapeHtml(c)}" ${product && (productCategory === c) ? 'selected' : ''}>${escapeHtml(c)}</option>
-    `);
-    opts.push(`<option value="__custom__" ${product && productCategory && !isExistingCategoryKnown ? 'selected' : ''}>➕ + Custom Category (Type your own)...</option>`);
-    catSelect.innerHTML = opts.join('');
-  }
-
-  if (customCatWrap && customCatInput) {
-    if (product && productCategory && !isExistingCategoryKnown) {
-      customCatWrap.style.display = 'block';
-      customCatInput.value = productCategory;
-    } else {
-      customCatWrap.style.display = 'none';
-      customCatInput.value = '';
-    }
+  if (catInput) {
+    catInput.value = productCategory;
   }
 
   if (product) {
@@ -1281,7 +1471,7 @@ export function openProductModal(product = null) {
     form.elements['originalPriceUSD'].value = product.originalPriceUSD || '';
     form.elements['badge'].value = product.badge || 'TRENDING PACK';
     form.elements['badgeStyle'].value = product.badgeStyle || 'pink';
-    form.elements['category'].value = isExistingCategoryKnown ? productCategory : (productCategory ? '__custom__' : (allCategories[0] || 'General'));
+    form.elements['category'].value = productCategory;
     form.elements['description'].value = product.description || '';
     form.elements['downloadLink'].value = product.downloadLink || product.fileUrl || product.orderLink || '';
     form.elements['rating'].value = product.rating || '4.9';
@@ -1292,30 +1482,80 @@ export function openProductModal(product = null) {
 
     // Reconstruct media items
     editorMediaItems = [];
-    const mainImg = product.image || product.thumbnail || '';
+    const mainImg = product.coverImage || product.image || product.thumbnail || '';
     const otherImgs = Array.isArray(product.images) ? product.images : Array.isArray(product.galleryImages) ? product.galleryImages : [];
     const allImgs = [...new Set([mainImg, ...otherImgs].filter(Boolean))];
 
+    function resolveSellerMediaUrl(raw) {
+      let resolved = String(raw || '').trim();
+      if (!resolved) return '';
+      if (resolved.includes('media.jaigram.shop/')) {
+        return resolved.startsWith('http') ? resolved : `https://${resolved.replace(/^\/+/, '')}`;
+      } else if (resolved.includes('media.linkadda.shop/')) {
+        return `https://media.jaigram.shop/${resolved.split('media.linkadda.shop/')[1].replace(/^\/+/, '')}`;
+      } else if (resolved.includes('r2.cloudflarestorage.com/')) {
+        let sub = resolved.split('r2.cloudflarestorage.com/')[1].replace(/^\/+/, '');
+        if (sub.startsWith('linkadda-media/')) sub = sub.replace(/^linkadda-media\//, '');
+        if (sub.startsWith('jaigram-media/')) sub = sub.replace(/^jaigram-media\//, '');
+        return `https://media.jaigram.shop/${sub}`;
+      } else if (resolved.includes('/products/productsgallery/')) {
+        resolved = resolved.replace('/products/productsgallery/', '/productsgallery/');
+      } else if (resolved.includes('srv1942099.hstgr.cloud') || resolved.includes('hstgr.cloud') || resolved.includes('rustfs')) {
+        let sub = '';
+        if (resolved.includes('/linkadda-media/')) {
+          sub = resolved.split('/linkadda-media/')[1];
+        } else if (resolved.includes('/jaigram-media/')) {
+          sub = resolved.split('/jaigram-media/')[1];
+        } else {
+          const parts = resolved.split('/');
+          sub = parts.slice(3).join('/');
+        }
+        sub = (sub || '').replace(/^\/+/, '');
+        if (sub && !sub.includes('/') && sub.match(/\.(jpg|jpeg|png|webp|gif|svg|avif|mp4|webm|mov|m4v)$/i)) {
+          sub = `seller_products/${sub}`;
+        }
+        return `https://media.jaigram.shop/${sub}`;
+      } else if (resolved.startsWith('products/') || resolved.startsWith('productsgallery/') || resolved.startsWith('categories/') || resolved.startsWith('seller_products/') || resolved.startsWith('orders/')) {
+        return `https://media.jaigram.shop/${resolved}`;
+      } else if (resolved.startsWith('/media/')) {
+        return `https://media.jaigram.shop/${resolved.replace(/^\/media\//, '')}`;
+      } else if (resolved.startsWith('images/') || resolved.startsWith('/images/')) {
+        return resolved.startsWith('/') ? resolved : `/${resolved}`;
+      } else if (resolved.startsWith('http://') || resolved.startsWith('https://') || resolved.startsWith('data:') || resolved.startsWith('blob:')) {
+        return resolved;
+      } else if (resolved.match(/\.(jpg|jpeg|png|webp|gif|svg|avif|mp4|webm|mov|m4v)$/i)) {
+        return `https://media.jaigram.shop/seller_products/${resolved.replace(/^\/+/, '')}`;
+      }
+      return resolved;
+    }
+
     allImgs.forEach((u, i) => {
-      editorMediaItems.push({
-        url: u,
-        type: 'image',
-        isMain: i === 0 || u === mainImg,
-      });
+      const resolved = resolveSellerMediaUrl(u);
+      if (resolved) {
+        editorMediaItems.push({
+          url: resolved,
+          type: 'image',
+          isMain: i === 0 || u === mainImg,
+        });
+      }
     });
 
     if (product.video) {
-      editorMediaItems.push({
-        url: product.video,
-        type: 'video',
-        isMain: false,
-      });
+      const vUrl = resolveSellerMediaUrl(product.video);
+      if (vUrl && !editorMediaItems.some(m => m.url === vUrl)) {
+        editorMediaItems.push({
+          url: vUrl,
+          type: 'video',
+          isMain: false,
+        });
+      }
     }
 
     if (Array.isArray(product.videos)) {
       product.videos.forEach(v => {
-        if (v && !editorMediaItems.some(m => m.url === v)) {
-          editorMediaItems.push({ url: v, type: 'video', isMain: false });
+        const vUrl = resolveSellerMediaUrl(v);
+        if (vUrl && !editorMediaItems.some(m => m.url === vUrl)) {
+          editorMediaItems.push({ url: vUrl, type: 'video', isMain: false });
         }
       });
     }
@@ -1407,10 +1647,8 @@ export function closeProductModal() {
   editingProductId = null;
   isSubmittingProduct = false;
   setPublishingState(false, false);
-  const customCatWrap = document.getElementById('custom-category-wrap');
-  const customCatInput = document.getElementById('product-custom-category');
-  if (customCatWrap) customCatWrap.style.display = 'none';
-  if (customCatInput) customCatInput.value = '';
+  const catInput = document.getElementById('product-category');
+  if (catInput) catInput.value = '';
   const modal = document.getElementById('product-modal');
   if (modal) modal.classList.remove('active');
   document.body.style.overflow = '';
@@ -1420,12 +1658,12 @@ export function closeProductModal() {
 // GLOBAL EVENT LISTENERS & FORM BINDINGS
 // ══════════════════════════════════════════════════════════════════
 function setupEventListeners() {
-  // Sync live stats helper (likes, views, orders)
+  // Sync live stats helper (likes, views, orders, followers)
   const handleSyncStats = async (btn) => {
     if (btn) btn.classList.add('syncing');
-    showToast('Syncing real-time likes, views & orders...', 'info');
+    showToast('Syncing real-time stats & followers...', 'info');
     try {
-      await Promise.all([loadSellerProducts(), loadSellerOrders()]);
+      await Promise.all([loadSellerProducts(), loadSellerOrders(), loadSellerFollowers()]);
       showToast('✓ Live stats synced from database!', 'success');
     } catch (e) {
       showToast('Stats sync note: ' + (e.message || 'Updated'), 'info');
@@ -1704,48 +1942,48 @@ function setupEventListeners() {
 
     for (const rawFile of files) {
       const file = rawFile.type && rawFile.type.startsWith('image/') ? await compressImage(rawFile) : rawFile;
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('folder', 'seller_products');
-        if (currentSeller?.id) formData.append('sellerId', currentSeller.id);
-        if (currentSessionToken) formData.append('token', currentSessionToken);
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      });
+      if (!dataUrl) continue;
 
-        const uploadHeaders = {};
+      let uploadedUrl = '';
+      try {
+        const uploadHeaders = {
+          'Content-Type': 'application/json',
+        };
         if (currentSessionToken) uploadHeaders['Authorization'] = `Bearer ${currentSessionToken}`;
         if (currentSeller?.id) uploadHeaders['x-seller-id'] = currentSeller.id;
 
         const res = await fetch(getApiUrl('/api/upload'), {
           method: 'POST',
           headers: uploadHeaders,
-          body: formData,
+          body: JSON.stringify({
+            folder: 'seller_products',
+            filename: file.name || `seller_${Date.now()}.jpg`,
+            base64: dataUrl,
+            contentType: file.type || 'image/jpeg',
+            sellerId: currentSeller?.id,
+            sellerToken: currentSessionToken,
+          }),
         });
 
-        const data = await res.json();
-        if (data && data.url) {
-          editorMediaItems.push({
-            url: data.url,
-            type: file.type.startsWith('video') ? 'video' : 'image',
-            isMain: editorMediaItems.length === 0,
-          });
-        } else {
-          throw new Error('Upload failed');
+        if (res.ok) {
+          const data = await res.json();
+          uploadedUrl = data && (data.publicUrl || data.url);
         }
-      } catch (_) {
-        // Base64 client fallback (using compressed file)
-        await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            editorMediaItems.push({
-              url: reader.result,
-              type: file.type.startsWith('video') ? 'video' : 'image',
-              isMain: editorMediaItems.length === 0,
-            });
-            resolve();
-          };
-          reader.readAsDataURL(file);
-        });
-      }
+      } catch (_) {}
+
+      const finalUrl = uploadedUrl || dataUrl;
+      const isFirst = editorMediaItems.length === 0 || !editorMediaItems.some(m => m.isMain);
+      editorMediaItems.push({
+        url: finalUrl,
+        type: file.type && file.type.startsWith('video') ? 'video' : 'image',
+        isMain: isFirst,
+      });
     }
 
     if (uploadStatus) {
@@ -1797,22 +2035,10 @@ function setupEventListeners() {
       }
 
       const titleVal = form.elements['name']?.value?.trim();
-      let categoryVal = form.elements['category']?.value?.trim();
-      const customCatWrap = document.getElementById('custom-category-wrap');
-      const customCatInput = document.getElementById('product-custom-category');
-      const isCustomCatActive = categoryVal === '__custom__' || (customCatWrap && customCatWrap.style.display !== 'none');
-
-      if (isCustomCatActive) {
-        categoryVal = (customCatInput ? customCatInput.value : '').trim();
-        if (!categoryVal) {
-          showToast('Please enter your custom category name.', 'error');
-          if (customCatInput) customCatInput.focus();
-          return;
-        }
-        if (!allCategories.includes(categoryVal)) {
-          allCategories.push(categoryVal);
-          syncToolbarCategoryFilter();
-        }
+      let categoryVal = (form.elements['category']?.value || '').trim() || 'General';
+      if (!allCategories.includes(categoryVal)) {
+        allCategories.push(categoryVal);
+        syncToolbarCategoryFilter();
       }
       const priceVal = form.elements['price']?.value?.trim();
       const origPriceVal = form.elements['originalPrice']?.value?.trim();
@@ -1856,7 +2082,7 @@ function setupEventListeners() {
       isSubmittingProduct = true;
       const isEditingMode = Boolean(editingProductId);
       setPublishingState(true, isEditingMode);
-      showToast(isEditingMode ? 'Saving changes to store...' : '⚡ Publishing pack live to LinkAdda...', 'info');
+      showToast(isEditingMode ? 'Saving changes to store...' : '⚡ Publishing pack live to JaiGram...', 'info');
 
       try {
         const id = editingProductId || `prod_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 4)}`;
@@ -1867,6 +2093,8 @@ function setupEventListeners() {
         const mainImageUrl = mainMedia?.url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
         const allImageUrls = editorMediaItems.filter(m => m.type === 'image').map(m => m.url);
         const galleryImageUrls = allImageUrls.filter(u => u !== mainImageUrl);
+        // Guarantee that mainImageUrl is the primary item in images array
+        const finalImages = [mainImageUrl, ...galleryImageUrls];
 
         const mainVideo = editorMediaItems.find(m => m.type === 'video');
         const allVideoUrls = editorMediaItems.filter(m => m.type === 'video').map(m => m.url);
@@ -1896,7 +2124,8 @@ function setupEventListeners() {
           orderLink: downloadLinkVal,
           image: mainImageUrl,
           thumbnail: mainImageUrl,
-          images: allImageUrls.length ? allImageUrls : [mainImageUrl],
+          coverImage: mainImageUrl,
+          images: finalImages,
           galleryImages: galleryImageUrls,
           video: mainVideo?.url || '',
           videos: allVideoUrls,
@@ -1911,7 +2140,8 @@ function setupEventListeners() {
           specDelivery: 'Mega.nz & Google Drive Direct Fast Links',
           specAccess: 'Lifetime Access + Free Link Replacement',
           specSupport: '24/7 Instant Telegram VIP Helpdesk',
-          status: 'active',
+          status: 'pending',
+          approvalStatus: 'pending',
           rating: ratingVal,
           reviews: '1',
           updatedAt: Date.now(),
@@ -1967,7 +2197,7 @@ function setupEventListeners() {
 
         // Visual success state
         setPublishingState(false, isEditingMode, true);
-        showToast(isEditingMode ? 'Pack updated successfully!' : 'Pack published live to LinkAdda!', 'success');
+        showToast(isEditingMode ? 'Pack updated & submitted for Admin approval!' : 'Pack submitted! It will go live on JaiGram once approved by Admin.', 'success');
 
         // Smoothly close modal after short visual confirmation
         setTimeout(() => {
@@ -2071,6 +2301,7 @@ function setupEventListeners() {
       const storeName = document.getElementById('prof-store-name')?.value?.trim();
       const ownerName = document.getElementById('prof-owner-name')?.value?.trim();
       const email = document.getElementById('prof-email')?.value?.trim().toLowerCase();
+      const category = document.getElementById('prof-category')?.value?.trim() || 'General';
       const phone = document.getElementById('prof-phone')?.value?.trim();
       const telegram = document.getElementById('prof-telegram')?.value?.trim();
       const upiId = document.getElementById('prof-upi')?.value?.trim();
@@ -2111,9 +2342,11 @@ function setupEventListeners() {
           storeName,
           ownerName,
           email,
+          category,
           phone,
           telegram,
           upiId,
+          avatar: currentSeller.avatar || '',
         };
 
         if (newPass) {
@@ -2128,6 +2361,7 @@ function setupEventListeners() {
           currentSeller.storeName = storeName;
           currentSeller.ownerName = ownerName;
           currentSeller.email = email;
+          currentSeller.category = category;
           currentSeller.phone = phone;
           currentSeller.telegram = telegram;
           currentSeller.upiId = upiId;
@@ -2152,18 +2386,15 @@ function setupEventListeners() {
         const emailEl = document.getElementById('seller-email');
         if (emailEl) emailEl.textContent = currentSeller.email;
 
-        const avatarEl = document.getElementById('seller-avatar');
-        if (avatarEl) {
-          avatarEl.textContent = (currentSeller.storeName || 'S').trim().charAt(0).toUpperCase();
-        }
+        // Sync avatars across dashboard and profile hero
+        syncSellerAvatarUI();
 
-        // Sync Creator Brand Showcase Banner in Profile Tab
-        const profHeroAvatar = document.getElementById('prof-hero-avatar');
-        if (profHeroAvatar) profHeroAvatar.textContent = (currentSeller.storeName || 'S').trim().charAt(0).toUpperCase();
         const profHeroStore = document.getElementById('prof-hero-store-name');
         if (profHeroStore) profHeroStore.textContent = currentSeller.storeName;
         const profHeroEmail = document.getElementById('prof-hero-email');
         if (profHeroEmail) profHeroEmail.textContent = currentSeller.email;
+        const profHeroCat = document.getElementById('prof-hero-category');
+        if (profHeroCat) profHeroCat.textContent = currentSeller.category || 'General';
         const profHeroUpi = document.getElementById('prof-hero-upi');
         if (profHeroUpi) profHeroUpi.textContent = currentSeller.upiId || 'Not Set';
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 86 30" width="70" height="26">
+  <rect x="1" y="1" width="84" height="28" rx="4" stroke="#94a3b8" stroke-width="1.5" fill="#ffffff"/>
+  <text x="6" y="13" font-family="'Plus Jakarta Sans', sans-serif" font-size="6" font-weight="800" fill="#64748b">POWERED BY</text>
+  <polygon fill="#097939" points="49,12 43,24 47,24 53,12"/>
+  <polygon fill="#ED7524" points="55,12 49,24 53,24 59,12"/>
+  <text x="61" y="22" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-weight="900" font-style="italic" font-size="10.5" fill="#0B0F19">UPI</text>
+</svg>

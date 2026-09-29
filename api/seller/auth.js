@@ -36,7 +36,7 @@ function renderPasswordResetEmail(ownerName, storeName, otpCode) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Your LinkAdda Partner Password</title>
+  <title>Reset Your JaiGram Partner Password</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #07060c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07060c; padding: 40px 15px;">
@@ -46,7 +46,7 @@ function renderPasswordResetEmail(ownerName, storeName, otpCode) {
           <tr>
             <td style="padding: 32px 28px 20px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
               <div style="font-size: 24px; font-weight: 800; color: #ffffff;">
-                LinkAdda <span style="color: #ff2a8d;">&#9819;</span> <span style="color: #ff2a8d;">Seller Hub</span>
+                JaiGram <span style="color: #ff2a8d;">&#9819;</span> <span style="color: #ff2a8d;">Seller Hub</span>
               </div>
               <div style="margin-top: 4px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #fbbf24; font-weight: 700;">
                 Password Reset Verification
@@ -57,20 +57,20 @@ function renderPasswordResetEmail(ownerName, storeName, otpCode) {
             <td style="padding: 36px 28px; text-align: center;">
               <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #ffffff;">Hello ${ownerName || storeName}!</h2>
               <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.6; color: #cbd5e1;">
-                We received a request to reset the password for your LinkAdda seller account (<strong>${storeName}</strong>). Use the verification code below to set your new password:
+                We received a request to reset the password for your JaiGram seller account (<strong>${storeName}</strong>). Use the verification code below to set your new password:
               </p>
               <div style="margin: 0 auto 24px; display: inline-block; padding: 14px 28px; background: rgba(255, 42, 141, 0.12); border: 2px dashed #ff2a8d; border-radius: 12px; letter-spacing: 6px; font-size: 32px; font-weight: 900; color: #ffffff; font-family: monospace;">
                 ${otpCode}
               </div>
               <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
-                This code is valid for <strong>15 minutes</strong>. If you did not request this password reset, please ignore this email or contact LinkAdda support.
+                This code is valid for <strong>15 minutes</strong>. If you did not request this password reset, please ignore this email or contact JaiGram support.
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding: 16px 28px; background: rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #64748b;">
-                &copy; ${new Date().getFullYear()} LinkAdda Shop &bull; Seller Partner Security
+                &copy; ${new Date().getFullYear()} JaiGram Shop &bull; Seller Partner Security
               </p>
             </td>
           </tr>
@@ -90,7 +90,7 @@ function renderPasswordChangedNotificationEmail(ownerName, storeName, timestampS
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your LinkAdda Seller Password Has Been Updated</title>
+  <title>Your JaiGram Seller Password Has Been Updated</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #07060c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07060c; padding: 40px 15px;">
@@ -100,7 +100,7 @@ function renderPasswordChangedNotificationEmail(ownerName, storeName, timestampS
           <tr>
             <td style="padding: 32px 28px 20px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
               <div style="font-size: 24px; font-weight: 800; color: #ffffff;">
-                LinkAdda <span style="color: #10b981;">&#9819;</span> <span style="color: #10b981;">Seller Hub</span>
+                JaiGram <span style="color: #10b981;">&#9819;</span> <span style="color: #10b981;">Seller Hub</span>
               </div>
               <div style="margin-top: 4px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #10b981; font-weight: 700;">
                 Security Notification
@@ -128,14 +128,14 @@ function renderPasswordChangedNotificationEmail(ownerName, storeName, timestampS
               </a>
 
               <p style="margin: 26px 0 0; font-size: 12px; line-height: 1.5; color: #64748b;">
-                If you made this change, you can safely disregard this message. If you did <strong>NOT</strong> authorize this change, please immediately reach out to our Helpdesk at <strong>ritikanetwork96@gmail.com</strong> or contact Telegram <strong>@TRUSTED_BROTHER1234</strong>.
+                If you made this change, you can safely disregard this message. If you did <strong>NOT</strong> authorize this change, please immediately reach out to our Helpdesk at <strong>ritikanetwork96@gmail.com</strong> or contact Telegram <strong>@JaiGram_Support</strong>.
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding: 16px 28px; background: rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #64748b;">
-                &copy; ${new Date().getFullYear()} LinkAdda Shop &bull; Seller Partner Security
+                &copy; ${new Date().getFullYear()} JaiGram Shop &bull; Seller Partner Security
               </p>
             </td>
           </tr>
@@ -149,15 +149,25 @@ function renderPasswordChangedNotificationEmail(ownerName, storeName, timestampS
 }
 
 export default async function handler(req, res) {
-  if (handleCors(req, res, 'POST, OPTIONS')) return;
+  if (handleCors(req, res, 'GET, POST, OPTIONS')) return;
 
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
+    let queryAction = '';
+    try {
+      if (req.query && req.query.action) {
+        queryAction = String(req.query.action).trim().toLowerCase();
+      } else if (req.url) {
+        const urlObj = new URL(req.url, 'http://localhost');
+        queryAction = (urlObj.searchParams.get('action') || '').trim().toLowerCase();
+      }
+    } catch (_) {}
+
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const action = String(body.action || 'login').trim().toLowerCase();
+    const action = String(body.action || queryAction || (req.method === 'GET' ? 'list_public_sellers' : 'login')).trim().toLowerCase();
     const secret = getAuthSecret();
     const adminToken = await getFirebaseAdminToken();
     const authQuery = adminToken ? `?auth=${encodeURIComponent(adminToken)}` : '';
@@ -208,6 +218,370 @@ export default async function handler(req, res) {
       }
 
       return null;
+    }
+
+    // ━━ 0. PUBLIC ACTION: LIST VERIFIED SELLERS (Strict No Contact / Privacy Shield) ━━
+    if (action === 'list_public_sellers') {
+      try {
+        let sellersMap = {
+          'store_linkadda_official': {
+            id: 'store_linkadda_official',
+            storeName: 'JaiGram Official',
+            category: 'VIP Media Partner',
+            avatar: '',
+            status: 'active',
+            verified: true,
+            followerCount: 1,
+            totalProducts: 0,
+          },
+          'store_trusted_brother': {
+            id: 'store_trusted_brother',
+            storeName: 'Trusted brother',
+            category: 'Digital Creator',
+            avatar: '../images/popup-avatar-circle.png',
+            status: 'active',
+            verified: true,
+            followerCount: 1,
+            totalProducts: 0,
+          },
+          'store_ghost_layer_shop': {
+            id: 'store_ghost_layer_shop',
+            storeName: 'GHost Layer Shop',
+            category: 'Digital Creator',
+            avatar: '',
+            status: 'active',
+            verified: true,
+            followerCount: 0,
+            totalProducts: 0,
+          },
+        };
+
+        // 1. Fetch from /events/sellers
+        try {
+          const evRes = await fetch(`${RTDB_URL}/events/sellers.json${authQuery}`);
+          if (evRes.ok) {
+            const evData = await evRes.json();
+            if (evData && typeof evData === 'object') {
+              sellersMap = { ...sellersMap, ...evData };
+            }
+          }
+        } catch (_) {}
+
+        // 2. Merge /sellers
+        try {
+          const rootRes = await fetch(`${RTDB_URL}/sellers.json${authQuery}`);
+          if (rootRes.ok) {
+            const rootData = await rootRes.json();
+            if (rootData && typeof rootData === 'object') {
+              sellersMap = { ...sellersMap, ...rootData };
+            }
+          }
+        } catch (_) {}
+
+        // 2.5 Merge /public_sellers (Always publicly accessible in RTDB rules)
+        try {
+          const pubRes = await fetch(`${RTDB_URL}/public_sellers.json`);
+          if (pubRes.ok) {
+            const pubData = await pubRes.json();
+            if (pubData && typeof pubData === 'object') {
+              for (const [pid, ps] of Object.entries(pubData)) {
+                if (ps && !sellersMap[pid]) {
+                  sellersMap[pid] = { ...ps, id: ps.id || pid };
+                }
+              }
+            }
+          }
+        } catch (_) {}
+
+        // 2.6 Merge approved /seller_applications
+        try {
+          const appRes = await fetch(`${RTDB_URL}/seller_applications.json${authQuery}`);
+          if (appRes.ok) {
+            const appData = await appRes.json();
+            if (appData && typeof appData === 'object') {
+              for (const [appId, a] of Object.entries(appData)) {
+                if (a && (a.status === 'approved' || a.credentialsSent)) {
+                  const sId = a.sellerId || appId;
+                  if (!sellersMap[sId]) {
+                    sellersMap[sId] = {
+                      id: sId,
+                      storeName: a.storeName || a.fullName || 'Verified Store',
+                      ownerName: a.fullName,
+                      category: a.category || 'Digital Creator',
+                      avatar: a.avatar || '',
+                      status: 'active',
+                      followerCount: Number(a.followerCount || a.followers || 0),
+                      joinedAt: a.approvedAt || a.submittedAt || null,
+                    };
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+
+        // 3. Merge in-memory store
+        for (const [id, s] of SELLER_MEMORY_STORE.sellers.entries()) {
+          if (!sellersMap[id]) sellersMap[id] = s;
+        }
+
+        // Count active products per seller and discover product-listed creators
+        const productCountMap = {};
+        const productSellersMap = {};
+        let unassignedProductCount = 0;
+        try {
+          const pRes = await fetch(`${RTDB_URL}/products.json`);
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            if (pData && typeof pData === 'object') {
+              for (const p of Object.values(pData)) {
+                if (p && p.status !== 'deleted' && p.status !== 'inactive' && p.status !== 'archived') {
+                  const sId = String(p.sellerId || '').trim();
+                  const sName = String(p.sellerName || p.sellerStoreName || '').trim();
+                  if (sId) productCountMap[sId] = (productCountMap[sId] || 0) + 1;
+                  if (sName) {
+                    const sn = sName.toLowerCase();
+                    productCountMap[sn] = (productCountMap[sn] || 0) + 1;
+                    if (!productSellersMap[sn]) {
+                      productSellersMap[sn] = {
+                        id: sId || ('store_' + sn.replace(/\s+/g, '_')),
+                        storeName: sName,
+                        avatar: p.sellerAvatar || '',
+                        category: p.category || 'Digital Creator',
+                        status: 'active',
+                        followerCount: 0,
+                      };
+                    }
+                  } else {
+                    unassignedProductCount++;
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+
+        // Default products without third-party seller attribution count for flagship stores
+        if (unassignedProductCount > 0) {
+          productCountMap['trusted brother'] = (productCountMap['trusted brother'] || 0) + unassignedProductCount;
+          productCountMap['linkadda official'] = (productCountMap['linkadda official'] || 0) + unassignedProductCount;
+        }
+
+        // Merge any creator discovered from products
+        for (const [snKey, pCreator] of Object.entries(productSellersMap)) {
+          const exists = Object.values(sellersMap).some(s => s && String(s.storeName || '').trim().toLowerCase() === snKey);
+          if (!exists) {
+            sellersMap[pCreator.id] = pCreator;
+          }
+        }
+
+        // Fetch live follower counts from /store_followers
+        let liveFollowersMap = {};
+        try {
+          const fRes = await fetch(`${RTDB_URL}/store_followers.json`);
+          if (fRes.ok) {
+            const fData = await fRes.json();
+            if (fData && typeof fData === 'object') {
+              liveFollowersMap = fData;
+            }
+          }
+        } catch (_) {}
+
+        const publicSellers = [];
+        for (const [id, s] of Object.entries(sellersMap)) {
+          if (!s || s.status === 'suspended' || s.status === 'deleted' || s.deleted === true) continue;
+          const storeName = String(s.storeName || s.ownerName || 'Verified Store').trim();
+          const cleanKey = (s.id || id || storeName).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+          const cleanNameKey = storeName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+
+          const prodCount = productCountMap[id] ||
+            productCountMap[storeName.toLowerCase()] ||
+            (storeName.toLowerCase().includes('trusted') ? productCountMap['trusted brother'] : 0) ||
+            (storeName.toLowerCase().includes('linkadda') ? productCountMap['linkadda official'] : 0) ||
+            s.totalProducts || 0;
+
+          const liveF = liveFollowersMap[cleanKey] || liveFollowersMap[cleanNameKey];
+          const followerCount = typeof liveF?.count === 'number'
+            ? liveF.count
+            : Number(s.followerCount || s.followers || 0);
+
+          publicSellers.push({
+            id: s.id || id,
+            storeName,
+            avatar: s.avatar || '',
+            category: s.category || 'Digital Creator',
+            verified: s.status === 'active' || s.verified !== false,
+            totalProducts: prodCount,
+            followerCount,
+            joinedAt: s.createdAt || s.approvedAt || null,
+          });
+        }
+
+        // Keep /public_sellers in RTDB updated dynamically with real verified sellers
+        if (authQuery) {
+          const pubMap = {};
+          publicSellers.forEach(ps => { pubMap[ps.id] = ps; });
+          fetch(`${RTDB_URL}/public_sellers.json${authQuery}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pubMap),
+          }).catch(() => {});
+        }
+
+        return res.status(200).json({
+          success: true,
+          sellers: publicSellers,
+        });
+      } catch (err) {
+        return res.status(500).json({ error: 'Failed to retrieve sellers catalog.' });
+      }
+    }
+
+    // ━━ 0.1 PUBLIC ACTION: GET LIVE STORE FOLLOWERS COUNT ━━
+    if (action === 'get_store_followers') {
+      const sellerId = String(body.sellerId || req.query?.sellerId || '').trim();
+      const storeName = String(body.storeName || req.query?.storeName || '').trim();
+      const cleanKey = sellerId || storeName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+
+      if (!cleanKey) {
+        return res.status(400).json({ error: 'Missing seller identifier.' });
+      }
+
+      let count = 0;
+      try {
+        const fRes = await fetch(`${RTDB_URL}/store_followers/${encodeURIComponent(cleanKey)}.json`);
+        if (fRes.ok) {
+          const fData = await fRes.json();
+          if (fData && typeof fData === 'object') {
+            if (typeof fData.count === 'number') {
+              count = fData.count;
+            } else if (fData.followers && typeof fData.followers === 'object') {
+              count = Object.keys(fData.followers).length;
+            }
+          }
+        }
+      } catch (_) {}
+
+      // Fallback: check seller's followerCount in memory or RTDB
+      if (count === 0 && sellerId) {
+        const mem = SELLER_MEMORY_STORE.sellers.get(sellerId);
+        if (mem && typeof mem.followerCount === 'number') {
+          count = mem.followerCount;
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        followerCount: count,
+      });
+    }
+
+    // ━━ 0.2 PUBLIC ACTION: TOGGLE FOLLOW STORE (LIVE SYNC WITH SELLER) ━━
+    if (action === 'toggle_follow') {
+      const sellerId = String(body.sellerId || req.query?.sellerId || '').trim();
+      const storeName = String(body.storeName || req.query?.storeName || '').trim();
+      const customerId = String(body.customerId || req.query?.customerId || 'visitor').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const follow = body.follow === true || body.follow === 'true';
+
+      const cleanKey = sellerId || storeName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      if (!cleanKey) {
+        return res.status(400).json({ error: 'Missing store identifier.' });
+      }
+
+      try {
+        // Fetch current followers from /store_followers
+        let currentFollowers = {};
+        try {
+          const fRes = await fetch(`${RTDB_URL}/store_followers/${encodeURIComponent(cleanKey)}/followers.json`);
+          if (fRes.ok) {
+            const fData = await fRes.json();
+            if (fData && typeof fData === 'object') {
+              currentFollowers = fData;
+            }
+          }
+        } catch (_) {}
+
+        if (follow) {
+          currentFollowers[customerId] = Date.now();
+        } else {
+          delete currentFollowers[customerId];
+        }
+
+        const newCount = Object.keys(currentFollowers).length;
+
+        // Persist to RTDB /store_followers
+        try {
+          await fetch(`${RTDB_URL}/store_followers/${encodeURIComponent(cleanKey)}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              count: newCount,
+              storeName: storeName || cleanKey,
+              updatedAt: Date.now(),
+            }),
+          });
+          if (follow) {
+            await fetch(`${RTDB_URL}/store_followers/${encodeURIComponent(cleanKey)}/followers/${encodeURIComponent(customerId)}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(Date.now()),
+            });
+          } else {
+            await fetch(`${RTDB_URL}/store_followers/${encodeURIComponent(cleanKey)}/followers/${encodeURIComponent(customerId)}.json`, {
+              method: 'DELETE',
+            });
+          }
+        } catch (_) {}
+
+        // Resolve sellerId if needed to update seller's follower count
+        let resolvedSellerId = sellerId;
+        if (!resolvedSellerId && storeName) {
+          for (const s of SELLER_MEMORY_STORE.sellers.values()) {
+            if (s && String(s.storeName).toLowerCase() === storeName.toLowerCase()) {
+              resolvedSellerId = s.id;
+              break;
+            }
+          }
+        }
+
+        if (resolvedSellerId) {
+          if (SELLER_MEMORY_STORE.sellers.has(resolvedSellerId)) {
+            SELLER_MEMORY_STORE.sellers.get(resolvedSellerId).followerCount = newCount;
+          }
+
+          fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(resolvedSellerId)}.json${authQuery}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ followerCount: newCount }),
+          }).catch(() => {});
+
+          if (adminToken) {
+            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(resolvedSellerId)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ followerCount: newCount }),
+            }).catch(() => {});
+          }
+
+          fetch(`${RTDB_URL}/public_sellers/${encodeURIComponent(resolvedSellerId)}.json${authQuery}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ followerCount: newCount }),
+          }).catch(() => {});
+        }
+
+        return res.status(200).json({
+          success: true,
+          followerCount: newCount,
+          following: follow,
+        });
+      } catch (err) {
+        return res.status(200).json({
+          success: true,
+          followerCount: follow ? 1 : 0,
+          following: follow,
+        });
+      }
     }
 
     // ━━ 1. SELLER LOGIN ━━
@@ -282,6 +656,7 @@ export default async function handler(req, res) {
         phone: matchedSeller.phone || '',
         telegram: matchedSeller.telegram || '',
         upiId: matchedSeller.upiId || '',
+        avatar: matchedSeller.avatar || '',
         category: matchedSeller.category,
         mustChangePassword: Boolean(matchedSeller.mustChangePassword),
         status: matchedSeller.status,
@@ -291,7 +666,7 @@ export default async function handler(req, res) {
         success: true,
         seller: safeSeller,
         token,
-        message: `Welcome back to LinkAdda Seller Hub, ${safeSeller.storeName}!`,
+        message: `Welcome back to JaiGram Seller Hub, ${safeSeller.storeName}!`,
       });
     }
 
@@ -371,11 +746,11 @@ export default async function handler(req, res) {
       // Send Security Confirmation Email via Brevo API
       const apiKey = (process.env.BREVO_API_KEY || '').trim();
       const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
-      const senderName = (process.env.BREVO_SENDER_NAME || 'Linkadda Shop').trim();
+      const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
 
       const reqHost = req.headers['host'] || req.headers['x-forwarded-host'] || '';
       const isLocal = reqHost.includes('localhost') || reqHost.includes('127.0.0.1');
-      const portalUrl = isLocal ? `http://${reqHost}/seller/login` : 'https://linkadda.shop/seller/login';
+      const portalUrl = isLocal ? `http://${reqHost}/seller/login` : 'https://jaigram.shop/seller/login';
 
       if (apiKey && seller.email) {
         try {
@@ -390,7 +765,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
               sender: { name: senderName, email: senderEmail },
               to: [{ email: seller.email, name: seller.ownerName || seller.storeName }],
-              subject: `🔒 Security Alert: Your LinkAdda Seller Password Has Been Updated`,
+              subject: `🔒 Security Alert: Your JaiGram Seller Password Has Been Updated`,
               htmlContent: renderPasswordChangedNotificationEmail(
                 seller.ownerName || seller.storeName,
                 seller.storeName,
@@ -451,7 +826,7 @@ export default async function handler(req, res) {
       // Send OTP via Brevo API
       const apiKey = (process.env.BREVO_API_KEY || '').trim();
       const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
-      const senderName = (process.env.BREVO_SENDER_NAME || 'Linkadda Shop').trim();
+      const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
 
       if (apiKey) {
         try {
@@ -465,7 +840,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
               sender: { name: senderName, email: senderEmail },
               to: [{ email: seller.email, name: seller.ownerName || seller.storeName }],
-              subject: `🔐 LinkAdda Seller Hub: Your Password Reset Code is ${otp}`,
+              subject: `🔐 JaiGram Seller Hub: Your Password Reset Code is ${otp}`,
               htmlContent: renderPasswordResetEmail(seller.ownerName, seller.storeName, otp),
             }),
           });
@@ -613,7 +988,9 @@ export default async function handler(req, res) {
           phone: seller.phone || '',
           telegram: seller.telegram || '',
           upiId: seller.upiId || '',
-          category: seller.category,
+          avatar: seller.avatar || '',
+          category: seller.category || 'General',
+          followerCount: Number(seller.followerCount || seller.followers || 0),
           mustChangePassword: Boolean(seller.mustChangePassword),
           status: seller.status,
         },
@@ -700,13 +1077,18 @@ export default async function handler(req, res) {
         updatedHash = hashSellerPassword(newPassword, secret);
       }
 
+      const avatar = typeof body.avatar === 'string' ? body.avatar.trim() : (seller.avatar || '');
+      const category = typeof body.category === 'string' ? body.category.trim() : (seller.category || 'General');
+
       const patchData = {
         storeName,
         ownerName,
         email,
+        category,
         phone,
         telegram,
         upiId,
+        avatar,
         updatedAt: Date.now(),
       };
 
@@ -744,6 +1126,24 @@ export default async function handler(req, res) {
         console.warn('sellers patch error:', e.message);
       }
 
+      // Also update /public_sellers/{id} so directory reflects changes instantly
+      try {
+        const publicPatch = {
+          id: sellerId,
+          storeName,
+          category,
+          avatar,
+          updatedAt: Date.now(),
+        };
+        await fetch(`${RTDB_URL}/public_sellers/${encodeURIComponent(sellerId)}.json${authQuery}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(publicPatch),
+        });
+      } catch (e) {
+        console.warn('public_sellers patch error:', e.message);
+      }
+
       // If storeName changed, sync all products belonging to this seller!
       if (storeName !== seller.storeName) {
         try {
@@ -779,7 +1179,9 @@ export default async function handler(req, res) {
         phone,
         telegram,
         upiId,
-        category: seller.category || 'General',
+        avatar,
+        category,
+        followerCount: Number(seller.followerCount || seller.followers || 0),
         mustChangePassword: false,
         status: seller.status || 'active',
       };

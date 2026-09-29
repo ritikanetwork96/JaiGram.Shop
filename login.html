@@ -2,444 +2,1685 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Sign In - LinkAdda Shop | VIP Marketplace</title>
-  <meta name="description" content="Sign in to LinkAdda Shop to access your orders, instant VIP downloads, and exclusive creator packs." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Sign In — JaiGram Shop</title>
+  <meta name="description" content="Sign in to JaiGram Shop to access your digital vault, instant downloads, and exclusive collections." />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+
+  <!-- Fonts & FontAwesome -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
-  <link rel="stylesheet" href="auth-modal.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" />
 
   <style>
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       1. COLOR SYSTEM & CYBER-LUXURY TOKENS
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    :root {
+      --bg-dark: #050209;
+      --bg-glass-card: rgba(14, 9, 28, 0.94);
+      --pink-primary: #ff2a85;
+      --pink-ruby: #e11d48;
+      --violet-accent: #8b5cf6;
+      --cyan-cyber: #00f2fe;
+      --emerald-neon: #10b981;
+      --text-white: #ffffff;
+      --text-sub: #94a3b8;
+      --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'Space Grotesk', monospace, sans-serif;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: var(--font-main);
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      background: #07060c;
-      color: #f8fafc;
+      background-color: var(--bg-dark);
+      color: var(--text-white);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       position: relative;
       overflow-x: hidden;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Ambient background lighting */
-    .ambient-glow-1 {
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       2. REVOLUTIONARY ATMOSPHERE: AURORA & 3D CYBER GRID
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .cosmic-atmosphere {
       position: fixed;
-      top: -120px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 600px;
-      height: 450px;
-      background: radial-gradient(circle, rgba(255, 42, 141, 0.18) 0%, rgba(139, 92, 246, 0.08) 50%, transparent 70%);
+      inset: 0;
       pointer-events: none;
       z-index: 0;
+      overflow: hidden;
     }
 
-    .ambient-glow-2 {
-      position: fixed;
+    .aurora-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(130px);
+      opacity: 0.42;
+      animation: auroraFloat 16s ease-in-out infinite alternate;
+    }
+
+    .aurora-1 {
+      width: 650px;
+      height: 650px;
+      background: radial-gradient(circle, #ff2a85 0%, #e11d48 50%, transparent 70%);
+      top: -140px;
+      right: 5%;
+      animation-duration: 14s;
+    }
+
+    .aurora-2 {
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, #7928ca 0%, #8b5cf6 50%, transparent 70%);
       bottom: -150px;
-      right: -100px;
+      left: 2%;
+      animation-duration: 18s;
+      animation-delay: -6s;
+    }
+
+    .aurora-3 {
       width: 500px;
       height: 500px;
-      background: radial-gradient(circle, rgba(0, 136, 204, 0.12) 0%, transparent 65%);
-      pointer-events: none;
-      z-index: 0;
+      background: radial-gradient(circle, #00f2fe 0%, #0284c7 50%, transparent 70%);
+      top: 25%;
+      left: 35%;
+      opacity: 0.22;
+      animation-duration: 20s;
+      animation-delay: -10s;
     }
 
-    /* Top Navigation Bar */
-    .login-topbar {
-      position: relative;
-      z-index: 10;
-      height: 64px;
+    @keyframes auroraFloat {
+      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+      50% { transform: translate(40px, 50px) scale(1.1) rotate(10deg); }
+      100% { transform: translate(-30px, -35px) scale(0.95) rotate(-8deg); }
+    }
+
+    /* 3D Perspective Cyber Floor Grid */
+    .cyber-floor-grid {
+      position: absolute;
+      bottom: 0;
+      left: -50%;
+      width: 200%;
+      height: 55vh;
+      background-image: 
+        linear-gradient(to right, rgba(255, 42, 133, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(139, 92, 246, 0.08) 1px, transparent 1px);
+      background-size: 48px 48px;
+      transform: perspective(480px) rotateX(72deg);
+      transform-origin: bottom center;
+      mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, transparent 85%);
+      -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, transparent 85%);
+      animation: gridDrift 22s linear infinite;
+    }
+
+    @keyframes gridDrift {
+      0% { background-position: 0 0; }
+      100% { background-position: 0 480px; }
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       3. TOP NAVIGATION BAR (LUXURY FLOATING GLASS)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .vault-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: 72px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 24px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(12px);
-      background: rgba(7, 6, 12, 0.7);
+      padding: 0 36px;
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      background: rgba(8, 4, 18, 0.78);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.3s ease;
     }
 
-    .login-brand {
+    .vault-brand {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       text-decoration: none;
-      color: #ffffff;
-      font-size: 1.15rem;
+      flex-shrink: 0;
+    }
+
+    .brand-icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(255,42,133,0.25), rgba(139,92,246,0.25));
+      border: 1px solid rgba(255,42,133,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ff2a85;
+      font-size: 19px;
+      box-shadow: 0 0 22px rgba(255,42,133,0.35);
+      transition: transform 0.3s ease;
+    }
+
+    .vault-brand:hover .brand-icon-box {
+      transform: scale(1.05);
+    }
+
+    .brand-title-wrap {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-name {
+      font-size: 21px;
       font-weight: 800;
-      letter-spacing: -0.3px;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      line-height: 1.2;
     }
 
-    .login-brand-crown {
-      color: #ff2a8d;
-      font-size: 1.1rem;
+    .brand-badge-pill {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, #ff2a85, #e11d48);
+      color: #fff;
+      border-radius: 9999px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
     }
 
-    .login-brand-accent {
-      background: linear-gradient(135deg, #ff2a8d 0%, #ff65a3 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+    .brand-live-sub {
+      font-size: 11.5px;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--emerald-neon);
+      box-shadow: 0 0 8px var(--emerald-neon);
+      animation: pulseLive 2s infinite;
+    }
+
+    @keyframes pulseLive {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
     }
 
     .btn-back-store {
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      color: #e2e8f0;
       text-decoration: none;
-      color: #cbd5e1;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 7px 16px;
-      border-radius: 9999px;
-      font-size: 0.84rem;
+      font-size: 13.5px;
       font-weight: 600;
-      transition: all 0.2s ease;
+      padding: 9px 18px;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0;
     }
 
     .btn-back-store:hover {
-      background: rgba(255, 42, 141, 0.12);
-      border-color: rgba(255, 42, 141, 0.35);
       color: #ffffff;
-      transform: translateY(-1px);
+      border-color: rgba(255, 42, 133, 0.55);
+      background: rgba(255, 42, 133, 0.12);
+      box-shadow: 0 0 22px rgba(255, 42, 133, 0.3);
+      transform: translateX(-3px);
     }
 
-    /* Main Page Container */
-    .login-container {
+    .btn-back-store:active {
+      transform: scale(0.96);
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       4. MAIN CONTAINER: ADAPTIVE DUAL-MODE LAYOUT
+       Desktop (> 1024px) -> Rich 2-Column Showcase (No Empty Feeling!)
+       Mobile (<= 1024px) -> 100% Centered Single Terminal (No Scrolling!)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .auth-page-container {
       position: relative;
       z-index: 10;
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 32px 16px;
-    }
-
-    .login-card-wrapper {
+      padding: 40px 32px;
       width: 100%;
-      max-width: 440px;
-      background: linear-gradient(165deg, rgba(24, 20, 38, 0.95) 0%, rgba(13, 11, 23, 0.98) 100%);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 28px;
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(255, 42, 141, 0.12);
-      padding: 36px 30px;
-      position: relative;
+      max-width: 1320px;
+      margin: 0 auto;
     }
 
-    .already-logged-card {
-      text-align: center;
-      padding: 20px 0;
+    .auth-dual-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1.15fr 0.95fr;
+      gap: 65px;
+      align-items: center;
     }
 
-    .already-avatar {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #ff2a8d, #8b5cf6);
+    /* ── LEFT SHOWCASE REALM (VISIBLE ONLY ON DESKTOP) ── */
+    .desktop-showcase-realm {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+
+    .realm-badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(255, 42, 133, 0.12);
+      border: 1px solid rgba(255, 42, 133, 0.35);
+      color: #ff5e9e;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      width: fit-content;
+      box-shadow: 0 0 25px rgba(255, 42, 133, 0.2);
+    }
+
+    .realm-main-heading {
+      font-size: clamp(36px, 3.8vw, 52px);
+      font-weight: 900;
+      line-height: 1.12;
+      letter-spacing: -1.2px;
+      color: #ffffff;
+    }
+
+    .realm-gradient-text {
+      background: linear-gradient(135deg, #ff2a85 0%, #f43f5e 40%, #a855f7 80%, #00f2fe 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 35px rgba(255,42,133,0.35));
+    }
+
+    .realm-description {
+      font-size: 16px;
+      color: #94a3b8;
+      max-width: 490px;
+      line-height: 1.6;
+    }
+
+    /* 3D Frosted Glass Feature Cards on Left */
+    .showcase-cards-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 6px;
+    }
+
+    .showcase-glass-card {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 16px 22px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .showcase-glass-card:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 42, 133, 0.45);
+      transform: translateY(-3px) scale(1.01);
+      box-shadow: 0 16px 35px -10px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 42, 133, 0.2);
+    }
+
+    .showcase-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
-      font-weight: 800;
-      color: #ffffff;
-      margin: 0 auto 16px;
-      box-shadow: 0 8px 24px rgba(255, 42, 141, 0.35);
+      font-size: 21px;
+      flex-shrink: 0;
     }
 
-    .already-title {
-      font-size: 1.25rem;
+    .icon-cdn {
+      background: linear-gradient(135deg, rgba(255,42,133,0.2), rgba(139,92,246,0.2));
+      border: 1px solid rgba(255,42,133,0.4);
+      color: #ff2a85;
+    }
+
+    .icon-ssl {
+      background: linear-gradient(135deg, rgba(0,242,254,0.2), rgba(16,185,129,0.2));
+      border: 1px solid rgba(0,242,254,0.4);
+      color: #00f2fe;
+    }
+
+    .showcase-card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .showcase-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .showcase-card-subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .showcase-mini-pill {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+
+    /* Bottom Trust Badges in Realm */
+    .realm-trust-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .trust-pill {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #cbd5e1;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 7px 15px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .trust-pill i {
+      color: #ff2a85;
+      font-size: 11px;
+    }
+
+    /* ── RIGHT COLUMN: THE CONTINUOUS NEON LASER BEAM TERMINAL ── */
+    .auth-terminal-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 460px;
+      margin: 0 auto;
+    }
+
+    /* CONTINUOUS 360° NEON LASER BEAM (Rotates smoothly around card) */
+    .laser-beam-container {
+      position: relative;
+      border-radius: 28px;
+      padding: 2.5px;
+      overflow: hidden;
+      box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.95), 0 0 60px -10px rgba(255, 42, 133, 0.35);
+    }
+
+    .laser-beam-container::before {
+      content: '';
+      position: absolute;
+      inset: -65%;
+      background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        transparent 250deg,
+        #ff2a85 290deg,
+        #a855f7 325deg,
+        #00f2fe 350deg,
+        #ff2a85 360deg
+      );
+      animation: rotateLaser 4.5s linear infinite;
+    }
+
+    @keyframes rotateLaser {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Inner Terminal Glass Card */
+    .auth-terminal-card {
+      position: relative;
+      z-index: 2;
+      border-radius: 26px;
+      background: var(--bg-glass-card);
+      backdrop-filter: blur(45px);
+      -webkit-backdrop-filter: blur(45px);
+      padding: 38px 32px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .terminal-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .terminal-crown-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 13px;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, rgba(255,42,133,0.15), rgba(139,92,246,0.15));
+      border: 1px solid rgba(255, 42, 133, 0.35);
+      color: #ff5e9e;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .terminal-title {
+      font-size: 27px;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .terminal-sub {
+      font-size: 13.5px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+
+    /* Alert Banner */
+    .auth-status-alert {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      line-height: 1.4;
+      animation: alertSlideIn 0.3s ease;
+    }
+
+    @keyframes alertSlideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .auth-status-alert.error {
+      display: block;
+      background: rgba(225, 29, 72, 0.15);
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      color: #fda4af;
+    }
+
+    .auth-status-alert.success {
+      display: block;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    /* Google VIP One-Click Button */
+    .btn-google-auth-lux {
+      width: 100%;
+      height: 52px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-google-auth-lux:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 42, 133, 0.5);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 22px rgba(255, 42, 133, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .btn-google-auth-lux svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    /* Cyberpunk Separator */
+    .cyber-separator {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 22px 0;
+    }
+
+    .cyber-separator::before,
+    .cyber-separator::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    }
+
+    .cyber-separator-text {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    /* Form Inputs */
+    .lux-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .lux-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .lux-input-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .lux-input-box i {
+      position: absolute;
+      left: 16px;
+      color: #64748b;
+      font-size: 16px;
+      pointer-events: none;
+      transition: color 0.3s ease;
+    }
+
+    .lux-text-input {
+      width: 100%;
+      height: 52px;
+      padding: 0 16px 0 46px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 500;
+      outline: none;
+      transition: all 0.25s ease;
+    }
+
+    .lux-text-input:focus {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: #ff2a85;
+      box-shadow: 0 0 0 3px rgba(255, 42, 133, 0.2), 0 0 25px rgba(255, 42, 133, 0.25);
+    }
+
+    .lux-input-box:focus-within i {
+      color: #ff2a85;
+    }
+
+    /* Terms */
+    .lux-terms-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 22px;
+      font-size: 12.5px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+
+    .lux-terms-row input[type="checkbox"] {
+      accent-color: #ff2a85;
+      width: 17px;
+      height: 17px;
+      margin-top: 2px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .lux-terms-row a {
+      color: #ff5e9e;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    /* CTA Button */
+    .btn-lux-cta {
+      width: 100%;
+      height: 54px;
+      border-radius: 14px;
+      border: none;
+      background: linear-gradient(135deg, #ff2a85 0%, #e11d48 50%, #9333ea 100%);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 10px 30px -5px rgba(225, 29, 72, 0.5), 0 0 20px rgba(255, 42, 133, 0.35);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-lux-cta::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      animation: sweepLight 4s infinite;
+    }
+
+    @keyframes sweepLight {
+      0% { left: -100%; }
+      30%, 100% { left: 100%; }
+    }
+
+    .btn-lux-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px -5px rgba(225, 29, 72, 0.65), 0 0 35px rgba(255, 42, 133, 0.5);
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       REVOLUTIONARY SEGMENTED OTP CONTROL (CYBER-LUXURY)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .otp-stage-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      animation: otpStageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes otpStageIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .otp-stage-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .btn-otp-nav-back {
+      background: none;
+      border: none;
+      color: #cbd5e1;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: all 0.25s ease;
+    }
+
+    .btn-otp-nav-back:hover {
+      color: #ffffff;
+      background: rgba(255, 42, 133, 0.18);
+      border-color: rgba(255, 42, 133, 0.5);
+      transform: translateX(-2px);
+    }
+
+    .otp-security-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 13px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #10b981;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    .otp-pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulseLive 2s infinite;
+    }
+
+    .otp-stage-heading {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .otp-stage-title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .otp-stage-desc {
+      font-size: 13.5px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+
+    .otp-target-email-chip {
+      color: #00f2fe;
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    /* ── MASTER SEGMENTED OTP CONTAINER ── */
+    .otp-vault-segment-box {
+      position: relative;
+      width: 100%;
+      margin: 4px 0 20px;
+      cursor: text;
+    }
+
+    /* Invisible overlay input that captures all mobile & desktop keystrokes */
+    .otp-master-hidden-input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      z-index: 10;
+      cursor: text;
+      font-size: 24px;
+      letter-spacing: 12px;
+      pointer-events: auto;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+
+    .otp-cells-cluster {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      pointer-events: none;
+      transition: transform 0.2s ease;
+    }
+
+    .otp-cell-segment {
+      width: clamp(38px, 12vw, 48px);
+      height: 56px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1.5px solid rgba(255, 255, 255, 0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .cell-number {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1;
+      transform: scale(0.9);
+      transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
+    }
+
+    .otp-cell-segment.filled {
+      border-color: rgba(255, 42, 133, 0.55);
+      background: rgba(255, 42, 133, 0.08);
+      box-shadow: 0 0 16px rgba(255, 42, 133, 0.25);
+    }
+
+    .otp-cell-segment.filled .cell-number {
+      transform: scale(1);
+      color: #ffffff;
+      text-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+    }
+
+    .otp-cell-segment.active {
+      border-color: #00f2fe;
+      background: rgba(0, 242, 254, 0.08);
+      box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.22), 0 0 22px rgba(0, 242, 254, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .cell-cursor {
+      display: none;
+      width: 2px;
+      height: 24px;
+      background: #00f2fe;
+      border-radius: 2px;
+      animation: blinkCaret 0.9s infinite alternate;
+    }
+
+    .otp-cell-segment.active:not(.filled) .cell-cursor {
+      display: block;
+    }
+
+    @keyframes blinkCaret {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .otp-cluster-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 3px;
+    }
+
+    .divider-dash {
+      width: 10px;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 9999px;
+    }
+
+    /* Error Shake */
+    .otp-cells-cluster.shake-error {
+      animation: otpShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    .otp-cells-cluster.shake-error .otp-cell-segment {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.45) !important;
+    }
+
+    @keyframes otpShake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(4px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+
+    /* Resend and Advisory Row */
+    .otp-resend-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 4px;
+      margin-bottom: 14px;
+      font-size: 12.5px;
+      color: #94a3b8;
+    }
+
+    .btn-resend-link {
+      background: none;
+      border: none;
+      color: #ff2a85;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-resend-link:hover:not(:disabled) {
+      background: rgba(255, 42, 133, 0.15);
+      color: #ffffff;
+    }
+
+    .btn-resend-link:disabled {
+      color: #64748b;
+      cursor: not-allowed;
+    }
+
+    .otp-tip-pill {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.45;
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .otp-tip-pill i {
+      color: #38bdf8;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .otp-tip-pill strong {
+      color: #f1f5f9;
+    }
+
+    /* Legacy Alert Banner compatibility */
+    .auth-msg-banner.active.error,
+    .auth-status-alert.error {
+      display: block !important;
+      background: rgba(225, 29, 72, 0.15);
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      color: #fda4af;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      line-height: 1.4;
+      animation: alertSlideIn 0.3s ease;
+    }
+
+    .auth-msg-banner.active.success,
+    .auth-status-alert.success {
+      display: block !important;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      line-height: 1.4;
+      animation: alertSlideIn 0.3s ease;
+    }
+
+    /* Success Portal */
+    .success-portal-wrap {
+      display: none;
+      text-align: center;
+      padding: 30px 10px;
+    }
+
+    .success-hologram-ring {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%);
+      border: 2px solid var(--emerald-neon);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--emerald-neon);
+      font-size: 36px;
+      box-shadow: 0 0 40px rgba(16, 185, 129, 0.4);
+    }
+
+    .success-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--emerald-neon);
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-bottom: 12px;
+      letter-spacing: 0.8px;
+    }
+
+    .success-title {
+      font-size: 26px;
       font-weight: 800;
       color: #ffffff;
       margin-bottom: 6px;
     }
 
-    .already-email {
-      font-size: 0.9rem;
+    .success-user-email {
+      font-size: 14px;
       color: #94a3b8;
       margin-bottom: 24px;
     }
 
-    .already-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    .progress-bar-wrap {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 14px;
     }
 
-    .btn-return-store {
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ff2a85, #10b981);
+      border-radius: 9999px;
+      transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .redirect-status-text {
+      font-size: 13.5px;
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+
+    /* Trust Strip Underneath Card */
+    .trust-strip-underneath {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      background: linear-gradient(135deg, #ff2a8d 0%, #ff65a3 100%);
-      color: #ffffff;
+      gap: 16px;
+      margin-top: 20px;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+      flex-wrap: wrap;
+    }
+
+    .trust-strip-underneath span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .trust-strip-underneath a {
+      color: #94a3b8;
       text-decoration: none;
-      padding: 13px 20px;
-      border-radius: 14px;
-      font-weight: 700;
-      font-size: 0.95rem;
-      box-shadow: 0 6px 20px rgba(255, 42, 141, 0.35);
-      transition: transform 0.2s;
+      transition: color 0.2s ease;
     }
 
-    .btn-return-store:hover {
-      transform: translateY(-1px);
+    .trust-strip-underneath a:hover {
+      color: #ff5e9e;
     }
 
-    .btn-switch-account {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #cbd5e1;
-      padding: 11px 18px;
-      border-radius: 14px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       5. RESPONSIVE BREAKPOINTS:
+       Desktop: Full 2-column rich showcase
+       Mobile/Tablet: HIDE left realm entirely! 100% focused centered card!
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    @media (max-width: 1024px) {
+      .auth-dual-grid {
+        grid-template-columns: 1fr;
+      }
+      /* COMPLETELY HIDE the left showcase on mobile/tablet so user has ZERO scroll */
+      .desktop-showcase-realm {
+        display: none !important;
+      }
+      .auth-page-container {
+        padding: 24px 16px;
+        min-height: calc(100vh - 72px);
+      }
+      .auth-terminal-wrap {
+        max-width: 440px;
+      }
     }
 
-    .btn-switch-account:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
+    @media (max-width: 768px) {
+      .vault-topbar {
+        padding: 0 16px;
+        height: 60px;
+        background: rgba(8, 4, 18, 0.88);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+      }
+      .brand-icon-box {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        font-size: 16px;
+      }
+      .brand-name {
+        font-size: 18px;
+        gap: 6px;
+      }
+      .brand-live-sub {
+        display: none !important;
+      }
+      .btn-back-store {
+        padding: 7px 14px;
+        font-size: 12.5px;
+        gap: 6px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+      }
     }
 
     @media (max-width: 480px) {
-      .login-topbar {
-        padding: 0 16px;
-        height: 56px;
+      .vault-topbar {
+        padding: 0 14px;
+        height: 58px;
       }
-      .login-container {
-        padding: 20px 12px;
+      .brand-name {
+        font-size: 17px;
       }
-      .login-card-wrapper {
-        padding: 28px 20px;
-        border-radius: 22px;
+      .desktop-only-word {
+        display: none;
+      }
+      .auth-terminal-card {
+        padding: 26px 18px;
+      }
+      .terminal-title {
+        font-size: 23px;
+      }
+      .otp-digit-box {
+        height: 46px;
+        font-size: 18px;
+      }
+      .btn-lux-cta {
+        height: 48px;
+        font-size: 14.5px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="ambient-glow-1"></div>
-  <div class="ambient-glow-2"></div>
 
-  <!-- Topbar -->
-  <header class="login-topbar">
-    <a href="/" class="login-brand">
-      <span>LinkAdda</span>
-      <i class="fa-solid fa-crown login-brand-crown"></i>
-      <span class="login-brand-accent">Shop</span>
+  <!-- Dynamic Cosmic Atmosphere -->
+  <div class="cosmic-atmosphere" aria-hidden="true">
+    <div class="aurora-orb aurora-1"></div>
+    <div class="aurora-orb aurora-2"></div>
+    <div class="aurora-orb aurora-3"></div>
+    <div class="cyber-floor-grid"></div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <header class="vault-topbar">
+    <a href="index.html" class="vault-brand">
+      <div class="brand-icon-box">
+        <i class="fa-solid fa-bag-shopping"></i>
+      </div>
+      <div class="brand-title-wrap">
+        <div class="brand-name">
+          <span>JaiGram</span>
+          <span class="brand-badge-pill">Shop</span>
+        </div>
+        <div class="brand-live-sub">
+          <span class="live-dot"></span>
+          <span>Encrypted Gateway Active</span>
+        </div>
+      </div>
     </a>
-    <a href="/" class="btn-back-store" id="btnTopBack">
+
+    <a href="index.html" class="btn-back-store" id="btnBackToStore">
       <i class="fa-solid fa-arrow-left"></i>
-      <span>Store</span>
+      <span><span class="desktop-only-word">Back to </span>Store</span>
     </a>
   </header>
 
-  <!-- Login Area -->
-  <main class="login-container">
-    <div class="login-card-wrapper" id="loginCardMount">
-      <!-- Status Message Banner -->
-      <div class="auth-msg-banner" id="authMsgBanner"></div>
+  <!-- Main Container: Desktop Rich 2-Column Showcase + Mobile Centered Terminal -->
+  <main class="auth-page-container">
+    <div class="auth-dual-grid">
 
-      <!-- State: Already Logged In (hidden by default) -->
-      <div class="already-logged-card" id="alreadyLoggedCard" style="display: none;">
-        <div class="already-avatar" id="alreadyAvatar">U</div>
-        <h3 class="already-title" id="alreadyName">You're already signed in</h3>
-        <p class="already-email" id="alreadyEmail">user@example.com</p>
-        <div class="already-actions">
-          <a href="/" class="btn-return-store" id="btnContinueStore">
-            <span>Continue to Store</span>
-            <i class="fa-solid fa-arrow-right"></i>
-          </a>
-          <button type="button" class="btn-switch-account" id="btnSignOutCard">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i> Switch Account
-          </button>
+      <!-- ── LEFT SHOWCASE REALM (VISIBLE ONLY ON PC/DESKTOP) ── -->
+      <section class="desktop-showcase-realm">
+        <div class="realm-badge-tag">
+          <i class="fa-solid fa-crown"></i>
+          <span>JaiGram VIP Access Terminal</span>
         </div>
-      </div>
 
-      <!-- VIEW 1: Input View (Google + Email OTP) -->
-      <div class="auth-input-view" id="authInputView">
-        <div class="auth-modal-header">
-          <div class="auth-brand-badge">
-            <i class="fa-solid fa-crown"></i> LinkAdda VIP
+        <h1 class="realm-main-heading">
+          Unlock Premium <br />
+          <span class="realm-gradient-text">Digital Products.</span>
+        </h1>
+
+        <p class="realm-description">
+          Sign in to access your digital tools, premium courses, exclusive software drops, and member-only downloads.
+        </p>
+
+        <!-- 3D Frosted Glass Feature Cards -->
+        <div class="showcase-cards-stack">
+          <!-- Feature 1: Instant One-Click Downloads -->
+          <div class="showcase-glass-card">
+            <div class="showcase-card-icon icon-cdn">
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div class="showcase-card-body">
+              <div class="showcase-card-title">
+                <span>Instant One-Click Delivery</span>
+                <span class="showcase-mini-pill">Super Fast</span>
+              </div>
+              <div class="showcase-card-subtitle">Direct high-speed download links unlocked immediately after sign-in</div>
+            </div>
           </div>
-          <h2 class="auth-modal-title">Sign In to Account</h2>
-          <p class="auth-modal-subtitle">
-            Access your orders, instant downloads &amp; VIP perks
-          </p>
-        </div>
 
-        <!-- Google One-Tap Auth Button -->
-        <button type="button" class="btn-google-auth" id="btnGoogleAuth">
-          <svg class="google-icon-svg" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-          </svg>
-          <span>Continue with Google</span>
-        </button>
-
-        <div class="auth-divider">
-          <span>or continue with email</span>
-        </div>
-
-        <!-- Email Input -->
-        <div class="auth-form-group">
-          <label class="auth-input-label" for="authEmailInput">Email Address</label>
-          <div class="auth-input-wrap">
-            <input type="email" id="authEmailInput" class="auth-text-input" placeholder="name@example.com" autocomplete="email" required />
-            <i class="fa-solid fa-envelope auth-input-icon"></i>
+          <!-- Feature 2: 100% Verified & Working Files -->
+          <div class="showcase-glass-card">
+            <div class="showcase-card-icon icon-ssl">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="showcase-card-body">
+              <div class="showcase-card-title">
+                <span>100% Working & Verified Content</span>
+                <span class="showcase-mini-pill">Guaranteed</span>
+              </div>
+              <div class="showcase-card-subtitle">Handpicked tested tools, virus-free files &amp; lifetime updates</div>
+            </div>
           </div>
         </div>
 
-        <!-- Terms & Privacy Checkbox -->
-        <div class="auth-terms-row" style="display:flex;align-items:flex-start;gap:9px;margin:14px 0 18px;font-size:12px;color:#94a3b8;line-height:1.45;">
-          <input type="checkbox" id="authTermsCheckbox" checked style="accent-color:#ff2a8d;width:16px;height:16px;margin-top:2px;cursor:pointer;flex-shrink:0;" />
-          <label for="authTermsCheckbox" style="cursor:pointer;user-select:none;">
-            By continuing, I agree to LinkAdda <a href="/terms.html" target="_blank" style="color:#ff2a8d;text-decoration:none;font-weight:600;">Terms</a> &amp; <a href="/privacy.html" target="_blank" style="color:#ff2a8d;text-decoration:none;font-weight:600;">Privacy Policy</a>
-          </label>
+        <!-- Trust Badges -->
+        <div class="realm-trust-pills">
+          <div class="trust-pill"><i class="fa-solid fa-check-double"></i> 100% Tested Files</div>
+          <div class="trust-pill"><i class="fa-solid fa-infinity"></i> Lifetime Access</div>
+          <div class="trust-pill"><i class="fa-brands fa-telegram"></i> Telegram: @JaiGram_Support</div>
         </div>
+      </section>
 
-        <button type="button" class="btn-auth-primary" id="btnSendOtp">
-          <span>Send Verification Code</span>
-          <i class="fa-solid fa-arrow-right"></i>
-        </button>
-      </div>
+      <!-- ── RIGHT COLUMN: THE NEON LASER BEAM TERMINAL ── -->
+      <section class="auth-terminal-wrap">
+        <div class="laser-beam-container">
+          <div class="auth-terminal-card">
 
-      <!-- VIEW 2: 6-Digit OTP View -->
-      <div class="otp-view-wrap" id="authOtpView" style="display: none;">
-        <div class="auth-modal-header">
-          <div class="auth-brand-badge">
-            LinkAdda <i class="fa-solid fa-crown"></i> Security
+            <!-- Alert Banner -->
+            <div class="auth-status-alert" id="authMsgBanner"></div>
+
+            <!-- ━━ VIEW 1: INITIAL SIGN-IN VIEW ━━ -->
+            <div id="authInputView">
+              <div class="terminal-header">
+                <div class="terminal-crown-tag">
+                  <i class="fa-solid fa-crown" style="color: #ff2a85;"></i> Member Sign-In
+                </div>
+                <h2 class="terminal-title">Sign In to Continue</h2>
+                <p class="terminal-sub">Unlock all product categories, member downloads &amp; exclusive deals</p>
+              </div>
+
+              <!-- Google One-Click VIP Button -->
+              <button type="button" class="btn-google-auth-lux" id="btnGoogleAuth">
+                <svg viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span>Continue with Google</span>
+              </button>
+
+              <!-- Separator -->
+              <div class="cyber-separator">
+                <span class="cyber-separator-text">or continue with email</span>
+              </div>
+
+              <!-- Email Input -->
+              <div class="lux-form-group">
+                <label class="lux-label" for="authEmailInput">Email Address</label>
+                <div class="lux-input-box">
+                  <input type="email" id="authEmailInput" class="lux-text-input" placeholder="name@example.com" autocomplete="email" required />
+                  <i class="fa-solid fa-envelope"></i>
+                </div>
+              </div>
+
+              <!-- Terms Agreement -->
+              <div class="lux-terms-row">
+                <input type="checkbox" id="authTermsCheckbox" checked />
+                <label for="authTermsCheckbox">
+                  I agree to JaiGram <a href="/terms.html" target="_blank">Terms</a> &amp; <a href="/privacy.html" target="_blank">Privacy Policy</a>
+                </label>
+              </div>
+
+              <!-- Primary Send OTP CTA -->
+              <button type="button" class="btn-lux-cta" id="btnSendOtp">
+                <span>Send Verification Code</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <!-- ━━ VIEW 2: 6-DIGIT OTP VIEW (WORLD-CLASS SEGMENTED CYBER CONTROLLER) ━━ -->
+            <div id="authOtpView" style="display: none;">
+              <div class="otp-stage-container">
+                <!-- Top Nav Bar with Back/Change and Status Pill -->
+                <div class="otp-stage-topbar">
+                  <button type="button" class="btn-otp-nav-back" id="btnEditEmail">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Edit Email</span>
+                  </button>
+                  <div class="otp-security-pill">
+                    <span class="otp-pill-dot"></span>
+                    <span>Code Dispatched</span>
+                  </div>
+                </div>
+
+                <!-- Header Info -->
+                <div class="otp-stage-heading">
+                  <h2 class="otp-stage-title">Enter 6-Digit Code</h2>
+                  <p class="otp-stage-desc">
+                    Sent to <span id="otpTargetEmail" class="otp-target-email-chip">your email</span>
+                  </p>
+                </div>
+
+                <!-- ── MASTER SEGMENTED 3+3 OTP INPUT ── -->
+                <div class="otp-vault-segment-box" id="otpSegmentBox">
+                  <input
+                    type="text"
+                    id="otpMasterInput"
+                    class="otp-master-hidden-input"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    maxlength="6"
+                    autocomplete="one-time-code"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    aria-label="6-Digit Verification Code"
+                    autofocus
+                  />
+                  <div class="otp-cells-cluster" id="otpCellsCluster">
+                    <div class="otp-cell-segment" data-index="0"><span class="cell-number"></span><span class="cell-cursor"></span></div>
+                    <div class="otp-cell-segment" data-index="1"><span class="cell-number"></span><span class="cell-cursor"></span></div>
+                    <div class="otp-cell-segment" data-index="2"><span class="cell-number"></span><span class="cell-cursor"></span></div>
+                    <div class="otp-cluster-divider"><span class="divider-dash"></span></div>
+                    <div class="otp-cell-segment" data-index="3"><span class="cell-number"></span><span class="cell-cursor"></span></div>
+                    <div class="otp-cell-segment" data-index="4"><span class="cell-number"></span><span class="cell-cursor"></span></div>
+                    <div class="otp-cell-segment" data-index="5"><span class="cell-number"></span><span class="cell-cursor"></span></div>
+                  </div>
+
+                  <!-- Hidden backward-compatible inputs so any querySelector('.otp-digit-box') stays 100% happy -->
+                  <div style="display:none;" id="legacyOtpDigitBoxes" aria-hidden="true">
+                    <input type="text" class="otp-digit-box" data-index="0" />
+                    <input type="text" class="otp-digit-box" data-index="1" />
+                    <input type="text" class="otp-digit-box" data-index="2" />
+                    <input type="text" class="otp-digit-box" data-index="3" />
+                    <input type="text" class="otp-digit-box" data-index="4" />
+                    <input type="text" class="otp-digit-box" data-index="5" />
+                  </div>
+                </div>
+
+                <!-- Resend Controls -->
+                <div class="otp-resend-row">
+                  <span>Didn't receive code?</span>
+                  <button type="button" class="btn-resend-link" id="btnResendOtp" disabled>
+                    Resend in 60s
+                  </button>
+                </div>
+
+                <!-- Spam/Junk Advisory Pill -->
+                <div class="otp-tip-pill">
+                  <i class="fa-solid fa-circle-info"></i>
+                  <span>Email sent via Brevo. If not found in inbox, check your <strong>Spam or Junk</strong> folder.</span>
+                </div>
+
+                <!-- Primary Verification Button -->
+                <button type="button" class="btn-lux-cta" id="btnVerifyOtp">
+                  <span>Verify &amp; Unlock Vault</span>
+                  <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- ━━ VIEW 3: NAME SETUP POPUP / VIEW (ONLY FOR NEW USERS) ━━ -->
+            <div id="authNameView" style="display: none;">
+              <div class="terminal-header">
+                <div class="terminal-crown-tag" style="background: rgba(255, 42, 133, 0.15); border-color: rgba(255, 42, 133, 0.4); color: #ff2a85;">
+                  <i class="fa-solid fa-sparkles"></i> Welcome New Member
+                </div>
+                <h2 class="terminal-title">Apna Naam Likhein</h2>
+                <p class="terminal-sub">Enter your full name for your dashboard &amp; downloads</p>
+              </div>
+
+              <div class="lux-form-group">
+                <label class="lux-label" for="authSetupNameInput">Full Name</label>
+                <div class="lux-input-box">
+                  <input type="text" id="authSetupNameInput" class="lux-text-input" placeholder="e.g. Rahul Sharma" autocomplete="name" required />
+                  <i class="fa-solid fa-user"></i>
+                </div>
+              </div>
+
+              <button type="button" class="btn-lux-cta" id="btnSaveSetupName">
+                <span>Continue to Dashboard</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <!-- ━━ VIEW 4: SUCCESS & AUTO-REDIRECT STATE ━━ -->
+            <div class="success-portal-wrap" id="loginSuccessCard">
+              <div class="success-hologram-ring">
+                <i class="fa-solid fa-check"></i>
+              </div>
+              <div class="success-badge">
+                <i class="fa-solid fa-circle-check"></i> ACCESS GRANTED
+              </div>
+              <h2 class="success-title" id="successTitle">Welcome to JaiGram! 🎉</h2>
+              <p class="success-user-email" id="successEmail">member@jaigram.shop</p>
+
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" id="redirectProgressBar"></div>
+              </div>
+              <div class="redirect-status-text" id="redirectStatusText">
+                <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px; color: #ff2a85;"></i>
+                Redirecting to Product Catalog...
+              </div>
+            </div>
+
           </div>
-          <h2 class="auth-modal-title">Enter 6-Digit Code</h2>
-          <p class="auth-modal-subtitle">
-            We sent a verification code to <span class="otp-target-email" id="otpTargetEmail">your email</span>
-          </p>
         </div>
 
-        <!-- 6 Digit Input Boxes -->
-        <div class="otp-inputs-grid" id="otpInputsGrid">
-          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-digit-box" data-index="0" autofocus />
-          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-digit-box" data-index="1" />
-          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-digit-box" data-index="2" />
-          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-digit-box" data-index="3" />
-          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-digit-box" data-index="4" />
-          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-digit-box" data-index="5" />
+        <!-- Trust Strip Underneath -->
+        <div class="trust-strip-underneath">
+          <span><i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> 256-Bit SSL</span>
+          <span>&bull;</span>
+          <span><i class="fa-solid fa-bolt" style="color: #ff2a85;"></i> Instant Delivery</span>
+          <span>&bull;</span>
+          <span><i class="fa-brands fa-telegram" style="color: #00f2fe;"></i> <a href="https://t.me/JaiGram_Support" target="_blank">Support: @JaiGram_Support</a></span>
         </div>
+      </section>
 
-        <div style="text-align: center; font-size: 0.78rem; color: #94a3b8; margin: -6px 0 14px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <i class="fa-regular fa-clock" style="color: #ff2a8d;"></i>
-          <span>Verification code expires in <strong style="color: #cbd5e1;">5 minutes</strong></span>
-        </div>
-
-        <div class="otp-timer-row">
-          <button type="button" class="btn-edit-email" id="btnEditEmail">
-            <i class="fa-solid fa-pen"></i> Change email
-          </button>
-          <button type="button" class="btn-resend-otp" id="btnResendOtp" disabled>
-            Resend in 60s
-          </button>
-        </div>
-
-        <button type="button" class="btn-auth-primary" id="btnVerifyOtp">
-          <span>Verify &amp; Continue</span>
-          <i class="fa-solid fa-check"></i>
-        </button>
-      </div>
-
-      <!-- VIEW 3: Name Setup View (Only for first-time OTP signups) -->
-      <div class="name-setup-view-wrap" id="authNameView" style="display: none;">
-        <div class="auth-modal-header">
-          <div class="auth-brand-badge">
-            <i class="fa-solid fa-sparkles"></i> One Last Step
-          </div>
-          <h2 class="auth-modal-title">What's your name?</h2>
-          <p class="auth-modal-subtitle">
-            Enter your display name to complete your VIP account setup.
-          </p>
-        </div>
-
-        <div class="auth-form-group">
-          <label class="auth-input-label" for="authSetupNameInput">Your Full Name</label>
-          <div class="auth-input-wrap">
-            <input type="text" id="authSetupNameInput" class="auth-text-input" placeholder="e.g. Rahul Sharma" autocomplete="name" required />
-            <i class="fa-solid fa-user auth-input-icon"></i>
-          </div>
-        </div>
-
-        <button type="button" class="btn-auth-primary" id="btnSaveSetupName">
-          <span>Complete Profile</span>
-          <i class="fa-solid fa-arrow-right"></i>
-        </button>
-      </div>
     </div>
   </main>
 
+  <!-- Firebase & LinkAdda Auth Engine Integration -->
   <script type="module">
+    // Purge any stale test keys immediately
+    try {
+      sessionStorage.removeItem('linkadda_local_otp');
+      localStorage.removeItem('linkadda_local_otp');
+    } catch (_) {}
+
     import {
       getCustomerSession,
       logoutCustomer,
-      getFirebaseAuth,
-      getApiEndpoint,
-      resolveUnifiedCustomer,
-      showAppToast
-    } from './auth-modal.js';
+      syncCustomerToDatabase
+    } from './auth-modal.js?v=20260925_segmented_lux_v3';
 
-    // Check URL parameters for custom returnUrl
+    // ROUTING TO USER DASHBOARD ('user/index.html') UPON LOGIN
     const urlParams = new URLSearchParams(window.location.search);
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
-    const defaultReturn = (isLocal && (window.location.protocol === 'file:' || window.location.port === '5500')) ? 'index.html' : '/';
-    const returnUrl = urlParams.get('returnUrl') || sessionStorage.getItem('pending_checkout_url') || defaultReturn;
+    const returnParam = urlParams.get('returnUrl') || sessionStorage.getItem('jaigram_pending_destination') || sessionStorage.getItem('linkadda_pending_destination');
+    
+    let safeTarget = 'user/index.html';
+    if (returnParam && returnParam.trim() !== '' && returnParam !== '/' && returnParam !== 'index.html' && returnParam !== './index.html') {
+      safeTarget = returnParam;
+    }
+    if (safeTarget.includes('login.html')) {
+      safeTarget = 'user/index.html';
+    }
 
-    // Sync topbar back to store button
-    const btnTopBack = document.getElementById('btnTopBack');
-    if (btnTopBack) btnTopBack.href = returnUrl;
+    function triggerSuccessAndRedirect(user, isInstant = false) {
+      document.getElementById('authInputView').style.display = 'none';
+      const otpV = document.getElementById('authOtpView');
+      if (otpV) otpV.style.display = 'none';
+      const nameV = document.getElementById('authNameView');
+      if (nameV) nameV.style.display = 'none';
+
+      if (isInstant) {
+        sessionStorage.removeItem('jaigram_pending_destination');
+        sessionStorage.removeItem('linkadda_pending_destination');
+        window.location.href = safeTarget;
+        return;
+      }
+
+      const successCard = document.getElementById('loginSuccessCard');
+      if (successCard) {
+        successCard.style.display = 'block';
+        document.getElementById('successTitle').textContent = `Welcome, ${user.displayName || 'Member'}! 🎉`;
+        document.getElementById('successEmail').textContent = user.email || '';
+
+        const targetLabel = safeTarget.includes('user') ? 'User Dashboard' : (safeTarget.includes('openCart=true') ? 'Cart' : 'Products');
+        document.getElementById('redirectStatusText').innerHTML = `
+          <i class="fa-solid fa-arrow-right" style="margin-right: 6px; color: #10b981;"></i>
+          Opening ${targetLabel}...
+        `;
+
+        setTimeout(() => {
+          const bar = document.getElementById('redirectProgressBar');
+          if (bar) bar.style.width = '100%';
+        }, 50);
+
+        sessionStorage.removeItem('jaigram_pending_destination');
+        sessionStorage.removeItem('linkadda_pending_destination');
+
+        setTimeout(() => {
+          window.location.href = safeTarget;
+        }, 600);
+      } else {
+        window.location.href = safeTarget;
+      }
+    }
 
     // Check if user is already logged in
     const existing = getCustomerSession();
     if (existing && existing.email) {
-      document.getElementById('authInputView').style.display = 'none';
-      document.getElementById('alreadyLoggedCard').style.display = 'block';
-      document.getElementById('alreadyName').textContent = `Welcome, ${existing.displayName || 'Member'}!`;
-      document.getElementById('alreadyEmail').textContent = existing.email;
-      const initial = (existing.displayName || existing.email || 'U').slice(0, 1).toUpperCase();
-      document.getElementById('alreadyAvatar').textContent = initial;
-
-      document.getElementById('btnContinueStore').href = returnUrl;
-      document.getElementById('btnSignOutCard').addEventListener('click', async () => {
-        await logoutCustomer();
-        window.location.reload();
-      });
+      triggerSuccessAndRedirect(existing, true);
     }
 
-    // When authentication succeeds, redirect back
-    window.addEventListener('linkadda:auth-changed', (e) => {
-      const u = e.detail;
-      if (u && u.email && !u.isNewUserWithNameNeeded) {
-        setTimeout(() => {
-          window.location.href = returnUrl;
-        }, 500);
-      }
-    });
+    // Listen for Auth changes dispatched by auth-modal.js
+    const onAuthChanged = (e) => {
+      const user = e.detail;
+      if (user && user.email) {
+        const cleanEmail = user.email.toLowerCase().trim();
+        const storedName = localStorage.getItem('jaigram_customer_name_' + cleanEmail) || localStorage.getItem('linkadda_customer_name_' + cleanEmail);
+        const nameSaved = (localStorage.getItem('jaigram_name_saved_' + cleanEmail) === 'true') || (localStorage.getItem('linkadda_name_saved_' + cleanEmail) === 'true');
 
-    // Custom save handler for login page
+        // If user already saved a name or doesn't need name setup, redirect immediately!
+        if (storedName || nameSaved || !user.isNewUserWithNameNeeded) {
+          if (storedName) {
+            user.displayName = storedName;
+            user.hasSavedName = true;
+            user.isNewUserWithNameNeeded = false;
+            localStorage.setItem('jaigram_customer_session', JSON.stringify(user));
+            localStorage.setItem('linkadda_customer_session', JSON.stringify(user));
+          }
+          // Returning user: "koi pop up nhi kuch nhi seedha dashboard"
+          triggerSuccessAndRedirect(user, true);
+        } else {
+          // Genuinely first time: show name setup popup/view
+          document.getElementById('authInputView').style.display = 'none';
+          const otpV = document.getElementById('authOtpView');
+          if (otpV) otpV.style.display = 'none';
+          const nameV = document.getElementById('authNameView');
+          if (nameV) {
+            nameV.style.display = 'block';
+            const setupInput = document.getElementById('authSetupNameInput');
+            if (setupInput) {
+              setupInput.value = (user.displayName && user.displayName !== 'Customer' && !user.displayName.includes('@')) ? user.displayName : '';
+              setupInput.focus();
+            }
+          }
+        }
+      }
+    };
+    window.addEventListener('jaigram:auth-changed', onAuthChanged);
+    window.addEventListener('linkadda:auth-changed', onAuthChanged);
+
+    // Name setup save handler (saves name permanently so it is NEVER asked again!)
     const btnSaveName = document.getElementById('btnSaveSetupName');
+    const inputSetupName = document.getElementById('authSetupNameInput');
+
+    function handleCompleteNameSetup() {
+      const enteredName = (inputSetupName ? inputSetupName.value : '').trim();
+      let curUser = getCustomerSession();
+      if (!curUser || !curUser.email) return;
+
+      const finalName = enteredName || curUser.displayName || 'Customer';
+      const cleanEmail = curUser.email.toLowerCase().trim();
+
+      // Permanent Save across all future logins
+      localStorage.setItem('jaigram_customer_name_' + cleanEmail, finalName);
+      localStorage.setItem('jaigram_name_saved_' + cleanEmail, 'true');
+      localStorage.setItem('linkadda_customer_name_' + cleanEmail, finalName);
+      localStorage.setItem('linkadda_name_saved_' + cleanEmail, 'true');
+
+      curUser.displayName = finalName;
+      curUser.hasSavedName = true;
+      curUser.isNewUserWithNameNeeded = false;
+      localStorage.setItem('jaigram_customer_session', JSON.stringify(curUser));
+      localStorage.setItem('linkadda_customer_session', JSON.stringify(curUser));
+
+      // Also sync to Firebase RTDB so they are recognized on all future devices
+      try {
+        if (typeof syncCustomerToDatabase === 'function') {
+          syncCustomerToDatabase(curUser);
+        }
+      } catch (_) {}
+
+      triggerSuccessAndRedirect(curUser, false);
+    }
+
     if (btnSaveName) {
-      btnSaveName.addEventListener('click', () => {
-        setTimeout(() => {
-          window.location.href = returnUrl;
-        }, 600);
+      btnSaveName.addEventListener('click', handleCompleteNameSetup);
+    }
+    if (inputSetupName) {
+      inputSetupName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleCompleteNameSetup();
+        }
       });
     }
   </script>
+
 </body>
 </html>

@@ -3,6 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <script>
+    // Immediate Customer Login Gatekeeper: Block any view of seller page unless user is logged in
+    (function() {
+      try {
+        var sess = JSON.parse(localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session') || 'null');
+        if (!sess || (!sess.email && !sess.uid)) {
+          sessionStorage.setItem('jaigram_pending_destination', window.location.href);
+          sessionStorage.setItem('linkadda_pending_destination', window.location.href);
+          window.location.replace('../login.html?returnUrl=seller/index.html');
+        }
+      } catch (_) {
+        window.location.replace('../login.html');
+      }
+    })();
+  </script>
+  <script>
     // Bulletproof Theme Controller & Bootstrap — sync with index.html, about.html, seller hub
     var _themeToggleLocked = false;
     window.toggleSellerTheme = function(e) {
@@ -23,6 +38,7 @@
       doc.setAttribute('data-theme', next);
       if (body) body.setAttribute('data-theme', next);
       try {
+        localStorage.setItem('jaigram_theme', next);
         localStorage.setItem('linkadda_theme', next);
         localStorage.setItem('linkadda_theme_manual', 'true');
         localStorage.setItem('linkadda_theme_manual_1', '1');
@@ -47,8 +63,8 @@
 
     (function() {
       try {
-        var manual = localStorage.getItem('linkadda_theme_manual');
-        var saved = localStorage.getItem('linkadda_theme');
+        var manual = localStorage.getItem('jaigram_theme_manual') || localStorage.getItem('linkadda_theme_manual');
+        var saved = localStorage.getItem('jaigram_theme') || localStorage.getItem('linkadda_theme');
         var theme = 'light';
         if (manual && saved) { theme = saved; }
         document.documentElement.setAttribute('data-theme', theme);
@@ -75,14 +91,14 @@
     });
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Become a Content Partner • LinkAdda Seller Hub</title>
+  <title>Become a Content Partner • JaiGram Seller Hub</title>
   <meta name="description" content="Monetize your exclusive digital collections, Mega & Google Drive packs, and private vaults on India's premier content marketplace. Earn 100% payouts settled within 7 days of product purchase with 0% platform fees.">
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="/seller/seller.css?v=3.7">
+  <link rel="stylesheet" href="seller.css?v=3.8">
 </head>
 <body class="seller-body">
   <div class="seller-glow-bg"></div>
@@ -90,15 +106,15 @@
   <!-- Active Session Banner (Shown only if already logged in) -->
   <div id="active-session-banner" style="display: none; background: linear-gradient(90deg, #10b981 0%, #059669 100%); color: #fff; padding: 10px 20px; text-align: center; font-size: 0.88rem; font-weight: 700; position: sticky; top: 0; z-index: 1001; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">
     <span>👋 Welcome back, <strong id="logged-store-name">Partner</strong>! You have an active seller session.</span>
-    <a href="/seller/dashboard" style="color: #fff; margin-left: 12px; background: rgba(0,0,0,0.25); padding: 4px 14px; border-radius: 99px; text-decoration: none; border: 1px solid rgba(255,255,255,0.4);">Open Dashboard →</a>
+    <a href="dashboard.html" style="color: #fff; margin-left: 12px; background: rgba(0,0,0,0.25); padding: 4px 14px; border-radius: 99px; text-decoration: none; border: 1px solid rgba(255,255,255,0.4);">Open Dashboard →</a>
   </div>
 
   <!-- Top Sticky Navigation (Exact LinkAdda Style) -->
   <header class="seller-landing-nav">
-    <a href="/seller" class="seller-logo-brand">
+    <a href="index.html" class="seller-logo-brand">
       <i class="fa-solid fa-crown brand-sparkle"></i>
       <div class="brand-title-wrap">
-        <span class="brand-text">LinkAdda</span>
+        <span class="brand-text">JaiGram</span>
         <span class="brand-hub-tag">SELLER HUB</span>
       </div>
     </a>
@@ -110,15 +126,15 @@
         <i class="fa-solid fa-sun"></i>
       </button>
 
-      <a href="/" class="nav-ghost-link nav-store-link" title="Explore Storefront">
+      <a href="../index.html" class="nav-ghost-link nav-store-link" title="Explore Storefront">
         <i class="fa-solid fa-store"></i>
         <span>Store</span>
       </a>
-      <a href="/seller/login" class="nav-ghost-link nav-login-link">
+      <a href="login.html" class="nav-ghost-link nav-login-link">
         <i class="fa-solid fa-arrow-right-to-bracket"></i>
         <span>Login</span>
       </a>
-      <a href="/seller/apply" class="btn-nav-primary nav-apply-btn">
+      <a href="apply.html" class="btn-nav-primary nav-apply-btn">
         <span>Apply to Sell</span>
         <i class="fa-solid fa-arrow-right"></i>
       </a>
@@ -135,19 +151,19 @@
 
       <h1 class="hero-main-title">
         Monetize Your Digital Collections on <br>
-        <span class="ab-gradient-text">LinkAdda Creator Marketplace</span>
+        <span class="ab-gradient-text">JaiGram Creator Marketplace</span>
       </h1>
 
       <p class="hero-subtitle-desc">
-        Partner with LinkAdda — trusted by 1,200+ regular buyers across India with 3 Lac+ curated 4K files. Monetize your exclusive Mega & Google Drive packs, viral collections, and VIP channel archives with 100% creator share settled directly to your UPI within 7 days of verified customer purchase.
+        Partner with JaiGram — trusted by 1,200+ regular buyers across India with 3 Lac+ curated 4K files. Monetize your exclusive Mega & Google Drive packs, viral collections, and VIP channel archives with 100% creator share settled directly to your UPI within 7 days of verified customer purchase.
       </p>
 
       <div class="hero-action-buttons">
-        <a href="/seller/apply" class="btn-hero-primary" id="hero-btn-apply">
+        <a href="apply.html" class="btn-hero-primary" id="hero-btn-apply">
           <i class="fa-solid fa-bolt"></i>
           <span>Apply to Become a Seller</span>
         </a>
-        <a href="/seller/login" class="btn-hero-secondary">
+        <a href="login.html" class="btn-hero-secondary">
           <i class="fa-solid fa-key"></i>
           <span>Partner Sign In</span>
         </a>
@@ -283,7 +299,7 @@
             <li><i class="fa-solid fa-circle-check"></i> Direct 24/7 Telegram Admin support for custom packs & pricing</li>
           </ul>
 
-          <a href="/seller/apply" class="btn-hero-primary" style="width: 100%; justify-content: center;">
+          <a href="apply.html" class="btn-hero-primary" style="width: 100%; justify-content: center;">
             <span>Start Selling Today</span>
             <i class="fa-solid fa-arrow-right"></i>
           </a>
@@ -297,7 +313,7 @@
         <span class="ab-section-tag">
           <i class="fa-solid fa-sparkles"></i> Seller Advantages
         </span>
-        <h2 class="ab-section-title">Why Top Sellers Choose LinkAdda</h2>
+        <h2 class="ab-section-title">Why Top Sellers Choose JaiGram</h2>
         <p class="ab-section-desc">Everything you need to publish, automate, and monetize your digital content collections with 100% discretion.</p>
       </div>
 
@@ -317,7 +333,7 @@
             <i class="fa-solid fa-shield-halved"></i>
           </div>
           <h3>Verified Partner Badge</h3>
-          <p>Gain absolute buyer confidence with our gold verified partner seal shown on every pack in LinkAdda's 40+ category store catalog.</p>
+          <p>Gain absolute buyer confidence with our gold verified partner seal shown on every pack in JaiGram's 40+ category store catalog.</p>
         </div>
 
         <!-- Feature 3 -->
@@ -360,7 +376,7 @@
         <div class="roadmap-step-card">
           <div class="roadmap-step-num">2</div>
           <h4>Quick KYC Verification</h4>
-          <p>LinkAdda Admin reviews your submission within 24 hours and issues your verified partner login credentials via email.</p>
+          <p>JaiGram Admin reviews your submission within 24 hours and issues your verified partner login credentials via email.</p>
         </div>
 
         <div class="roadmap-step-card">
@@ -413,7 +429,7 @@
           </button>
           <div class="faq-answer">
             <p>
-              <strong>Zero upfront fees.</strong> You can list unlimited packs without paying any registration fee, monthly subscription, or listing charge. LinkAdda only retains a 10% marketplace fee on successful customer checkouts.
+              <strong>Zero upfront fees.</strong> You can list unlimited packs without paying any registration fee, monthly subscription, or listing charge. JaiGram only retains a 10% marketplace fee on successful customer checkouts.
             </p>
           </div>
         </div>
@@ -445,7 +461,7 @@
           </button>
           <div class="faq-answer">
             <p>
-              LinkAdda's 24/7 dedicated Telegram support desk (<strong>@TRUSTED_BROTHER1234</strong>) handles all customer questions, payment verifications, and dead link refreshes so you can focus entirely on creating and uploading content.
+              JaiGram's 24/7 dedicated Telegram support desk (<strong>@JaiGram_Support</strong>) handles all customer questions, payment verifications, and dead link refreshes so you can focus entirely on creating and uploading content.
             </p>
           </div>
         </div>
@@ -459,14 +475,14 @@
           Ready to Monetize Your Creative Work?
         </h2>
         <p class="bottom-cta-desc">
-          Join India's top content creators, vault collectors, and channel admins making recurring income with guaranteed 7-day payouts on LinkAdda today.
+          Join India's top content creators, vault collectors, and channel admins making recurring income with guaranteed 7-day payouts on JaiGram today.
         </p>
         <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-          <a href="/seller/apply" class="btn-hero-primary">
+          <a href="apply.html" class="btn-hero-primary">
             <span>Apply Free in 2 Minutes</span>
             <i class="fa-solid fa-arrow-right"></i>
           </a>
-          <a href="/seller/login" class="btn-hero-secondary">
+          <a href="login.html" class="btn-hero-secondary">
             <span>Partner Sign In</span>
             <i class="fa-solid fa-key"></i>
           </a>
@@ -475,22 +491,42 @@
     </section>
   </main>
 
-  <!-- Clean Public Footer (ZERO Admin Links) -->
+  <!-- Clean Public Footer with 24/7 Creator Support Card -->
   <footer class="seller-auth-footer">
-    <div class="seller-footer-links-wrap">
-      <a href="../">Storefront</a>
-      <a href="/seller/apply">Become a Seller</a>
-      <a href="/seller/login">Seller Login</a>
-      <a href="/about">About LinkAdda</a>
-      <a href="https://t.me/TRUSTED_BROTHER1234" target="_blank">Creator Support</a>
+    <div class="seller-footer-support-card">
+      <div class="seller-support-left">
+        <div class="seller-support-badge">
+          <i class="fa-brands fa-telegram"></i>
+        </div>
+        <div class="seller-support-content">
+          <div class="seller-support-headline">Need Help with Partner Onboarding or Payouts?</div>
+          <div class="seller-support-subtext">
+            <span class="seller-live-dot"></span>
+            Direct Creator Support Desk &bull; 24/7 Instant Telegram Assistance
+          </div>
+        </div>
+      </div>
+      <a href="https://t.me/JaiGram_Support" target="_blank" rel="noopener" class="seller-support-cta-btn">
+        <i class="fa-brands fa-telegram"></i>
+        <span>Chat with Partner Desk</span>
+        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.72rem; opacity: 0.85;"></i>
+      </a>
     </div>
-    <p>&copy; 2026 LinkAdda Shop • Official Creator & Multi-Vendor Hub</p>
+
+    <div class="seller-footer-links-wrap">
+      <a href="../index.html">Storefront</a>
+      <a href="apply.html">Become a Seller</a>
+      <a href="login.html">Seller Login</a>
+      <a href="../about.html">About JaiGram</a>
+      <a href="https://t.me/JaiGram_Support" target="_blank">Creator Support</a>
+    </div>
+    <p>&copy; 2026 JaiGram Shop • Official Creator &amp; Multi-Vendor Hub</p>
   </footer>
 
 
   <!-- Script for Interactive Slider, Live RTDB Stats & Theme Toggle -->
   <script type="module">
-    import { getSellerSession } from '/seller/js/seller-auth.js';
+    import { getSellerSession } from './js/seller-auth.js';
 
     // 2. Active Session Detection
     const session = getSellerSession();

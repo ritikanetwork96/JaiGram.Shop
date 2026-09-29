@@ -20,8 +20,10 @@ function isEngagementRateLimited(ip) {
 }
 
 // ━━ PRODUCT SCHEMA NORMALIZER & SANITIZER (ROCK-SOLID GUARANTEE) ━━
-export function sanitizeAndNormalizeProduct(product, existingData = {}, defaults = {}) {
+export function sanitizeAndNormalizeProduct(product, existingData = {}, defaults = {}, isAdmin = false) {
   if (!product || typeof product !== 'object') return null;
+
+  const adminFlag = Boolean(isAdmin || defaults.isAdmin);
 
   const rawTitle = String(product.title || product.name || existingData.title || existingData.name || 'Exclusive Pack').trim();
   const title = rawTitle || 'Exclusive Pack';
@@ -55,8 +57,16 @@ export function sanitizeAndNormalizeProduct(product, existingData = {}, defaults
   if (Array.isArray(product.images)) images = product.images.filter(Boolean);
   else if (Array.isArray(existingData.images)) images = existingData.images.filter(Boolean);
 
-  const mainImage = product.image || product.thumbnail || existingData.image || existingData.thumbnail || (images[0] || '');
-  if (mainImage && !images.includes(mainImage)) images.unshift(mainImage);
+  if (Array.isArray(product.galleryImages)) {
+    product.galleryImages.forEach(u => {
+      if (u && !images.includes(u)) images.push(u);
+    });
+  }
+
+  const mainImage = product.coverImage || product.image || product.thumbnail || (images[0] || '') || existingData.coverImage || existingData.image || existingData.thumbnail || '';
+  if (mainImage) {
+    images = [mainImage, ...images.filter(u => u !== mainImage)];
+  }
   if (!images.length && mainImage) images = [mainImage];
 
   // Guaranteed Order / Checkout link
@@ -78,8 +88,9 @@ export function sanitizeAndNormalizeProduct(product, existingData = {}, defaults
   const views = Math.max(0, Number(product.views !== undefined ? product.views : (existingData.views !== undefined ? existingData.views : 0)));
 
   // Seller info
-  const sellerId = product.sellerId || existingData.sellerId || defaults.sellerId || 'master_admin';
-  const sellerName = String(product.sellerName || existingData.sellerName || defaults.sellerName || 'LinkAdda Official').trim();
+  const sellerId = product.sellerId || existingData.sellerId || defaults.sellerId || 'seller_jaibajpai67';
+  const sellerName = String(product.sellerName || existingData.sellerName || defaults.sellerName || '𓆩✶𓆪𝐓𝐑𝐔𝐒𝐓𝐄𝐃 𝐁𝐑𝐎𝐓𝐇𝐄𝐑𓆩✶𓆪').trim();
+  const sellerEmail = String(product.sellerEmail || existingData.sellerEmail || defaults.sellerEmail || 'jaibajpai67@gmail.com').trim().toLowerCase();
 
   // Tiers / sub-plans
   let tiers = [];
@@ -110,16 +121,24 @@ export function sanitizeAndNormalizeProduct(product, existingData = {}, defaults
     orderLink,
     downloadLink: downloadLink || '',
     fileUrl: downloadLink || '',
+    coverImage: mainImage || '',
     image: mainImage || '',
     thumbnail: mainImage || '',
     images,
+    galleryImages: images.filter(u => u !== mainImage),
     tiers,
     sellerId,
-    sellerName: sellerName || 'LinkAdda Official',
+    sellerName: sellerName || '𓆩✶𓆪𝐓𝐑𝐔𝐒𝐓𝐄𝐃 𝐁𝐑𝐎𝐓𝐇𝐄𝐑𓆩✶𓆪',
+    sellerEmail: sellerEmail || 'jaibajpai67@gmail.com',
     sellerVerified: true,
     isVerified: true,
     verified: true,
-    status: product.status || existingData.status || 'active',
+    status: (adminFlag && (product.status === 'active' || existingData.status === 'active'))
+      ? 'active'
+      : ((!adminFlag && existingData.status === 'active' && product.status === 'active') ? 'active' : 'pending'),
+    approvalStatus: (adminFlag && (product.status === 'active' || existingData.status === 'active'))
+      ? 'approved'
+      : ((!adminFlag && existingData.status === 'active' && product.status === 'active') ? 'approved' : 'pending'),
     rating: product.rating || existingData.rating || '4.9',
     likes,
     views,
@@ -171,8 +190,9 @@ export default async function handler(req, res) {
 
       const payload = sanitizeAndNormalizeProduct(product, existingProduct, {
         sellerId: 'master_admin',
-        sellerName: 'LinkAdda Official',
-      });
+        sellerName: 'JaiGram Official',
+        isAdmin: true,
+      }, true);
 
       const saveRes = await fetch(`${RTDB_URL}/products/${encodeURIComponent(payload.id)}.json${authQuery}`, {
         method: 'PUT',
@@ -504,7 +524,9 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         product: payload,
-        message: 'Pack saved and published successfully with guaranteed button & checkout schema!',
+        message: payload.status === 'active' 
+          ? 'Pack saved and published live successfully!' 
+          : 'Pack submitted for Admin approval! It will go live once verified by Admin.',
       });
     }
 

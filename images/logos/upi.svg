@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 24" width="72" height="24">
+  <polygon fill="#097939" points="12,3 4,21 11,21 19,3"/>
+  <polygon fill="#ED7524" points="21,3 13,21 20,21 28,3"/>
+  <text x="31" y="19" font-family="'Plus Jakarta Sans', Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="18" letter-spacing="-0.5px" fill="#0B0F19">UPI</text>
+</svg>

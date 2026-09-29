@@ -52,13 +52,15 @@ export function getClientIp(req) {
 export function handleCors(req, res, methods = 'GET, POST, OPTIONS') {
   const origin = req.headers?.origin || '';
   const isAllowed = !origin ||
+    origin === 'https://jaigram.shop' ||
+    origin.endsWith('.jaigram.shop') ||
     origin === 'https://linkadda.shop' ||
     origin.endsWith('.linkadda.shop') ||
     origin.startsWith('http://localhost:') ||
     origin.startsWith('http://127.0.0.1:') ||
     origin.includes('vercel.app');
 
-  const allowOrigin = isAllowed ? (origin || 'https://linkadda.shop') : 'https://linkadda.shop';
+  const allowOrigin = isAllowed ? (origin || 'https://jaigram.shop') : 'https://jaigram.shop';
   res.setHeader('Access-Control-Allow-Origin', allowOrigin);
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', methods);
@@ -81,6 +83,9 @@ export function handleCors(req, res, methods = 'GET, POST, OPTIONS') {
  */
 export function deriveCustomerId(email) {
   const clean = String(email || '').toLowerCase().trim();
+  if (!clean || !clean.includes('@')) {
+    return `cust_${crypto.randomBytes(8).toString('hex')}`;
+  }
   const hash = crypto.createHash('sha256').update(clean).digest('hex').substring(0, 16);
   return `cust_${hash}`;
 }
@@ -144,13 +149,21 @@ export async function verifyAdminRequest(req) {
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return false;
 
-  // 1. Direct secret match if called server-to-server (strictly dedicated AUTH_SECRET only)
+  // 1. Direct secret match if called server-to-server (strictly dedicated AUTH_SECRET only) with constant-time comparison
   const dedicatedAuthSecret = (process.env.AUTH_SECRET || '').trim();
-  if (dedicatedAuthSecret && token === dedicatedAuthSecret) return true;
+  if (dedicatedAuthSecret && token.length === dedicatedAuthSecret.length) {
+    try {
+      if (crypto.timingSafeEqual(Buffer.from(token), Buffer.from(dedicatedAuthSecret))) return true;
+    } catch (_) {}
+  }
 
-  // 2. Direct password match if passed as bearer
+  // 2. Direct password match if passed as bearer (constant-time comparison)
   const adminPassword = (process.env.password || process.env.ADMIN_PASSWORD || process.env.PASSWORD || '').trim();
-  if (adminPassword && token === adminPassword) return true;
+  if (adminPassword && token.length === adminPassword.length) {
+    try {
+      if (crypto.timingSafeEqual(Buffer.from(token), Buffer.from(adminPassword))) return true;
+    } catch (_) {}
+  }
 
   // 3. Verify Firebase ID Token via Google Identity Toolkit
   const apiKey = (process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || '').trim();

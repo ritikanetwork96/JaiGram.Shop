@@ -336,26 +336,70 @@ const singleEditors = {
   },
   payment: {
     title: 'Payment Settings',
-    description: 'Keep the payment flow intact while editing the configurable values.',
+    description: 'Configure payment methods, brand logos, custom names, priority recommendations, and credentials.',
     fields: [
-      { key: 'recommendedMethod', label: 'Recommended Payment Method (Shown on Top with Badge)', type: 'select', options: [
-        { label: 'Binance Pay (Recommended Default)', value: 'binancepay' },
-        { label: 'UPI (GPay / PhonePe / Paytm)', value: 'upi' },
-        { label: 'USDT BEP-20 (Binance Smart Chain)', value: 'bep20' },
+      { key: 'recommendedMethod', label: '⭐ Recommended Method (Placed at the Very TOP with Special Badge)', type: 'select', options: [
+        { label: 'UPI (GPay / PhonePe / Paytm / QR)', value: 'upi' },
+        { label: 'Binance Pay & Crypto (0% Gas Fee)', value: 'binancepay' },
+        { label: 'Cards (Visa, Mastercard, RuPay)', value: 'cards' },
+        { label: 'Netbanking (SBI, ICICI, HDFC, Axis)', value: 'netbanking' },
+        { label: 'LinkAdda Wallet (1-Click Instant)', value: 'wallet' },
+        { label: 'Bank Transfer (IMPS / NEFT)', value: 'custom_bank' },
+        { label: 'Bitcoin (BTC Native Network)', value: 'custom_btc' },
+        { label: 'USDT BEP-20 (BNB Smart Chain)', value: 'bep20' },
         { label: 'USDT ERC-20 (Ethereum Network)', value: 'eth' },
         { label: 'PayPal (International)', value: 'paypal' },
       ] },
-      { key: 'upiId', label: 'UPI ID', type: 'text' },
-      { key: 'qrImage', label: 'QR Image URL', type: 'url' },
-      { key: 'instructions', label: 'Payment Instructions', type: 'textarea' },
-      { key: 'telegramUrl', label: 'Telegram URL', type: 'url' },
+      { key: 'recommendationBadge', label: 'Recommendation Badge Label (e.g. RECOMMENDED, POPULAR, FASTEST)', type: 'text' },
+      
+      // UPI Customization
+      { key: 'upiTitle', label: 'UPI Method Display Title (default: UPI)', type: 'text' },
+      { key: 'upiSub', label: 'UPI Subtitle (default: GPay, PhonePe, Paytm)', type: 'text' },
+      { key: 'upiLogo', label: 'UPI Custom Logo Image URL (leave empty for official logos)', type: 'url' },
+      { key: 'upiId', label: 'Merchant UPI VPA ID (e.g. Ritikane@ptyes)', type: 'text' },
+      { key: 'merchantName', label: 'Merchant Display Name (e.g. LinkAdda Store)', type: 'text' },
+      { key: 'qrImage', label: 'Custom Static QR Image URL', type: 'url' },
+
+      // Binance Pay & Crypto
+      { key: 'binanceTitle', label: 'Binance Method Display Title (default: Crypto & Binance Pay)', type: 'text' },
+      { key: 'binanceSub', label: 'Binance Subtitle (default: 0% Gas Fee)', type: 'text' },
+      { key: 'binanceLogo', label: 'Binance Custom Logo Image URL (leave empty for official logo)', type: 'url' },
+      { key: 'binanceId', label: 'Binance Pay ID (e.g. 1197561104)', type: 'text' },
+      { key: 'bep20Address', label: 'USDT BEP-20 Wallet Address', type: 'text' },
+      { key: 'ethAddress', label: 'USDT ERC-20 Wallet Address', type: 'text' },
+
+      // Cards & Netbanking
+      { key: 'cardsTitle', label: 'Cards Method Display Title (default: Cards)', type: 'text' },
+      { key: 'cardsSub', label: 'Cards Subtitle (default: Visa, Mastercard, RuPay)', type: 'text' },
+      { key: 'cardsLogo', label: 'Cards Custom Logo Image URL (leave empty for official logos)', type: 'url' },
+      { key: 'netbankingTitle', label: 'Netbanking Method Display Title (default: Netbanking)', type: 'text' },
+      { key: 'netbankingSub', label: 'Netbanking Subtitle (default: SBI, ICICI, HDFC)', type: 'text' },
+      { key: 'netbankingLogo', label: 'Netbanking Custom Logo Image URL (leave empty for official logos)', type: 'url' },
+      { key: 'walletTitle', label: 'Wallet Display Title (default: Wallet)', type: 'text' },
+      { key: 'walletSub', label: 'Wallet Subtitle', type: 'text' },
+
+      // Bank Transfer Details
+      { key: 'bankTitle', label: 'Bank Transfer Method Title (default: Bank Transfer (IMPS / NEFT))', type: 'text' },
+      { key: 'bankSub', label: 'Bank Transfer Subtitle (default: Direct Account Transfer)', type: 'text' },
+      { key: 'bankLogo', label: 'Bank Transfer Custom Logo Image URL', type: 'url' },
+      { key: 'bankName', label: 'Bank Name (e.g. State Bank of India)', type: 'text' },
+      { key: 'accountHolder', label: 'Account Holder Name', type: 'text' },
+      { key: 'accountNumber', label: 'Bank Account Number', type: 'text' },
+      { key: 'ifscCode', label: 'Bank IFSC Code', type: 'text' },
+      { key: 'bankUpiId', label: 'Bank Associated UPI ID', type: 'text' },
+
+      // Bitcoin Details
+      { key: 'btcTitle', label: 'Bitcoin Method Display Title', type: 'text' },
+      { key: 'btcSub', label: 'Bitcoin Subtitle (default: BTC Native Network)', type: 'text' },
+      { key: 'btcLogo', label: 'Bitcoin Custom Logo Image URL', type: 'url' },
+      { key: 'btcAddress', label: 'Bitcoin (BTC) Native Address', type: 'text' },
+
+      // Support & Status
+      { key: 'instructions', label: 'Checkout Instructions / Notice', type: 'textarea' },
+      { key: 'telegramUrl', label: 'Support Telegram URL', type: 'url' },
       { key: 'telegramChannel', label: 'Telegram Channel', type: 'url' },
-      { key: 'bep20Address', label: 'BEP-20 Address', type: 'text' },
-      { key: 'ethAddress', label: 'ERC-20 Address', type: 'text' },
-      { key: 'binanceId', label: 'Binance ID', type: 'text' },
-      { key: 'binanceGiftCardUrl', label: 'Binance Gift Card URL', type: 'url' },
       { key: 'paypalLink', label: 'PayPal Link', type: 'url' },
-      { key: 'status', label: 'Status', type: 'select', options: ['active', 'hidden'] },
+      { key: 'status', label: 'Global Gateway Status', type: 'select', options: ['active', 'hidden'] },
     ],
   },
 };
@@ -729,22 +773,43 @@ function renderMediaFallback(label = 'No image selected') {
 function resolveAdminMediaUrl(url) {
   let clean = String(url || '').trim();
   if (!clean) return '';
-  if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:') || clean.startsWith('blob:')) {
-    if (clean.includes('supabase.co/storage/v1/object/public/media/')) {
-      return clean.replace('https://noecylfqhtfwbjfkjxoo.supabase.co/storage/v1/object/public/media/', 'https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/');
+  if (clean.includes('media.jaigram.shop/')) {
+    return clean.startsWith('http') ? clean : `https://${clean.replace(/^\/+/, '')}`;
+  }
+  if (clean.includes('/products/productsgallery/')) {
+    clean = clean.replace('/products/productsgallery/', '/productsgallery/');
+  }
+  if (clean.includes('srv1942099.hstgr.cloud') || clean.includes('hstgr.cloud') || clean.includes('rustfs') || clean.includes('media.linkadda.shop') || clean.includes('r2.cloudflarestorage.com')) {
+    let sub = '';
+    if (clean.includes('/linkadda-media/')) {
+      sub = clean.split('/linkadda-media/')[1];
+    } else if (clean.includes('/jaigram-media/')) {
+      sub = clean.split('/jaigram-media/')[1];
+    } else if (clean.includes('media.linkadda.shop/')) {
+      sub = clean.split('media.linkadda.shop/')[1];
+    } else {
+      const parts = clean.split('/');
+      sub = parts.slice(3).join('/');
     }
+    sub = (sub || '').replace(/^\/+/, '');
+    if (sub && !sub.includes('/') && sub.match(/\.(jpg|jpeg|png|webp|gif|svg|avif|mp4|webm|mov|m4v)$/i)) {
+      sub = `products/${sub}`;
+    }
+    return `https://media.jaigram.shop/${sub}`;
+  }
+  if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:') || clean.startsWith('blob:')) {
     return clean;
   }
-  if (clean.startsWith('/')) {
-    return clean;
+  if (clean.startsWith('/media/')) {
+    return `https://media.jaigram.shop/${clean.replace(/^\/media\//, '')}`;
   }
-  if (clean.startsWith('images/')) {
-    return `/${clean}`;
+  if (clean.startsWith('products/') || clean.startsWith('productsgallery/') || clean.startsWith('categories/') || clean.startsWith('seller_products/') || clean.startsWith('orders/') || clean.startsWith('logos/')) {
+    return `https://media.jaigram.shop/${clean}`;
   }
-  if (clean.startsWith('products/') || clean.startsWith('categories/')) {
-    return `https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/${clean}`;
+  if (clean.startsWith('images/') || clean.startsWith('/images/')) {
+    return clean.startsWith('/') ? clean : `/${clean}`;
   }
-  return `https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/products/${clean}`;
+  return `https://media.jaigram.shop/products/${clean.replace(/^\/+/, '')}`;
 }
 
 function normalizeProductMedia(record = {}) {
@@ -813,7 +878,7 @@ function renderMediaStudioCard(item, index) {
         ${isVideo
           ? `<video src="${escapeHtml(resolvedUrl)}" preload="metadata" muted playsinline></video>
              <div class="media-vid-overlay-play"><i data-lucide="play" style="width:18px;height:18px;"></i></div>`
-          : `<img src="${escapeHtml(resolvedUrl)}" data-raw-src="${escapeHtml(rawUrl)}" alt="Media ${index + 1}" loading="lazy" onerror="if(!this._failed){this._failed=true; if(this.getAttribute('data-raw-src').startsWith('images/')){this.src='/' + this.getAttribute('data-raw-src');}else{this.src='https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/products/' + this.getAttribute('data-raw-src');}}" />`
+          : `<img src="${escapeHtml(resolvedUrl)}" data-raw-src="${escapeHtml(rawUrl)}" alt="Media ${index + 1}" loading="lazy" onerror="if(!this._failed){this._failed=true; if(this.getAttribute('data-raw-src').startsWith('images/')){this.src='/' + this.getAttribute('data-raw-src');}else{this.src='https://media.jaigram.shop/products/' + this.getAttribute('data-raw-src');}}" />`
         }
       </div>
 
@@ -1701,9 +1766,17 @@ function syncTagEditor(form, name) {
 
 function getProductEditorRecord(form) {
   const items = form.__mediaStudioItems || [];
-  const mainImage = items.find((i) => i.isMainImage)?.url || items.find((i) => i.type === 'image')?.url || form.querySelector('[name="image"]')?.value || '';
-  const allImages = items.filter((i) => i.type === 'image').map((i) => i.url);
-  const galleryImages = allImages.filter((u) => u !== mainImage);
+  let mainImage = items.find((i) => i.isMainImage)?.url || items.find((i) => i.type === 'image')?.url || form.querySelector('[name="image"]')?.value?.trim() || '';
+  let allImages = items.filter((i) => i.type === 'image').map((i) => i.url);
+  let galleryImages = allImages.filter((u) => u !== mainImage);
+
+  if (!allImages.length) {
+    const rawImg = form.querySelector('[name="image"]')?.value?.trim() || '';
+    const rawGal = normalizeEditorList(form.querySelector('[name="galleryImages"]')?.value || '');
+    allImages = [...new Set([rawImg, ...rawGal].filter(Boolean))];
+    if (!mainImage && allImages.length) mainImage = allImages[0];
+    galleryImages = allImages.filter((u) => u !== mainImage);
+  }
   
   const mainVideo = items.find((i) => i.isMainVideo)?.url || items.find((i) => i.type === 'video')?.url || form.querySelector('[name="video"]')?.value || '';
   const allVideos = items.filter((i) => i.type === 'video').map((i) => i.url);
@@ -3703,36 +3776,20 @@ function resolveMediaSource(value) {
   let raw = String(value || '').trim();
   if (!raw) return '';
   
-  if (raw.includes('supabase.co/storage/v1/object/public/media/')) {
-    raw = raw.replace('https://noecylfqhtfwbjfkjxoo.supabase.co/storage/v1/object/public/media/', 'https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/');
-  }
-  if (raw.includes('s3.linkadda.shop/linkadda-media/')) {
-    raw = raw.replace('https://s3.linkadda.shop/linkadda-media', 'https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media')
-             .replace('http://s3.linkadda.shop/linkadda-media', 'https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media');
-  }
-
   if (/^(https?:)?\/\//i.test(raw) || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
   
   const normalized = normalizeAssetValue(raw);
   const match = listCollection('media').find((item) => mediaMatchesReference(item, normalized) || mediaMatchesReference(item, raw));
   if (match?.publicUrl) {
-    let u = match.publicUrl;
-    if (u.includes('supabase.co/storage/v1/object/public/media/')) {
-      u = u.replace('https://noecylfqhtfwbjfkjxoo.supabase.co/storage/v1/object/public/media/', 'https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/');
-    }
-    if (u.includes('s3.linkadda.shop/linkadda-media/')) {
-      u = u.replace('https://s3.linkadda.shop/linkadda-media', 'https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media')
-           .replace('http://s3.linkadda.shop/linkadda-media', 'https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media');
-    }
-    return u;
+    return match.publicUrl;
   }
   if (raw.startsWith('products/') || raw.startsWith('categories/') || raw.startsWith('logos/') || raw.startsWith('hero/') || raw.startsWith('banners/') || raw.startsWith('testimonials/')) {
-    return `https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/${raw}`;
+    return `/media/${raw}`;
   }
   if (raw.startsWith('images/') || raw.startsWith('/images/')) {
     return raw.startsWith('/') ? raw : `/${raw}`;
   }
-  return `https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/products/${raw.replace(/^\/+/, '')}`;
+  return `/media/products/${raw.replace(/^\/+/, '')}`;
 }
 
 function mediaPreview(item) {
@@ -3880,6 +3937,9 @@ function catalogMetaValue(item, key) {
 
 function catalogCardBadge(status) {
   const value = String(status || 'active').toLowerCase();
+  if (value === 'pending' || value === 'pending_approval') {
+    return `<span class="badge warning" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 700;">⏳ Pending Approval</span>`;
+  }
   const cls = value === 'active' ? 'success' : value === 'hidden' ? 'warning' : value === 'draft' ? 'badge' : 'danger';
   return `<span class="badge ${cls}">${escapeHtml(value)}</span>`;
 }
@@ -4147,6 +4207,9 @@ function renderCatalogProductCard(item, node) {
         <div class="catalog-card-metrics">${metrics}</div>
       </div>
       <div class="catalog-card-actions">
+        ${(item.status === 'pending' || item.status === 'pending_approval') ? `
+        <button type="button" class="catalog-action-btn action-approve" data-action="approve-product" data-id="${escapeHtml(item.id)}" style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #10b981; font-weight: 700;" title="Approve pack and publish live to JaiGram"><i data-lucide="check-circle"></i> Approve & Go Live</button>
+        ` : ''}
         <button type="button" class="catalog-action-btn action-preview" data-action="preview" data-node="${node}" data-id="${escapeHtml(item.id)}"><i data-lucide="eye"></i> Preview</button>
         <button type="button" class="catalog-action-btn action-edit" data-action="edit" data-node="${node}" data-id="${escapeHtml(item.id)}"><i data-lucide="pencil"></i> Edit</button>
         <button type="button" class="catalog-action-btn action-tiers" data-action="edit-tiers" data-node="${node}" data-id="${escapeHtml(item.id)}" title="Manage Sub-Plans / Options"><i data-lucide="layers"></i> Sub-Plans${tierCount > 0 ? ` (${tierCount})` : ''}</button>
@@ -5971,24 +6034,39 @@ function renderSingleEditorFieldSections(node, schema, record = {}) {
       : node === 'payment'
         ? [
             {
-              title: 'Featured / Recommended Method',
-              description: 'Select which payment method appears at the very top with the RECOMMENDED badge on checkout.',
-              keys: ['recommendedMethod'],
+              title: '⭐ Priority & Recommended Choice (Top Placement)',
+              description: 'Select which payment method appears at the very top with the special Recommendation Badge on checkout.',
+              keys: ['recommendedMethod', 'recommendationBadge'],
             },
             {
-              title: 'Primary Payment',
-              description: 'UPI and QR configuration used by checkout.',
-              keys: ['upiId', 'qrImage', 'instructions'],
+              title: 'UPI Payment Method (GPay, PhonePe, Paytm, QR)',
+              description: 'Custom title, subtitle, custom logo image, and merchant VPA ID.',
+              keys: ['upiTitle', 'upiSub', 'upiLogo', 'upiId', 'merchantName', 'qrImage'],
             },
             {
-              title: 'Support & Links',
-              description: 'Telegram or support contact shown to customers.',
-              keys: ['telegramUrl', 'telegramChannel'],
+              title: 'Binance Pay & Crypto Method',
+              description: 'Custom title, subtitle, custom logo, Binance Pay ID, and USDT wallet addresses.',
+              keys: ['binanceTitle', 'binanceSub', 'binanceLogo', 'binanceId', 'bep20Address', 'ethAddress'],
             },
             {
-              title: 'Alternate Methods',
-              description: 'Other payment options already supported in the project.',
-              keys: ['bep20Address', 'ethAddress', 'binanceId', 'binanceGiftCardUrl', 'paypalLink', 'status'],
+              title: 'Cards & Netbanking Display Settings',
+              description: 'Custom titles, subtitles, and custom logos for credit/debit cards and Netbanking.',
+              keys: ['cardsTitle', 'cardsSub', 'cardsLogo', 'netbankingTitle', 'netbankingSub', 'netbankingLogo', 'walletTitle', 'walletSub'],
+            },
+            {
+              title: 'Direct Bank Transfer (IMPS / NEFT)',
+              description: 'Bank name, account holder name, account number, IFSC code, and custom logo.',
+              keys: ['bankTitle', 'bankSub', 'bankLogo', 'bankName', 'accountHolder', 'accountNumber', 'ifscCode', 'bankUpiId'],
+            },
+            {
+              title: 'Bitcoin (BTC)',
+              description: 'Native Bitcoin mainnet wallet address, titles, and custom logo.',
+              keys: ['btcTitle', 'btcSub', 'btcLogo', 'btcAddress'],
+            },
+            {
+              title: 'Support, Instructions & Gateway Status',
+              description: 'Checkout notice, Telegram support URL, and global publishing status.',
+              keys: ['instructions', 'telegramUrl', 'telegramChannel', 'paypalLink', 'status'],
             },
           ]
     : [
@@ -6687,10 +6765,10 @@ function getStandardPaymentMethods(payment = {}) {
       type: 'paypal',
       iconClass: 'icon-paypal',
       icon: 'credit-card',
-      logo: payment.paypalLogo || 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/PayPal.svg/320px-PayPal.svg.png',
+      logo: payment.paypalLogo || 'images/logos/paypal.svg',
       qrImage: payment.paypalQr || '',
       identifierLabel: 'PayPal Link',
-      identifier: payment.paypalLink || 'https://paypal.me/Johnguzman456',
+      identifier: payment.paypalLink || 'https://paypal.me/Jayagupta601',
       tag: payment.paypalTag || 'GLOBAL',
       instructions: payment.paypalInstructions || 'Click PayPal link and send exact USD amount as Friends & Family or Goods.',
       status: disabled.includes('paypal') ? 'disabled' : 'active',
@@ -6714,42 +6792,163 @@ function getStandardPaymentMethods(payment = {}) {
       isRecommended: recommendedId === 'giftcard',
       isDefault: true,
     },
+    {
+      id: 'cards',
+      name: payment.cardsTitle || payment.cardsName || 'Cards',
+      sub: payment.cardsSub || 'Visa, Mastercard, RuPay',
+      type: 'cards',
+      iconClass: 'icon-cards',
+      icon: 'credit-card',
+      logo: payment.cardsLogo || 'images/logos/visa.svg',
+      qrImage: '',
+      identifierLabel: payment.cardsLink ? 'Card Gateway Link' : 'Accepted Card Networks',
+      identifier: payment.cardsLink || 'Visa, Mastercard, RuPay',
+      tag: payment.cardsTag || 'CARDS',
+      instructions: 'Pay securely using any Indian or International debit/credit card.',
+      status: disabled.includes('cards') ? 'disabled' : 'active',
+      isRecommended: recommendedId === 'cards',
+      isDefault: true,
+    },
+    {
+      id: 'netbanking',
+      name: payment.netbankingTitle || payment.netbankingName || 'Netbanking',
+      sub: payment.netbankingSub || 'SBI, ICICI, HDFC, Axis',
+      type: 'netbanking',
+      iconClass: 'icon-netbanking',
+      icon: 'landmark',
+      logo: payment.netbankingLogo || 'images/logos/sbi.svg',
+      qrImage: '',
+      identifierLabel: 'Supported Banks',
+      identifier: 'SBI, ICICI, HDFC, Axis, All Indian Banks',
+      tag: payment.netbankingTag || 'NETBANKING',
+      instructions: 'Direct bank transfer / Netbanking authentication.',
+      status: disabled.includes('netbanking') ? 'disabled' : 'active',
+      isRecommended: recommendedId === 'netbanking',
+      isDefault: true,
+    },
+    {
+      id: 'wallet',
+      name: payment.walletTitle || payment.walletName || 'LinkAdda Wallet',
+      sub: payment.walletSub || '1-Click Instant Customer Balance',
+      type: 'wallet',
+      iconClass: 'icon-wallet',
+      icon: 'wallet',
+      logo: payment.walletLogo || 'images/logos/mobikwik.svg',
+      qrImage: '',
+      identifierLabel: 'Customer Balance System',
+      identifier: 'Instant Wallet Checkout',
+      tag: payment.walletTag || '1-CLICK',
+      instructions: 'Instant 1-click checkout with zero verification needed.',
+      status: disabled.includes('wallet') ? 'disabled' : 'active',
+      isRecommended: recommendedId === 'wallet',
+      isDefault: true,
+    },
+    {
+      id: 'custom_bank',
+      name: payment.bankTitle || payment.customMethods?.custom_bank?.name || 'Bank Transfer (IMPS / NEFT)',
+      sub: payment.bankSub || payment.customMethods?.custom_bank?.sub || 'Direct Account Transfer',
+      type: 'bank',
+      iconClass: 'icon-bank',
+      icon: 'building-2',
+      logo: payment.bankLogo || 'images/logos/sbi.svg',
+      qrImage: payment.bankQr || payment.customMethods?.custom_bank?.qrImage || '',
+      bankName: payment.bankName || payment.customMethods?.custom_bank?.bankName || 'State Bank of India',
+      accountName: payment.accountHolder || payment.accountName || payment.customMethods?.custom_bank?.accountName || 'Pandit Bajpai',
+      accountNumber: payment.accountNumber || payment.customMethods?.custom_bank?.accountNumber || '45231994969',
+      ifsc: payment.ifsc || payment.ifscCode || payment.customMethods?.custom_bank?.ifsc || 'SBIN0002594',
+      upiId: payment.bankUpiId || payment.customMethods?.custom_bank?.upiId || '',
+      identifierLabel: 'Bank Account Number',
+      identifier: payment.accountNumber || payment.customMethods?.custom_bank?.accountNumber || '45231994969',
+      tag: payment.bankTag || 'IMPS / NEFT',
+      instructions: payment.customMethods?.custom_bank?.instructions || 'Transfer exact amount via IMPS/NEFT and upload screenshot.',
+      status: disabled.includes('custom_bank') ? 'disabled' : 'active',
+      isRecommended: recommendedId === 'custom_bank',
+      isDefault: true,
+    },
+    {
+      id: 'custom_btc',
+      name: payment.btcTitle || payment.customMethods?.custom_btc?.name || 'Bitcoin (BTC)',
+      sub: payment.btcSub || payment.customMethods?.custom_btc?.sub || 'BTC Native Network',
+      type: 'crypto',
+      iconClass: 'icon-btc',
+      icon: 'bitcoin',
+      logo: payment.btcLogo || 'images/logos/btc.svg',
+      qrImage: payment.btcQr || payment.customMethods?.custom_btc?.qrImage || '',
+      network: payment.btcSub || payment.customMethods?.custom_btc?.sub || payment.customMethods?.custom_btc?.network || 'BTC Native Network',
+      identifierLabel: 'Bitcoin Wallet Address',
+      identifier: payment.btcAddress || payment.customMethods?.custom_btc?.identifier || 'bc1q3vuldn6dz4jv5896gap27ngrtg7q4p6krtk9hu',
+      tag: payment.btcTag || 'BTC',
+      instructions: payment.customMethods?.custom_btc?.instructions || 'Send exact BTC amount to address on Bitcoin mainnet.',
+      status: disabled.includes('custom_btc') ? 'disabled' : 'active',
+      isRecommended: recommendedId === 'custom_btc',
+      isDefault: true,
+    },
   ];
 
-  // Custom methods from Firebase
-  const customList = Object.entries(custom).map(([id, item]) => ({
-    id,
-    name: item.name || 'Custom Method',
-    sub: item.sub || item.description || 'Custom payment method',
-    type: item.type || 'custom',
-    iconClass: 'icon-custom',
-    icon: 'credit-card',
-    logo: item.logo || '',
-    qrImage: item.qrImage || '',
-    identifierLabel: item.identifierLabel || 'Account / Address / Link',
-    identifier: item.identifier || item.address || item.link || '',
-    tag: item.tag || 'CUSTOM',
-    instructions: item.instructions || '',
-    status: item.status || 'active',
-    isRecommended: recommendedId === id,
-    isCustom: true,
-  }));
+  // Custom methods from Firebase / LocalStorage (strictly deduplicate against standard IDs)
+  const standardIds = new Set(['binancepay', 'upi', 'bep20', 'eth', 'paypal', 'giftcard', 'cards', 'netbanking', 'wallet', 'custom_bank', 'custom_btc']);
+  const customList = Object.entries(custom)
+    .filter(([id]) => !standardIds.has(id))
+    .map(([id, item]) => {
+      if (!item || typeof item !== 'object') return null;
+      const isCrypto = item.type === 'crypto' || /btc|bitcoin|usdt|eth|ton|sol|trx|crypto/i.test(item.name || '');
+      const isBank = item.type === 'bank' || /bank|imps|neft|rtgs|account/i.test(item.name || '');
+      const isUpi = item.type === 'upi' || /upi|gpay|phonepe|paytm|bhim/i.test(item.name || '');
+      let iconClass = 'icon-custom';
+      let icon = 'credit-card';
+      if (isCrypto) { iconClass = 'icon-btc'; icon = 'bitcoin'; }
+      else if (isBank) { iconClass = 'icon-bank'; icon = 'building-2'; }
+      else if (isUpi) { iconClass = 'icon-upi'; icon = 'smartphone'; }
 
-  return [...defaultList, ...customList];
+      const idVal = item.identifier || item.address || item.walletAddress || item.accountNumber || item.link || '';
+      const qrVal = item.qrImage || item.insideImage || '';
+
+      return {
+        id,
+        name: item.name || 'Custom Method',
+        sub: item.sub || item.description || (isBank ? 'Direct Account Transfer' : isCrypto ? 'Crypto Network' : 'Custom payment method'),
+        type: item.type || (isBank ? 'bank' : isCrypto ? 'crypto' : isUpi ? 'upi' : 'custom'),
+        iconClass,
+        icon,
+        logo: item.logo || '',
+        qrImage: qrVal,
+        insideImage: qrVal,
+        network: item.network || item.sub || '',
+        bankName: item.bankName || '',
+        accountName: item.accountName || item.accountHolder || '',
+        accountNumber: item.accountNumber || (isBank ? idVal : ''),
+        ifsc: item.ifsc || item.ifscCode || '',
+        upiId: item.upiId || item.bankUpiId || (isUpi ? idVal : ''),
+        identifierLabel: item.identifierLabel || (isBank ? 'Bank Account Number' : isCrypto ? 'Deposit Wallet Address' : isUpi ? 'UPI VPA Address' : 'Account / Address / Link'),
+        identifier: idVal,
+        tag: item.tag || (isCrypto ? 'CRYPTO' : isBank ? 'BANK' : 'ACTIVE'),
+        instructions: item.instructions || '',
+        status: item.status || 'active',
+        isRecommended: recommendedId === id,
+        isCustom: true,
+      };
+    }).filter(Boolean);
+
+  const allList = [...defaultList, ...customList];
+  allList.sort((a, b) => {
+    if (a.id === recommendedId) return -1;
+    if (b.id === recommendedId) return 1;
+    return 0;
+  });
+  return allList;
 }
 
 function renderPaymentManagementView(data = {}, fullData = {}) {
   const DEFAULT_PAYMENT_CONFIG = {
-    recommendedMethod: 'binancepay',
+    recommendedMethod: 'upi',
     upiId: 'Ritikane@ptyes',
     qrImage: '',
     telegramUrl: 'https://t.me/TRUSTED_BROTHER1234',
     telegramChannel: 'https://t.me/TRUSTED_BROTHER1234',
     bep20Address: '0x7186b11f8fD49fe472Af49Cda490f168e09Fef0a',
     ethAddress: '0x7186b11f8fD49fe472Af49Cda490f168e09Fef0a',
-    binanceId: '969887942',
-    binanceGiftCardUrl: 'https://www.g2a.com/binance-gift-card-205-usdt-key-i10000337768061',
-    paypalLink: 'https://paypal.me/Johnguzman456',
+    binanceId: '1197561104',
+    paypalLink: 'https://paypal.me/Jayagupta601',
     instructions: 'Pay exact order amount and submit screenshot for instant activation.',
     status: 'active',
     customMethods: {},
@@ -6767,62 +6966,41 @@ function renderPaymentManagementView(data = {}, fullData = {}) {
   };
 
   const methodsList = getStandardPaymentMethods(payment);
-
-  const allOrders = listCollection('orders');
-  // Payment Hub strictly filters to only orders where screenshot proof was uploaded
-  const paymentOrders = allOrders.filter((item) => Boolean(orderPaymentProof(item)));
-  const records = sortManagementList(filterManagementList(paymentOrders, 'payment'));
-  const totals = managementTotals(records);
-  const paidMethods = [...new Set(paymentOrders.map((item) => orderMethodLabel(item)).filter((value) => value && value !== 'Unknown'))];
-  const totalVolume = records.reduce((total, item) => total + parseAmountValue(item.amount || item.inr), 0);
-  const todayReceived = records
-    .filter((item) => {
-      const d = orderDateValue(item);
-      const day = d ? new Date(d).toISOString().slice(0, 10) : '';
-      return day === new Date().toISOString().slice(0, 10);
-    })
-    .reduce((total, item) => total + parseAmountValue(item.amount || item.inr), 0);
-  const monthReceived = records
-    .filter((item) => {
-      const d = orderDateValue(item);
-      const m = d ? new Date(d).toISOString().slice(0, 7) : '';
-      return m === new Date().toISOString().slice(0, 7);
-    })
-    .reduce((total, item) => total + parseAmountValue(item.amount || item.inr), 0);
-  const tableItems = records;
+  const activeCount = methodsList.filter(m => m.status === 'active').length;
+  const customCount = methodsList.filter(m => m.isCustom).length;
+  const recMethod = methodsList.find(m => m.isRecommended) || methodsList[0] || {};
 
   return `
     <div class="page active management-page-shell">
       <section class="panel glass management-page">
         <div class="panel-head payment-management-head">
           <div>
-            <div class="section-kicker">Checkout & Gateways</div>
-            <h2 class="section-title">Payment Methods & Gateway Hub</h2>
-            <p class="section-subtitle">Add custom payment options, upload brand logos and QR codes, toggle active, set recommended choice, and update credentials.</p>
+            <div class="section-kicker">Checkout &amp; Gateways</div>
+            <h2 class="section-title">Payment Gateways &amp; Methods Hub</h2>
+            <p class="section-subtitle">Manage customer checkout options. Edit UPI, Bank, Crypto, PayPal &amp; Card credentials, upload logos &amp; QR codes, or add custom gateways.</p>
           </div>
           <div class="toolbar management-actions">
             <button class="btn btn-primary" type="button" data-action="add-payment-method"><i data-lucide="plus-circle"></i> Add Payment Method</button>
-            <button class="btn btn-ghost" type="button" data-action="edit-single" data-node="payment"><i data-lucide="sliders"></i> Gateway Settings</button>
+            <button class="btn btn-ghost" type="button" data-action="edit-single" data-node="payment"><i data-lucide="sliders"></i> Global Settings</button>
             <button class="btn btn-ghost" type="button" data-action="goto" data-route="orders"><i data-lucide="receipt-text"></i> Open Orders</button>
           </div>
         </div>
-        <div class="management-summary-grid">
-          ${renderManagementSummaryCard('Total Volume', formatCurrencyCompact(totalVolume || totals.totalReceived), `${records.length} screenshot submission${records.length === 1 ? '' : 's'}`, 'success')}
-          ${renderManagementSummaryCard('Pending Verification', String(totals.pending), totals.pending ? 'Awaiting admin review' : 'All clear', 'warning')}
-          ${renderManagementSummaryCard('Failed / Rejected', String(totals.failed), 'Rejected or expired payments', 'danger')}
-          ${renderManagementSummaryCard('Today Received', formatCurrencyCompact(todayReceived), 'Received today', 'primary')}
-          ${renderManagementSummaryCard('This Month', formatCurrencyCompact(monthReceived), 'Total this month', 'accent')}
+
+        <div class="management-summary-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 20px;">
+          ${renderManagementSummaryCard('Active Gateways', `${activeCount} / ${methodsList.length}`, 'Active on customer checkout', 'success')}
+          ${renderManagementSummaryCard('Top Recommended', escapeHtml(recMethod.name || 'UPI'), 'Primary checkout option (RECOMMENDED)', 'warning')}
+          ${renderManagementSummaryCard('Custom Gateways', String(customCount), 'Custom payment options added', 'accent')}
         </div>
       </section>
 
-      ${renderFieldGroup('Active Payment Methods (Linkadda Shop Connected)', 'Configure payment methods shown to customers on checkout. Upload brand logos, scanner QR codes, or set recommended.', `
+      ${renderFieldGroup('Active Payment Methods (Customer Checkout Rail)', 'These payment options appear directly on the customer checkout page. Click Edit to update accounts, logos, or QR codes.', `
         <div class="payment-methods-grid">
           ${methodsList.map((m) => `
             <div class="payment-card ${m.isRecommended ? 'is-recommended' : ''} ${m.status !== 'active' ? 'is-disabled' : ''}">
               <div class="payment-card-header">
                 <div class="payment-card-brand">
-                  <div class="payment-card-icon ${escapeHtml(m.iconClass)}" style="background: rgba(255,255,255,0.06); padding: 4px; display: flex; align-items: center; justify-content: center; border-radius: 12px; overflow: hidden; width: 44px; height: 44px;">
-                    ${m.logo ? `<img src="${escapeHtml(m.logo)}" alt="${escapeHtml(m.name)}" style="width: 100%; height: 100%; object-fit: contain;" />` : `<i data-lucide="${escapeHtml(m.icon)}"></i>`}
+                  <div class="payment-card-icon ${escapeHtml(m.iconClass || '')}" style="background: rgba(255,255,255,0.06); padding: 4px; display: flex; align-items: center; justify-content: center; border-radius: 12px; overflow: hidden; width: 44px; height: 44px;">
+                    ${m.logo ? `<img src="${escapeHtml(m.logo)}" alt="${escapeHtml(m.name)}" style="width: 100%; height: 100%; object-fit: contain;" />` : `<i data-lucide="${escapeHtml(m.icon || 'credit-card')}"></i>`}
                   </div>
                   <div class="payment-card-titles">
                     <strong>${escapeHtml(m.name)}</strong>
@@ -6835,9 +7013,9 @@ function renderPaymentManagementView(data = {}, fullData = {}) {
               </div>
 
               <div class="payment-card-badges">
-                <span class="badge ${m.isRecommended ? 'warning' : 'primary'}">${escapeHtml(m.tag)}</span>
-                ${m.isRecommended ? '<span class="badge warning"><i data-lucide="star"></i> Recommended on Top</span>' : ''}
-                ${m.qrImage ? '<span class="badge success" style="font-size: 10px;"><i data-lucide="qr-code"></i> QR Set</span>' : ''}
+                <span class="badge ${m.isRecommended ? 'warning' : 'primary'}">${escapeHtml(m.tag || 'ACTIVE')}</span>
+                ${m.isRecommended ? '<span class="badge warning"><i data-lucide="star"></i> Recommended (Top)</span>' : ''}
+                ${m.qrImage ? '<span class="badge success" style="font-size: 10px;"><i data-lucide="qr-code"></i> QR Configured</span>' : ''}
               </div>
 
               <div class="payment-card-body">
@@ -6845,12 +7023,12 @@ function renderPaymentManagementView(data = {}, fullData = {}) {
                   <span class="payment-data-label">${escapeHtml(m.identifierLabel)}</span>
                   <button class="icon-btn" data-action="copy-payment-val" data-val="${escapeHtml(m.identifier)}" title="Copy Value"><i data-lucide="copy"></i></button>
                 </div>
-                <div class="payment-data-val">${escapeHtml(m.identifier || 'Not set')}</div>
+                <div class="payment-data-val" style="word-break: break-all;">${escapeHtml(m.identifier || 'Not set')}</div>
               </div>
 
               <div class="payment-card-actions">
                 <button class="payment-make-rec-btn ${m.isRecommended ? 'active' : ''}" data-action="set-recommended-method" data-id="${escapeHtml(m.id)}">
-                  <i data-lucide="star"></i> ${m.isRecommended ? '⭐ Recommended' : 'Make Recommended'}
+                  <i data-lucide="star"></i> ${m.isRecommended ? '⭐ Recommended' : 'Set as Recommended'}
                 </button>
                 <div class="toolbar" style="gap: 4px;">
                   <button class="icon-btn" data-action="edit-payment-method" data-id="${escapeHtml(m.id)}" title="Edit Method"><i data-lucide="pencil"></i></button>
@@ -6862,78 +7040,21 @@ function renderPaymentManagementView(data = {}, fullData = {}) {
         </div>
       `)}
 
-      ${renderFieldGroup('Live Payment Records (Screenshot Proofs)', 'Real customer payment submissions with uploaded screenshot proof.', `
-        <div class="management-filterbar">
-          <div class="field">
-            <label for="paymentSearch">Search</label>
-            <input class="input" id="paymentSearch" type="search" placeholder="Search product, customer, transaction ID..." value="${escapeHtml(ui.management.search || '')}" />
+      <div class="panel glass" style="margin-top: 20px; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; border: 1px solid var(--border); border-radius: 14px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(37,99,235,0.12); color: #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            <i data-lucide="receipt"></i>
           </div>
-          <div class="field">
-            <label for="paymentStatusFilter">Status</label>
-            <select class="select" id="paymentStatusFilter">
-              ${['all', 'paid', 'pending', 'failed', 'approved', 'rejected', 'expired'].map((status) => `<option value="${status}" ${ui.management.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field">
-            <label for="paymentMethodFilter">Method</label>
-            <select class="select" id="paymentMethodFilter">
-              <option value="all">All Methods</option>
-              ${paidMethods.map((method) => `<option value="${escapeHtml(method)}" ${ui.management.method === method ? 'selected' : ''}>${escapeHtml(method)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field">
-            <label for="paymentDateFilter">Date</label>
-            <select class="select" id="paymentDateFilter">
-              <option value="all" ${ui.management.date === 'all' ? 'selected' : ''}>All Time</option>
-              <option value="today" ${ui.management.date === 'today' ? 'selected' : ''}>Today</option>
-              <option value="month" ${ui.management.date === 'month' ? 'selected' : ''}>This Month</option>
-            </select>
+          <div>
+            <div style="font-size: 14px; font-weight: 700; color: #fff;">Customer Payment Proofs &amp; Orders</div>
+            <div style="font-size: 12px; color: var(--muted);">Review customer transaction IDs, UTR numbers, and uploaded payment screenshots.</div>
           </div>
         </div>
-        <div class="table-wrap">
-          <table class="table management-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Txn / Ref</th>
-                <th>Method</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableItems.length ? tableItems.map((item) => {
-                const thumb = orderProductThumb(item);
-                return `
-                <tr>
-                  <td>
-                    <div class="management-product-cell">
-                      <div class="management-product-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(orderProductName(item))}" loading="lazy" />` : '<div class="preview-fallback"><i data-lucide="film"></i></div>'}</div>
-                      <div>
-                        <strong>${escapeHtml(orderProductName(item))}</strong>
-                        <div class="meta">${escapeHtml(orderCustomerLabel(item))}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td><code>${escapeHtml(orderTransactionId(item))}</code></td>
-                  <td><span class="badge">${escapeHtml(orderMethodLabel(item))}</span></td>
-                  <td><strong>${escapeHtml(formatCurrencyCompact(item.amount || item.inr || 0))}</strong></td>
-                  <td>${renderStatusBadge(orderStatusValue(item))}</td>
-                  <td>${escapeHtml(formatDateTime(orderDateValue(item)))}</td>
-                  <td>
-                    <div class="item-actions">
-                      <button class="icon-btn" type="button" data-action="open-order" data-id="${escapeHtml(item.id)}"><i data-lucide="eye"></i> View</button>
-                    </div>
-                  </td>
-                </tr>
-              `;
-              }).join('') : `<tr><td colspan="7"><div class="empty-state">${paymentOrders.length ? 'No payment records match the current filters.' : 'No payment screenshot submissions found. Normal checkout orders are listed under Orders.'}</div></td></tr>`}
-            </tbody>
-          </table>
+        <div class="toolbar">
+          <button class="btn btn-ghost" type="button" data-action="goto" data-route="screenshots"><i data-lucide="image"></i> Screenshots Gallery</button>
+          <button class="btn btn-primary" type="button" data-action="goto" data-route="orders"><i data-lucide="receipt-text"></i> Verify Orders</button>
         </div>
-      `)}
+      </div>
     </div>
   `;
 }
@@ -6941,96 +7062,183 @@ function renderPaymentManagementView(data = {}, fullData = {}) {
 function renderPaymentMethodModal(method = {}, isEdit = false) {
   const isRecommended = Boolean(method.isRecommended);
   const status = method.status || 'active';
-  const type = method.type || 'crypto';
+  let type = method.type || 'crypto';
+  if (method.id === 'paypal') type = 'paypal';
+  else if (method.id === 'upi') type = 'upi';
+  else if (method.id === 'cards') type = 'cards';
+  else if (method.id === 'custom_bank' || method.id === 'netbanking') type = 'bank';
+  else if (method.id === 'binancepay') type = 'binance';
+
   const logo = method.logo || '';
-  const qrImage = method.qrImage || '';
+  const qrImage = method.qrImage || method.insideImage || '';
+
+  const bankName = method.bankName || '';
+  const accountName = method.accountName || method.accountHolder || '';
+  const accountNumber = method.accountNumber || (type === 'bank' ? method.identifier : '') || '';
+  const ifsc = method.ifsc || method.ifscCode || '';
+  const upiId = method.upiId || method.bankUpiId || (type === 'upi' ? method.identifier : '') || '';
+  const network = method.network || method.sub || '';
+  const identifier = method.identifier || method.address || method.walletAddress || accountNumber || '';
 
   return `
     <div class="panel-head management-modal-head">
       <div>
-        <h2 class="section-title">${isEdit ? 'Edit Payment Method' : 'Add New Payment Method'}</h2>
-        <p class="section-subtitle">${isEdit ? `Update credentials, logo icon, and QR code for ${escapeHtml(method.name || 'method')}` : 'Add a custom gateway or crypto wallet connected to checkout.'}</p>
+        <h2 class="section-title">${isEdit ? '✏️ Edit Payment Method' : '➕ Add New Payment Method'}</h2>
+        <p class="section-subtitle">${isEdit ? `Update credentials, brand logo, and payment QR code for ${escapeHtml(method.name || 'method')}` : 'Add a new crypto wallet, bank transfer account, UPI ID, or payment link.'}</p>
       </div>
       <button class="btn btn-ghost" data-close-modal type="button" onclick="closeModal()"><i data-lucide="x"></i></button>
     </div>
     <form class="form" id="paymentMethodForm" data-method-id="${escapeHtml(method.id || '')}" data-is-edit="${isEdit ? 'true' : 'false'}" data-is-custom="${method.isCustom ? 'true' : 'false'}">
       <div class="form-grid">
-        <div class="field">
-          <label for="pmName">Payment Method Name *</label>
-          <input class="input" id="pmName" name="name" type="text" placeholder="e.g. USDT TRC-20, Toncoin, Paytm Direct, Google Pay" value="${escapeHtml(method.name || '')}" required />
-        </div>
-        <div class="field">
-          <label for="pmType">Category / Network</label>
-          <select class="select" id="pmType" name="type">
-            <option value="crypto" ${type === 'crypto' ? 'selected' : ''}>Crypto Wallet (USDT / BTC / TON / BSC / ETH)</option>
-            <option value="upi" ${type === 'upi' ? 'selected' : ''}>Indian UPI (GPay / PhonePe / Paytm / BHIM)</option>
-            <option value="binance" ${type === 'binance' ? 'selected' : ''}>Binance Pay</option>
-            <option value="paypal" ${type === 'paypal' ? 'selected' : ''}>PayPal</option>
-            <option value="giftcard" ${type === 'giftcard' ? 'selected' : ''}>Digital Gift Card / Voucher</option>
-            <option value="custom" ${type === 'custom' ? 'selected' : ''}>Custom Payment Link / Gateway</option>
-          </select>
-        </div>
+        
+        <!-- 1. METHOD CATEGORY / TYPE -->
         <div class="field full">
-          <label for="pmIdentifier">Account ID / Wallet Address / Payment Link *</label>
-          <input class="input" id="pmIdentifier" name="identifier" type="text" placeholder="e.g. 0x... / UPI VPA / Binance ID / https://..." value="${escapeHtml(method.identifier || '')}" required />
+          <label for="pmType" style="font-weight: 700; color: #fff;">1. Payment Category / Type *</label>
+          <select class="select" id="pmType" name="type" onchange="window.updatePaymentModalFields(this.value)">
+            <option value="upi" ${type === 'upi' ? 'selected' : ''}>📱 Indian UPI (GPay / PhonePe / Paytm / BHIM)</option>
+            <option value="bank" ${type === 'bank' ? 'selected' : ''}>🏦 Bank Account Transfer (IMPS / NEFT / RTGS)</option>
+            <option value="crypto" ${type === 'crypto' ? 'selected' : ''}>🪙 Crypto Wallet (USDT / BTC / TON / BSC / ETH / Solana)</option>
+            <option value="binance" ${type === 'binance' ? 'selected' : ''}>⚡ Binance Pay ID</option>
+            <option value="paypal" ${type === 'paypal' ? 'selected' : ''}>💳 PayPal (Global Debit/Credit Cards &amp; USD)</option>
+            <option value="cards" ${type === 'cards' ? 'selected' : ''}>🌐 Debit / Credit Cards Gateway</option>
+            <option value="custom" ${type === 'custom' ? 'selected' : ''}>⚙️ Other / Custom Method</option>
+          </select>
+          <small class="section-subtitle" style="margin-top: 4px;">Choose the payment category to show relevant account fields below.</small>
         </div>
 
-        <!-- 1. METHOD LOGO / BRAND ICON DIRECT UPLOAD -->
+        <!-- 2. NAME & SUBTITLE -->
+        <div class="field">
+          <label for="pmName">Payment Method Display Name *</label>
+          <input class="input" id="pmName" name="name" type="text" placeholder="e.g. Google Pay, Bitcoin (BTC), SBI Bank" value="${escapeHtml(method.name || '')}" required />
+        </div>
+        <div class="field">
+          <label for="pmSub">Subtitle / Short Tagline</label>
+          <input class="input" id="pmSub" name="sub" type="text" placeholder="e.g. Instant 0% Fee, BTC Native Network" value="${escapeHtml(method.sub || '')}" />
+        </div>
+
+        <!-- 3. CRYPTO SPECIFIC FIELDS -->
+        <div class="field full glass" id="pmCryptoGroup" style="padding: 16px 18px; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.25); background: rgba(245, 158, 11, 0.04); ${type === 'crypto' || type === 'binance' ? '' : 'display: none;'}">
+          <div style="font-size: 13px; font-weight: 800; color: #f59e0b; display: flex; align-items: center; gap: 6px; margin-bottom: 12px;">
+            <i data-lucide="coins" style="width: 16px; height: 16px;"></i> Crypto Deposit Address &amp; Network Details
+          </div>
+          <div class="form-grid" style="gap: 12px;">
+            <div class="field full">
+              <label for="pmIdentifierCrypto">Deposit Wallet Address / Binance Pay ID *</label>
+              <input class="input" id="pmIdentifierCrypto" name="cryptoAddress" type="text" placeholder="e.g. bc1q3vuldn6dz4jv5896gap27ngrtg7q4p6krtk9hu or 0x7186..." value="${escapeHtml(identifier)}" />
+              <small class="section-subtitle" style="margin-top: 4px;">Customers will see this address with a 1-click Copy button and QR code.</small>
+            </div>
+            <div class="field full">
+              <label for="pmNetwork">Blockchain Network</label>
+              <input class="input" id="pmNetwork" name="network" type="text" placeholder="e.g. Bitcoin Mainnet (BTC), BNB Smart Chain (BEP-20), TRON (TRC-20)" value="${escapeHtml(network)}" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. BANK TRANSFER SPECIFIC FIELDS -->
+        <div class="field full glass" id="pmBankGroup" style="padding: 16px 18px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.25); background: rgba(16, 185, 129, 0.04); ${type === 'bank' ? '' : 'display: none;'}">
+          <div style="font-size: 13px; font-weight: 800; color: #10b981; display: flex; align-items: center; gap: 6px; margin-bottom: 12px;">
+            <i data-lucide="building-2" style="width: 16px; height: 16px;"></i> Bank Account Transfer Details
+          </div>
+          <div class="form-grid" style="gap: 12px;">
+            <div class="field">
+              <label for="pmBankName">Bank Name *</label>
+              <input class="input" id="pmBankName" name="bankName" type="text" placeholder="e.g. State Bank of India, HDFC Bank" value="${escapeHtml(bankName)}" />
+            </div>
+            <div class="field">
+              <label for="pmAccountHolder">Beneficiary / Account Holder Name *</label>
+              <input class="input" id="pmAccountHolder" name="accountHolder" type="text" placeholder="e.g. Pandit Bajpai" value="${escapeHtml(accountName)}" />
+            </div>
+            <div class="field">
+              <label for="pmAccountNumber">Bank Account Number *</label>
+              <input class="input" id="pmAccountNumber" name="accountNumber" type="text" placeholder="e.g. 45231994969" value="${escapeHtml(accountNumber)}" />
+            </div>
+            <div class="field">
+              <label for="pmIfsc">IFSC Code *</label>
+              <input class="input" id="pmIfsc" name="ifsc" type="text" placeholder="e.g. SBIN0002594" value="${escapeHtml(ifsc)}" />
+            </div>
+            <div class="field full">
+              <label for="pmBankUpiId">Bank UPI ID / VPA (Optional)</label>
+              <input class="input" id="pmBankUpiId" name="bankUpiId" type="text" placeholder="e.g. PanditBajpai@sbi" value="${escapeHtml(upiId)}" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. GENERAL IDENTIFIER (UPI, PayPal, Links) -->
+        <div class="field full" id="pmGeneralGroup" style="${type === 'crypto' || type === 'bank' ? 'display: none;' : ''}">
+          <label for="pmIdentifier" id="pmGeneralLabel">UPI VPA / Payment Link / Account ID *</label>
+          <input class="input" id="pmIdentifier" name="identifier" type="text" placeholder="e.g. Ritikane@ptyes or https://..." value="${escapeHtml(identifier)}" />
+        </div>
+
+        <!-- 6. BRAND DISPLAY LOGO / ICON -->
         <div class="field full glass" style="padding: 16px 18px; border-radius: 12px; border: 1px solid var(--border); background: rgba(99, 102, 241, 0.04);">
-          <label style="font-size: 13px; font-weight: 700; color: #818cf8; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            <i data-lucide="image" style="width: 16px; height: 16px;"></i> Method Brand Logo / Icon (Direct Upload)
+          <label style="font-size: 13px; font-weight: 700; color: #818cf8; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <i data-lucide="image" style="width: 16px; height: 16px;"></i> 🏷️ 1. Brand Display Logo (Checkout Rail Icon)
           </label>
+          <small class="section-subtitle" style="margin-bottom: 10px; display: block; color: #94a3b8;">
+            This icon is displayed in the payment options rail on the customer checkout page.
+          </small>
           <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <div id="pmLogoPreview" style="width: 52px; height: 52px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <div id="pmLogoPreview" style="width: 54px; height: 54px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
               ${logo ? `<img src="${escapeHtml(logo)}" alt="Logo" style="width:100%;height:100%;object-fit:contain;padding:4px;" />` : '<i data-lucide="credit-card" style="width: 24px; height: 24px; color: var(--muted);"></i>'}
             </div>
-            <div style="flex: 1; min-width: 200px;">
-              <input type="file" accept="image/*" class="input" id="pmLogoFileInput" style="padding: 8px 12px; font-size: 12px; margin-bottom: 6px;" />
-              <input type="text" class="input" id="pmLogoInput" name="logo" placeholder="Or paste Image URL (https://...)" value="${escapeHtml(logo)}" style="font-size: 12px; padding: 8px 12px;" />
+            <div style="flex: 1; min-width: 220px;">
+              <input type="file" accept="image/*" class="input" id="pmLogoFileInput" style="padding: 8px 12px; font-size: 12px; margin-bottom: 6px;" onchange="window.handlePaymentFilePreview(this, 'pmLogoInput', 'pmLogoPreview')" />
+              <input type="text" class="input" id="pmLogoInput" name="logo" placeholder="Or paste Logo Image URL (https://...)" value="${escapeHtml(logo)}" style="font-size: 12px; padding: 8px 12px;" oninput="window.handlePaymentUrlInput(this, 'pmLogoPreview')" />
             </div>
           </div>
-          <small class="section-subtitle" style="margin-top: 6px; display: block;">This logo is shown on the checkout selection card (e.g. Binance / UPI / PayPal logo).</small>
+          <!-- Quick Preset Buttons -->
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+            <span style="font-size: 11px; color: var(--muted);">Quick Logos:</span>
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('pmLogoInput').value='images/logos/upi.svg'; document.getElementById('pmLogoPreview').innerHTML='<img src=\'images/logos/upi.svg\' style=\'width:100%;height:100%;object-fit:contain;padding:4px;\' />';">UPI</button>
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('pmLogoInput').value='images/logos/paypal.svg'; document.getElementById('pmLogoPreview').innerHTML='<img src=\'images/logos/paypal.svg\' style=\'width:100%;height:100%;object-fit:contain;padding:4px;\' />';">PayPal</button>
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('pmLogoInput').value='images/logos/visa.svg'; document.getElementById('pmLogoPreview').innerHTML='<img src=\'images/logos/visa.svg\' style=\'width:100%;height:100%;object-fit:contain;padding:4px;\' />';">Visa</button>
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('pmLogoInput').value='images/logos/sbi.svg'; document.getElementById('pmLogoPreview').innerHTML='<img src=\'images/logos/sbi.svg\' style=\'width:100%;height:100%;object-fit:contain;padding:4px;\' />';">SBI</button>
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('pmLogoInput').value='images/logos/btc.svg'; document.getElementById('pmLogoPreview').innerHTML='<img src=\'images/logos/btc.svg\' style=\'width:100%;height:100%;object-fit:contain;padding:4px;\' />';">BTC</button>
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('pmLogoInput').value='images/logos/usdt.svg'; document.getElementById('pmLogoPreview').innerHTML='<img src=\'images/logos/usdt.svg\' style=\'width:100%;height:100%;object-fit:contain;padding:4px;\' />';">USDT</button>
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('pmLogoInput').value='images/logos/binance.svg'; document.getElementById('pmLogoPreview').innerHTML='<img src=\'images/logos/binance.svg\' style=\'width:100%;height:100%;object-fit:contain;padding:4px;\' />';">Binance</button>
+          </div>
         </div>
 
-        <!-- 2. PAYMENT QR CODE SCANNER DIRECT UPLOAD -->
+        <!-- 7. PAYMENT QR CODE / SCANNER IMAGE -->
         <div class="field full glass" style="padding: 16px 18px; border-radius: 12px; border: 1px solid var(--border); background: rgba(16, 185, 129, 0.04);">
-          <label style="font-size: 13px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            <i data-lucide="qr-code" style="width: 16px; height: 16px;"></i> Payment QR Code Image (Direct Upload)
+          <label style="font-size: 13px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <i data-lucide="qr-code" style="width: 16px; height: 16px;"></i> 🖼️ 2. Payment QR Code / Scanner Image
           </label>
+          <small class="section-subtitle" style="margin-bottom: 10px; display: block; color: #94a3b8;">
+            This QR code is displayed inside the method details pane for customer scanning. (Auto-generated if left blank).
+          </small>
           <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <div id="pmQrPreview" style="width: 70px; height: 70px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <div id="pmQrPreview" style="width: 72px; height: 72px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
               ${qrImage ? `<img src="${escapeHtml(qrImage)}" alt="QR" style="width:100%;height:100%;object-fit:contain;padding:4px;" />` : '<i data-lucide="qr-code" style="width: 32px; height: 32px; color: var(--muted);"></i>'}
             </div>
-            <div style="flex: 1; min-width: 200px;">
-              <input type="file" accept="image/*" class="input" id="pmQrFileInput" style="padding: 8px 12px; font-size: 12px; margin-bottom: 6px;" />
-              <input type="text" class="input" id="pmQrImageInput" name="qrImage" placeholder="Or paste QR Image URL (https://...)" value="${escapeHtml(qrImage)}" style="font-size: 12px; padding: 8px 12px;" />
+            <div style="flex: 1; min-width: 220px;">
+              <input type="file" accept="image/*" class="input" id="pmQrFileInput" style="padding: 8px 12px; font-size: 12px; margin-bottom: 6px;" onchange="window.handlePaymentFilePreview(this, 'pmQrImageInput', 'pmQrPreview')" />
+              <input type="text" class="input" id="pmQrImageInput" name="qrImage" placeholder="Or paste QR Image URL (https://...)" value="${escapeHtml(qrImage)}" style="font-size: 12px; padding: 8px 12px;" oninput="window.handlePaymentUrlInput(this, 'pmQrPreview')" />
             </div>
           </div>
-          <small class="section-subtitle" style="margin-top: 6px; display: block;">This QR code is shown when the customer selects this method to scan and pay.</small>
         </div>
 
+        <!-- 8. TAG & INSTRUCTIONS -->
         <div class="field">
-          <label for="pmTag">Tag Badge Text</label>
-          <input class="input" id="pmTag" name="tag" type="text" placeholder="e.g. USDT, 0% FEE, FAST, INTL" value="${escapeHtml(method.tag || '')}" />
-        </div>
-        <div class="field">
-          <label for="pmSub">Subtitle / Short Note</label>
-          <input class="input" id="pmSub" name="sub" type="text" placeholder="e.g. Tron network low-fee transfers" value="${escapeHtml(method.sub || '')}" />
-        </div>
-        <div class="field full">
-          <label for="pmInstructions">Instructions for Buyer</label>
-          <textarea class="textarea" id="pmInstructions" name="instructions" rows="2" placeholder="Send exact amount and upload transaction screenshot for fast verification.">${escapeHtml(method.instructions || '')}</textarea>
+          <label for="pmTag">Highlight Badge Text (Optional)</label>
+          <input class="input" id="pmTag" name="tag" type="text" placeholder="e.g. FAST, 0% FEE, 24x7, INTL" value="${escapeHtml(method.tag || '')}" />
         </div>
         <div class="field">
           <label for="pmStatus">Live Status</label>
           <select class="select" id="pmStatus" name="status">
-            <option value="active" ${status === 'active' ? 'selected' : ''}>Active (Visible on checkout)</option>
-            <option value="disabled" ${status === 'disabled' ? 'selected' : ''}>Disabled (Hidden)</option>
+            <option value="active" ${status === 'active' ? 'selected' : ''}>🟢 Active (Visible on Checkout)</option>
+            <option value="disabled" ${status === 'disabled' ? 'selected' : ''}>🔴 Disabled (Hidden from Checkout)</option>
           </select>
         </div>
-        <div class="field" style="display:flex;align-items:center;gap:10px;padding-top:24px;">
+        <div class="field full">
+          <label for="pmInstructions">Customer Instructions (Displayed on Checkout)</label>
+          <textarea class="textarea" id="pmInstructions" name="instructions" rows="2" placeholder="e.g. Send exact order amount and upload transaction screenshot / reference ID for instant verification.">${escapeHtml(method.instructions || '')}</textarea>
+        </div>
+        
+        <!-- 9. MAKE RECOMMENDED OPTION -->
+        <div class="field full" style="display:flex; align-items:center; gap:10px; padding: 12px 14px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 10px;">
           <input type="checkbox" id="pmIsRecommended" name="isRecommended" style="width:18px;height:18px;cursor:pointer;" ${isRecommended ? 'checked' : ''} />
-          <label for="pmIsRecommended" style="cursor:pointer;margin:0;font-weight:600;">⭐ Make this the Recommended Choice</label>
+          <label for="pmIsRecommended" style="cursor:pointer;margin:0;font-weight:700;color:#f59e0b;">⭐ Feature as Recommended Choice (Pinned to top with RECOMMENDED badge)</label>
         </div>
       </div>
       <div class="toolbar management-actions-inline" style="margin-top:20px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px;">
@@ -7038,8 +7246,73 @@ function renderPaymentMethodModal(method = {}, isEdit = false) {
         <button class="btn btn-primary" type="submit"><i data-lucide="check"></i> Save Payment Method</button>
       </div>
     </form>
+    <script>
+      setTimeout(function() {
+        if (window.updatePaymentModalFields) {
+          window.updatePaymentModalFields('${type}');
+        }
+      }, 50);
+    </script>
   `;
 }
+
+window.updatePaymentModalFields = function(type) {
+  const cryptoGroup = document.getElementById('pmCryptoGroup');
+  const bankGroup = document.getElementById('pmBankGroup');
+  const generalGroup = document.getElementById('pmGeneralGroup');
+  const generalLabel = document.getElementById('pmGeneralLabel');
+  const generalInput = document.getElementById('pmIdentifier');
+
+  if (cryptoGroup) cryptoGroup.style.display = (type === 'crypto' || type === 'binance') ? '' : 'none';
+  if (bankGroup) bankGroup.style.display = (type === 'bank') ? '' : 'none';
+  if (generalGroup) generalGroup.style.display = (type === 'crypto' || type === 'bank') ? 'none' : '';
+
+  if (generalLabel && generalInput) {
+    if (type === 'upi') {
+      generalLabel.textContent = '📱 UPI ID / VPA Address (GPay, PhonePe, Paytm) *';
+      generalInput.placeholder = 'e.g. yourname@ptyes or mobile@upi';
+    } else if (type === 'paypal') {
+      generalLabel.textContent = '💳 PayPal Link / PayPal.me URL *';
+      generalInput.placeholder = 'e.g. https://paypal.me/yourusername';
+    } else if (type === 'cards') {
+      generalLabel.textContent = '🌐 Card Payment Gateway Link (Optional - Leave blank for standard checkout) *';
+      generalInput.placeholder = 'e.g. https://buy.stripe.com/... or https://paypal.me/...';
+    } else {
+      generalLabel.textContent = '🔗 Payment Link / ID / Address *';
+      generalInput.placeholder = 'e.g. Account number, ID, or payment URL';
+    }
+  }
+
+  if (window.lucide) window.lucide.createIcons();
+};
+
+window.handlePaymentFilePreview = function(fileInput, textInputId, previewId) {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    const textInput = document.getElementById(textInputId);
+    const previewEl = document.getElementById(previewId);
+    if (textInput) textInput.value = dataUrl;
+    if (previewEl) {
+      previewEl.innerHTML = `<img src="${dataUrl}" alt="Preview" style="width:100%;height:100%;object-fit:contain;padding:4px;" />`;
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+window.handlePaymentUrlInput = function(input, previewId) {
+  const val = (input.value || '').trim();
+  const previewEl = document.getElementById(previewId);
+  if (!previewEl) return;
+  if (val) {
+    previewEl.innerHTML = `<img src="${val}" alt="Preview" style="width:100%;height:100%;object-fit:contain;padding:4px;" onerror="this.parentElement.innerHTML='<span style=\\'font-size:10px;color:#ef4444;text-align:center;\\'>Bad URL</span>'" />`;
+  } else {
+    previewEl.innerHTML = `<i data-lucide="image" style="width: 24px; height: 24px; color: var(--muted);"></i>`;
+    if (window.lucide) window.lucide.createIcons();
+  }
+};
 
 function renderOrderDetailsModal(item = {}) {
   const proof = orderPaymentProof(item);
@@ -8131,12 +8404,27 @@ function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {})
           ` : `
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px;">
               ${sellerProducts.map(p => {
-                const img = p.image || p.thumbnail || '/favicon.svg';
+                const rawImg = p.coverImage || p.image || p.thumbnail || p.thumbnailUrl || (Array.isArray(p.images) && p.images[0]) || (Array.isArray(p.galleryImages) && p.galleryImages[0]) || '';
+                let img = String(rawImg || '').trim();
+                if (img.includes('placeholder.svg') || img.includes('favicon.svg') || !img) {
+                  img = '/images/prod_vip_bundle.jpg';
+                } else if (img.includes('media.jaigram.shop/')) {
+                  img = img.startsWith('http') ? img : `https://${img.replace(/^\/+/, '')}`;
+                } else if (img.includes('media.linkadda.shop/')) {
+                  const sub = img.split('media.linkadda.shop/')[1].replace(/^\/+/, '');
+                  img = `https://media.jaigram.shop/${sub}`;
+                } else if (img.startsWith('products/') || img.startsWith('categories/') || img.startsWith('seller_products/') || img.startsWith('orders/')) {
+                  img = `https://media.jaigram.shop/${img}`;
+                } else if (img.startsWith('/media/')) {
+                  img = `https://media.jaigram.shop/${img.replace(/^\/media\//, '')}`;
+                } else if (img.startsWith('images/')) {
+                  img = `/${img}`;
+                }
                 const pPrice = p.priceINR || p.price || '0';
                 return `
                   <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
                     <div style="height: 120px; position: relative; background: #111;">
-                      <img src="${escapeHtml(img)}" alt="${escapeHtml(p.title || p.name || 'Pack')}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/favicon.svg'" />
+                      <img src="${escapeHtml(img)}" alt="${escapeHtml(p.title || p.name || 'Pack')}" style="width: 100%; height: 100%; object-fit: cover;" onerror="if(!this._tried){this._tried=true;this.src='/images/prod_vip_bundle.jpg';}" />
                       <span class="badge" style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); font-size: 10px;">${escapeHtml(p.category || 'Pack')}</span>
                     </div>
                     <div style="padding: 12px 14px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
@@ -8147,7 +8435,12 @@ function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {})
                           ${p.originalPriceINR || p.originalPrice ? `<span style="font-size: 12px; color: var(--muted); text-decoration: line-through;">₹${escapeHtml(p.originalPriceINR || p.originalPrice)}</span>` : ''}
                         </div>
                       </div>
-                      <div style="display: flex; gap: 6px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; margin-top: 8px;">
+                      <div style="display: flex; gap: 6px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; margin-top: 8px; flex-wrap: wrap;">
+                        ${p.status === 'pending' || p.status === 'pending_approval' ? `
+                          <button class="btn btn-primary btn-sm" type="button" data-action="approve-product" data-id="${p.id}" style="font-size: 11px; padding: 4px 8px; background: #10b981; border-color: #10b981; color: #fff; font-weight: 700; flex: 1;">
+                            <i data-lucide="check-circle"></i> Approve & Live
+                          </button>
+                        ` : ''}
                         <button class="btn btn-ghost btn-sm" type="button" data-action="edit" data-node="products" data-id="${p.id}" style="flex: 1; font-size: 12px; padding: 4px 8px;">
                           <i data-lucide="pencil"></i> Edit
                         </button>
@@ -8635,6 +8928,208 @@ function renderReviewsManagementView(reviewsData = {}, fullData = {}) {
                     </button>
                     <button class="btn btn-ghost btn-sm" type="button" data-action="sync-product-rating" data-product-id="${escapeHtml(r.productId)}" title="Sync this product card's rating to ${stars}.0">
                       <i data-lucide="refresh-cw"></i> Sync to Card
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function renderReportsManagementView(reportsRaw = {}, data = {}) {
+  const reportsList = Object.entries(reportsRaw || {}).map(([id, r]) => ({
+    ...(r || {}),
+    id: r?.id || id,
+  }));
+
+  reportsList.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+
+  const totalCount = reportsList.length;
+  const pendingCount = reportsList.filter(r => (r.status || 'pending') === 'pending').length;
+  const resolvedCount = reportsList.filter(r => r.status === 'resolved').length;
+  const dismissedCount = reportsList.filter(r => r.status === 'dismissed').length;
+
+  const activeTab = ui.reports?.status || 'all';
+  const searchQuery = String(ui.reports?.search || '').toLowerCase().trim();
+
+  let filtered = reportsList;
+  if (activeTab !== 'all') {
+    filtered = filtered.filter(r => (r.status || 'pending') === activeTab);
+  }
+  if (searchQuery) {
+    filtered = filtered.filter(r => 
+      String(r.targetName || '').toLowerCase().includes(searchQuery) ||
+      String(r.targetId || '').toLowerCase().includes(searchQuery) ||
+      String(r.reporterName || '').toLowerCase().includes(searchQuery) ||
+      String(r.reporterEmail || '').toLowerCase().includes(searchQuery) ||
+      String(r.reason || '').toLowerCase().includes(searchQuery) ||
+      String(r.details || '').toLowerCase().includes(searchQuery)
+    );
+  }
+
+  return `
+    <div class="page active">
+      <div style="margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <h1 class="page-title" style="margin: 0; display: flex; align-items: center; gap: 10px;">
+              <i data-lucide="flag" style="color: #ef4444;"></i> Reports & Moderation
+            </h1>
+            <p class="section-subtitle" style="margin-top: 4px;">
+              Real-time user reports on products, broken links, copyright, and creator violations.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-ghost" type="button" data-action="refresh-reports">
+              <i data-lucide="refresh-cw"></i> Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <section class="panel glass" style="padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+          
+          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 14px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; color: #f87171; text-transform: uppercase; letter-spacing: 0.05em;">Pending Attention</div>
+            <div style="font-size: 26px; font-weight: 800; color: #fca5a5; margin-top: 4px;">${pendingCount}</div>
+            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Require admin review</div>
+          </div>
+
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em;">Resolved Reports</div>
+            <div style="font-size: 26px; font-weight: 800; color: #34d399; margin-top: 4px;">${resolvedCount}</div>
+            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Investigated & fixed</div>
+          </div>
+
+          <div style="background: rgba(148, 163, 184, 0.08); border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 14px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Dismissed</div>
+            <div style="font-size: 26px; font-weight: 800; color: #cbd5e1; margin-top: 4px;">${dismissedCount}</div>
+            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">No violation found</div>
+          </div>
+
+          <div style="background: rgba(255, 42, 141, 0.08); border: 1px solid rgba(255, 42, 141, 0.25); border-radius: 14px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--primary-pink, #ff2a8d); text-transform: uppercase; letter-spacing: 0.05em;">Total Reports</div>
+            <div style="font-size: 26px; font-weight: 800; color: #f472b6; margin-top: 4px;">${totalCount}</div>
+            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">All-time submissions</div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Filter Controls & Search -->
+      <section class="panel glass" style="padding: 16px 20px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--border);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+          
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button class="btn ${activeTab === 'all' ? 'btn-primary' : 'btn-ghost'}" type="button" data-action="filter-reports-status" data-status="all">
+              All (${totalCount})
+            </button>
+            <button class="btn ${activeTab === 'pending' ? 'btn-primary' : 'btn-ghost'}" type="button" data-action="filter-reports-status" data-status="pending" style="${pendingCount > 0 ? 'border: 1px solid #ef4444; color: #fca5a5;' : ''}">
+              <i data-lucide="clock"></i> Pending (${pendingCount})
+            </button>
+            <button class="btn ${activeTab === 'resolved' ? 'btn-primary' : 'btn-ghost'}" type="button" data-action="filter-reports-status" data-status="resolved">
+              <i data-lucide="check-circle"></i> Resolved (${resolvedCount})
+            </button>
+            <button class="btn ${activeTab === 'dismissed' ? 'btn-primary' : 'btn-ghost'}" type="button" data-action="filter-reports-status" data-status="dismissed">
+              <i data-lucide="x-circle"></i> Dismissed (${dismissedCount})
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 10px; align-items: center; flex: 1; max-width: 380px; min-width: 220px;">
+            <div class="searchbox" style="width: 100%;">
+              <i data-lucide="search"></i>
+              <input id="reportsSearchInput" type="search" placeholder="Search target, reporter, or reason..." value="${escapeHtml(ui.reports?.search || '')}" />
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Reports Feed -->
+      ${filtered.length === 0 ? `
+        <div class="panel glass" style="padding: 48px 24px; text-align: center; border-radius: 16px; border: 1px dashed rgba(255,255,255,0.15);">
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(16, 185, 129, 0.1); color: #10b981; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px;">
+            <i data-lucide="shield-check" style="width: 28px; height: 28px;"></i>
+          </div>
+          <h3 style="margin: 0 0 6px 0; font-size: 18px; color: var(--text);">No reports found</h3>
+          <p style="margin: 0; font-size: 13px; color: var(--muted);">
+            ${activeTab === 'pending' ? 'No user reports currently pending review. Storefront is clean!' : 'No reports match your selected filter or search term.'}
+          </p>
+        </div>
+      ` : `
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          ${filtered.map((r) => {
+            const isPending = (r.status || 'pending') === 'pending';
+            const isResolved = r.status === 'resolved';
+            const isDismissed = r.status === 'dismissed';
+            const dateStr = r.createdAt ? formatRelativeTime(r.createdAt) : 'Recently';
+            const fullDate = r.createdAt ? new Date(r.createdAt).toLocaleString('en-IN') : '';
+            const isSeller = r.targetType === 'seller';
+
+            return `
+              <div class="panel glass" style="padding: 20px 24px; border-radius: 16px; border: 1px solid ${isPending ? 'rgba(239, 68, 68, 0.35)' : isResolved ? 'rgba(16, 185, 129, 0.25)' : 'rgba(148, 163, 184, 0.2)'}; background: ${isPending ? 'rgba(239, 68, 68, 0.03)' : 'rgba(255, 255, 255, 0.01)'}; display: flex; flex-direction: column; gap: 14px;">
+                
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span class="badge" style="background: ${isSeller ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)'}; color: ${isSeller ? '#c084fc' : '#60a5fa'}; border: 1px solid ${isSeller ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}; font-size: 11px; font-weight: 700; text-transform: uppercase;">
+                      ${isSeller ? '🏪 SELLER' : '📦 PRODUCT'}
+                    </span>
+                    <strong style="font-size: 15px; color: var(--text);">${escapeHtml(r.targetName || 'Untitled Item')}</strong>
+                    ${r.targetId ? `<code style="font-size: 11px; color: var(--muted); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">ID: ${escapeHtml(r.targetId)}</code>` : ''}
+                    
+                    ${isPending ? `
+                      <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 11px;">
+                        ⏳ Pending Review
+                      </span>
+                    ` : isResolved ? `
+                      <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 11px;">
+                        ✓ Resolved
+                      </span>
+                    ` : `
+                      <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); font-size: 11px;">
+                        ✖ Dismissed
+                      </span>
+                    `}
+                  </div>
+                  <div style="font-size: 12px; color: var(--muted);" title="${escapeHtml(fullDate)}">${escapeHtml(dateStr)}</div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.25); border-radius: 12px; padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 13px; font-weight: 700; color: #fbbf24; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="alert-triangle" style="width: 14px; height: 14px;"></i> Reason: ${escapeHtml(r.reason || 'Not specified')}
+                  </div>
+                  <p style="margin: 0; font-size: 13.5px; line-height: 1.6; color: rgba(255,255,255,0.9);">${escapeHtml(r.details || '(No written description provided by reporter)')}</p>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
+                  <div style="font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span>Reported by: <strong style="color: var(--text);">${escapeHtml(r.reporterName || 'Anonymous')}</strong></span>
+                    ${r.reporterEmail && r.reporterEmail !== 'N/A' ? `<span>• <a href="mailto:${escapeHtml(r.reporterEmail)}" style="color: var(--primary); text-decoration: none;">${escapeHtml(r.reporterEmail)}</a></span>` : ''}
+                    ${r.reporterIp ? `<span style="font-size: 11px; opacity: 0.6;">(IP: ${escapeHtml(r.reporterIp)})</span>` : ''}
+                  </div>
+
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    ${isPending ? `
+                      <button class="btn btn-primary btn-sm" type="button" data-action="resolve-report" data-id="${escapeHtml(r.id)}" style="background: #10b981; border-color: #10b981;">
+                        <i data-lucide="check"></i> Mark Resolved
+                      </button>
+                      <button class="btn btn-ghost btn-sm" type="button" data-action="dismiss-report" data-id="${escapeHtml(r.id)}">
+                        <i data-lucide="x"></i> Dismiss
+                      </button>
+                    ` : `
+                      <button class="btn btn-ghost btn-sm" type="button" data-action="reopen-report" data-id="${escapeHtml(r.id)}">
+                        <i data-lucide="rotate-ccw"></i> Reopen
+                      </button>
+                    `}
+                    <button class="btn btn-danger btn-sm" type="button" data-action="delete-report" data-id="${escapeHtml(r.id)}">
+                      <i data-lucide="trash-2"></i> Delete
                     </button>
                   </div>
                 </div>
@@ -9619,6 +10114,7 @@ function renderView(data) {
       else if (current === 'settings') html = renderSettingsManagementView(data.settings || {}, data || {});
       else if (current === 'payment') html = renderPaymentManagementView(data.payment || {}, data || {});
       else if (current === 'orders') html = renderOrdersManagementView(data.orders || {}, data || {});
+      else if (current === 'reports') html = renderReportsManagementView(data.reports || {}, data || {});
       else if (current === 'reviews') html = renderReviewsManagementView(data.reviews || {}, data || {});
       else if (current === 'screenshots') html = renderScreenshotsGalleryView(data.orders || {}, data || {});
       else if (current === 'users') html = renderUsersManagementView(data || {});
@@ -9635,7 +10131,9 @@ function renderView(data) {
       initCatalogDragAndDrop();
       if (current === 'analytics') mountAnalyticsCharts();
       if (notifyCount) {
-        notifyCount.textContent = String(recentActivity(12).length);
+        const pendingReps = Object.values(data.reports || {}).filter(r => (r.status || 'pending') === 'pending').length;
+        const pendingOrds = Object.values(data.orders || {}).filter(o => o.status === 'pending' || o.orderStatus === 'pending').length;
+        notifyCount.textContent = String(pendingReps + pendingOrds);
       }
     } catch (error) {
       viewRoot.innerHTML = `
@@ -10372,6 +10870,41 @@ function attachGlobalHandlers() {
       }, 100);
       return;
     }
+    if (action === 'approve-product') {
+      const pId = actionBtn.dataset.id;
+      if (!pId) return;
+      actionBtn.disabled = true;
+      actionBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Approving...';
+      try {
+        const authQuery = (typeof getAdminAuthParam === 'function' && getAdminAuthParam()) ? `?${getAdminAuthParam()}` : '';
+        await Promise.allSettled([
+          fetch(`${RTDB_URL}/products/${encodeURIComponent(pId)}/status.json${authQuery}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify('active'),
+          }),
+          fetch(`${RTDB_URL}/products/${encodeURIComponent(pId)}/approvalStatus.json${authQuery}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify('approved'),
+          })
+        ]);
+        showToast('Pack approved and published live to JaiGram Shop!', 'success');
+        actionBtn.style.background = '#10b981';
+        actionBtn.style.borderColor = '#10b981';
+        actionBtn.innerHTML = '<i data-lucide="check"></i> Live on JaiGram';
+        if (ui.data?.products?.[pId]) {
+          ui.data.products[pId].status = 'active';
+          ui.data.products[pId].approvalStatus = 'approved';
+        }
+        setTimeout(() => { if (typeof renderView === 'function') renderView(ui.data || {}); }, 800);
+      } catch (err) {
+        showToast('Failed to approve pack: ' + (err.message || err), 'error');
+        actionBtn.disabled = false;
+        actionBtn.innerHTML = '<i data-lucide="check-circle"></i> Approve';
+      }
+      return;
+    }
     if (action === 'copy-credentials') {
       const text = actionBtn.dataset.text || '';
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -10615,6 +11148,99 @@ function attachGlobalHandlers() {
         ui.media.selectedIds?.clear();
         showToast(`Trash emptied (${deletedItems.length} assets permanently deleted).`, 'success');
         renderView(ui.data || {});
+      }
+      return;
+    }
+    if (action === 'filter-reports-status') {
+      if (!ui.reports) ui.reports = {};
+      ui.reports.status = actionBtn.dataset.status || 'all';
+      renderView(ui.data || {});
+      return;
+    }
+    if (action === 'resolve-report') {
+      const repId = actionBtn.dataset.id;
+      if (!repId) return;
+      try {
+        await update(ref(db, `reports/${repId}`), {
+          status: 'resolved',
+          resolvedAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        if (ui.data?.reports?.[repId]) {
+          ui.data.reports[repId].status = 'resolved';
+        }
+        showToast('Report marked as resolved ✓', 'success');
+        renderView(ui.data || {});
+      } catch (err) {
+        showToast('Failed to update report: ' + err.message, 'danger');
+      }
+      return;
+    }
+    if (action === 'dismiss-report') {
+      const repId = actionBtn.dataset.id;
+      if (!repId) return;
+      try {
+        await update(ref(db, `reports/${repId}`), {
+          status: 'dismissed',
+          dismissedAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        if (ui.data?.reports?.[repId]) {
+          ui.data.reports[repId].status = 'dismissed';
+        }
+        showToast('Report dismissed', 'info');
+        renderView(ui.data || {});
+      } catch (err) {
+        showToast('Failed to dismiss report: ' + err.message, 'danger');
+      }
+      return;
+    }
+    if (action === 'reopen-report') {
+      const repId = actionBtn.dataset.id;
+      if (!repId) return;
+      try {
+        await update(ref(db, `reports/${repId}`), {
+          status: 'pending',
+          updatedAt: Date.now(),
+        });
+        if (ui.data?.reports?.[repId]) {
+          ui.data.reports[repId].status = 'pending';
+        }
+        showToast('Report reopened to pending', 'info');
+        renderView(ui.data || {});
+      } catch (err) {
+        showToast('Failed to reopen report: ' + err.message, 'danger');
+      }
+      return;
+    }
+    if (action === 'delete-report') {
+      const repId = actionBtn.dataset.id;
+      if (!repId) return;
+      if (confirm('Permanently delete this report? This cannot be undone.')) {
+        try {
+          await remove(ref(db, `reports/${repId}`));
+          if (ui.data?.reports?.[repId]) {
+            delete ui.data.reports[repId];
+          }
+          showToast('Report permanently deleted', 'success');
+          renderView(ui.data || {});
+        } catch (err) {
+          showToast('Failed to delete report: ' + err.message, 'danger');
+        }
+      }
+      return;
+    }
+    if (action === 'refresh-reports') {
+      showToast('Refreshing reports...', 'info');
+      try {
+        const snap = await get(ref(db, 'reports'));
+        if (ui.data) {
+          ui.data.reports = snap.exists() ? snap.val() : {};
+        }
+        renderView(ui.data || {});
+        showToast('Reports refreshed!', 'success');
+      } catch (err) {
+        showToast('Refresh error: ' + err.message, 'danger');
       }
       return;
     }
@@ -11127,6 +11753,93 @@ function attachGlobalHandlers() {
           console.warn('order_approvals sync note:', syncErr);
         }
 
+        // If order was a wallet top-up, credit the customer wallet balance in database and dispatch official receipt email!
+        if (order.type === 'wallet_topup' || order.pkg === 'wallet_topup') {
+          try {
+            const bEmail = order.customerEmail || order.email || order.buyerEmail || '';
+            const cUid = order.customerUid || (bEmail ? 'cust_' + bEmail.toLowerCase().replace(/[^a-z0-9]/gi, '_') : '');
+            const topupAmount = Number(order.amount || order.amountINR || order.price || 0);
+            if (cUid && topupAmount > 0) {
+              const custSnap = await get(ref(db, `customers/${cUid}`));
+              const currentCust = custSnap.exists() ? custSnap.val() : {};
+              const currentBal = Number(currentCust.walletBalance) || 0;
+              const newBal = currentBal + topupAmount;
+              await update(ref(db, `customers/${cUid}`), { walletBalance: newBal, updatedAt: Date.now() });
+              try { await update(ref(db, `events/customers/${cUid}`), { walletBalance: newBal, updatedAt: Date.now() }); } catch (_) {}
+
+              // ━━ DISPATCH OFFICIAL WALLET RECEIPT EMAIL TO CUSTOMER VIA LINKADDA SHOP ━━
+              if (bEmail) {
+                const buyerDispName = currentCust.displayName || order.customerName || order.buyerName || 'Valued Member';
+                const formattedDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+                const orderReceiptId = order.orderId || id;
+                const payMethod = order.paymentMethod || order.method || 'Instant UPI / Online Payment';
+                sendAdminNotificationEmail({
+                  to: [{ email: bEmail, name: buyerDispName }],
+                  subject: `💰 Payment Receipt: ₹${topupAmount} Added to Your LinkAdda Wallet (${orderReceiptId})`,
+                  htmlContent: `
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #07060c; color: #ffffff; padding: 32px 24px; border-radius: 16px; max-width: 520px; margin: 0 auto; border: 1px solid rgba(16, 185, 129, 0.3);">
+                      <div style="text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 26px; font-weight: 800; color: #ffffff;">LinkAdda <span style="color: #10b981;">&#9819;</span> Shop</div>
+                        <div style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #10b981; font-weight: 700; margin-top: 4px;">Official Wallet Top-up Receipt</div>
+                      </div>
+                      <div style="text-align: center; margin-bottom: 20px;">
+                        <span style="display: inline-block; padding: 5px 14px; border-radius: 9999px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">
+                          &#10004; Funds Added Successfully
+                        </span>
+                      </div>
+                      <h2 style="color: #ffffff; margin: 0 0 10px; font-size: 19px; text-align: center;">Hello ${escapeHtml(buyerDispName)}! 🎉</h2>
+                      <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin-bottom: 22px; text-align: center;">
+                        Aapke LinkAdda Wallet me <strong>₹${topupAmount.toFixed(2)}</strong> successfully add ho gaye hain. Ab aap instant 1-click checkout se koi bhi pack khareed sakte hain.
+                      </p>
+                      
+                      <!-- Prominent Receipt Box -->
+                      <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 22px; text-align: center;">
+                        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">Amount Credited</div>
+                        <div style="font-size: 32px; font-weight: 850; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 8px;">₹${topupAmount.toFixed(2)}</div>
+                        <div style="display: inline-block; padding: 3px 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); font-size: 12px; color: #e2e8f0;">
+                          New Wallet Balance: <strong style="color: #34d399;">₹${newBal.toFixed(2)}</strong>
+                        </div>
+                      </div>
+
+                      <!-- Receipt Breakdown Table -->
+                      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; color: #cbd5e1;">
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                          <td style="padding: 9px 0; color: #94a3b8;">Receipt / Ref ID:</td>
+                          <td style="padding: 9px 0; color: #ffffff; font-weight: 700; text-align: right; font-family: monospace;">${escapeHtml(orderReceiptId)}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                          <td style="padding: 9px 0; color: #94a3b8;">Payment Mode:</td>
+                          <td style="padding: 9px 0; color: #ffffff; font-weight: 600; text-align: right;">${escapeHtml(payMethod)}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                          <td style="padding: 9px 0; color: #94a3b8;">Date &amp; Time:</td>
+                          <td style="padding: 9px 0; color: #cbd5e1; text-align: right;">${escapeHtml(formattedDate)}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 9px 0; color: #94a3b8;">Status:</td>
+                          <td style="padding: 9px 0; color: #34d399; font-weight: 700; text-align: right;">&#10004; Verified &amp; Approved</td>
+                        </tr>
+                      </table>
+
+                      <div style="text-align: center; margin-bottom: 20px;">
+                        <a href="https://linkadda.shop/user" target="_blank" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; padding: 13px 28px; border-radius: 12px; font-weight: 750; font-size: 14px; text-decoration: none; display: inline-block; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45); letter-spacing: 0.3px;">
+                          🚀 Open LinkAdda User Dashboard
+                        </a>
+                      </div>
+
+                      <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; text-align: center;">
+                        <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} LinkAdda Shop &bull; Official Digital Marketplace</p>
+                      </div>
+                    </div>
+                  `
+                }).catch(e => console.warn('Wallet topup receipt dispatch error:', e));
+              }
+            }
+          } catch (wErr) {
+            console.warn('Wallet balance credit on admin approval note:', wErr);
+          }
+        }
+
         // Update settings.recentApproved pool (up to 10 persistent) so storefront rotates them
         try {
           const currentSettings = ui.data?.settings || {};
@@ -11155,7 +11868,7 @@ function attachGlobalHandlers() {
         const buyerEmail = order.customerEmail || order.email || order.buyerEmail || order.customer?.email || '';
         const buyerName = order.customerName || order.name || order.buyerName || 'Valued Member';
 
-        if (buyerEmail) {
+        if (buyerEmail && order.type !== 'wallet_topup' && order.pkg !== 'wallet_topup') {
           sendAdminNotificationEmail({
             to: [{ email: buyerEmail, name: buyerName }],
             subject: `✅ Payment Approved! Access Your Pack (${orderTitle})`,
@@ -11179,7 +11892,7 @@ function attachGlobalHandlers() {
                   Direct URL: <a href="${escapeHtml(productLink)}" style="color: #38bdf8; word-break: break-all;">${escapeHtml(productLink)}</a>
                 </p>
                 <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; text-align: center;">
-                  <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} LinkAdda Shop &bull; 24/7 VIP Support: @TRUSTED_BROTHER1234</p>
+                  <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} LinkAdda Shop &bull; 24/7 VIP Support: @Linkadda_Support</p>
                 </div>
               </div>
             `
@@ -11379,11 +12092,22 @@ function attachGlobalHandlers() {
       const formData = new FormData(form);
       const name = (formData.get('name') || '').trim();
       const type = (formData.get('type') || 'crypto').trim();
-      const identifier = (formData.get('identifier') || '').trim();
+      const cryptoAddress = (formData.get('cryptoAddress') || '').trim();
+      const network = (formData.get('network') || '').trim();
+      const bankName = (formData.get('bankName') || '').trim();
+      const accountHolder = (formData.get('accountHolder') || '').trim();
+      const accountNumber = (formData.get('accountNumber') || '').trim();
+      const ifsc = (formData.get('ifsc') || '').trim().toUpperCase();
+      const bankUpiId = (formData.get('bankUpiId') || '').trim();
+      
+      let identifier = (formData.get('identifier') || '').trim();
+      if (!identifier && cryptoAddress) identifier = cryptoAddress;
+      if (!identifier && accountNumber) identifier = accountNumber;
+
       const tag = (formData.get('tag') || 'ACTIVE').trim().toUpperCase();
       const logo = (formData.get('logo') || '').trim();
       const qrImage = (formData.get('qrImage') || '').trim();
-      const sub = (formData.get('sub') || '').trim();
+      const sub = (formData.get('sub') || '').trim() || (network ? network : '');
       const instructions = (formData.get('instructions') || '').trim();
       const status = formData.get('status') || 'active';
       const isRecommended = form.querySelector('#pmIsRecommended')?.checked || false;
@@ -11404,15 +12128,23 @@ function attachGlobalHandlers() {
         updatedPayment.recommendedMethod = methodId;
       }
 
-      if (isCustom || !['binancepay', 'upi', 'bep20', 'eth', 'paypal', 'giftcard'].includes(methodId)) {
+      if (isCustom || !['binancepay', 'upi', 'bep20', 'eth', 'paypal', 'giftcard', 'custom_bank', 'custom_btc'].includes(methodId)) {
         customMethods[methodId] = {
           id: methodId,
           name,
           type,
           identifier,
+          network,
+          bankName,
+          accountName: accountHolder,
+          accountHolder,
+          accountNumber,
+          ifsc,
+          upiId: bankUpiId,
           tag,
           logo,
           qrImage,
+          insideImage: qrImage,
           sub,
           instructions,
           status,
@@ -11460,7 +12192,7 @@ function attachGlobalHandlers() {
           updatedPayment.paypalLink = identifier;
           updatedPayment.paypalLogo = logo;
           updatedPayment.paypalQr = qrImage;
-          if (name) updatedPayment.paypalName = name;
+          if (name) { updatedPayment.paypalName = name; updatedPayment.paypalTitle = name; }
           if (sub) updatedPayment.paypalSub = sub;
           if (tag) updatedPayment.paypalTag = tag;
           if (instructions) updatedPayment.paypalInstructions = instructions;
@@ -11472,6 +12204,70 @@ function attachGlobalHandlers() {
           if (sub) updatedPayment.giftcardSub = sub;
           if (tag) updatedPayment.giftcardTag = tag;
           if (instructions) updatedPayment.giftcardInstructions = instructions;
+        } else if (methodId === 'cards') {
+          updatedPayment.cardsLogo = logo;
+          updatedPayment.cardsLink = identifier;
+          updatedPayment.cardsUrl = identifier;
+          if (name) { updatedPayment.cardsTitle = name; updatedPayment.cardsName = name; }
+          if (sub) updatedPayment.cardsSub = sub;
+          if (tag) updatedPayment.cardsTag = tag;
+          if (instructions) updatedPayment.cardsInstructions = instructions;
+        } else if (methodId === 'netbanking') {
+          updatedPayment.netbankingLogo = logo;
+          if (name) { updatedPayment.netbankingTitle = name; updatedPayment.netbankingName = name; }
+          if (sub) updatedPayment.netbankingSub = sub;
+          if (tag) updatedPayment.netbankingTag = tag;
+        } else if (methodId === 'wallet') {
+          if (name) { updatedPayment.walletTitle = name; updatedPayment.walletName = name; }
+          if (sub) updatedPayment.walletSub = sub;
+          if (tag) updatedPayment.walletTag = tag;
+        } else if (methodId === 'custom_bank') {
+          updatedPayment.bankLogo = logo;
+          updatedPayment.bankQr = qrImage;
+          if (bankName) updatedPayment.bankName = bankName;
+          if (accountNumber) updatedPayment.accountNumber = accountNumber;
+          if (ifsc) updatedPayment.ifsc = ifsc;
+          if (accountHolder) updatedPayment.accountHolder = accountHolder;
+          if (bankUpiId) updatedPayment.bankUpiId = bankUpiId;
+          if (name) updatedPayment.bankTitle = name;
+          if (sub) updatedPayment.bankSub = sub;
+          if (tag) updatedPayment.bankTag = tag;
+          customMethods.custom_bank = {
+            ...(customMethods.custom_bank || {}),
+            id: 'custom_bank',
+            name: name || 'Bank Transfer (IMPS / NEFT)',
+            sub: sub || 'Direct Account Transfer',
+            bankName: bankName || updatedPayment.bankName || 'State Bank of India',
+            accountName: accountHolder || updatedPayment.accountHolder || 'Pandit Bajpai',
+            accountNumber: accountNumber || updatedPayment.accountNumber || '45231994969',
+            ifsc: ifsc || updatedPayment.ifsc || 'SBIN0002594',
+            upiId: bankUpiId || updatedPayment.bankUpiId || '',
+            qrImage,
+            logo,
+            instructions,
+            status,
+          };
+          updatedPayment.customMethods = customMethods;
+        } else if (methodId === 'custom_btc') {
+          updatedPayment.btcLogo = logo;
+          updatedPayment.btcQr = qrImage;
+          updatedPayment.btcAddress = identifier;
+          if (name) updatedPayment.btcTitle = name;
+          if (sub) updatedPayment.btcSub = sub;
+          if (tag) updatedPayment.btcTag = tag;
+          customMethods.custom_btc = {
+            ...(customMethods.custom_btc || {}),
+            id: 'custom_btc',
+            name: name || 'Bitcoin (BTC)',
+            sub: sub || 'BTC Native Network',
+            network: network || sub || 'BTC Native Network',
+            identifier,
+            qrImage,
+            logo,
+            instructions,
+            status,
+          };
+          updatedPayment.customMethods = customMethods;
         }
       }
 
@@ -11484,23 +12280,8 @@ function attachGlobalHandlers() {
           localStorage.setItem('linkadda_payment_payment', JSON.stringify(updatedPayment));
           localStorage.setItem('linkadda_payment_config', JSON.stringify({
             recommendedMethod: updatedPayment.recommendedMethod || 'binancepay',
-            upiId: updatedPayment.upiId || '',
-            qrImage: updatedPayment.qrImage || '',
-            binanceId: updatedPayment.binanceId || '',
-            binanceQr: updatedPayment.binanceQr || '',
-            binanceLogo: updatedPayment.binanceLogo || '',
-            bep20Address: updatedPayment.bep20Address || '',
-            bep20Qr: updatedPayment.bep20Qr || '',
-            bep20Logo: updatedPayment.bep20Logo || '',
-            ethAddress: updatedPayment.ethAddress || '',
-            ethQr: updatedPayment.ethQr || '',
-            ethLogo: updatedPayment.ethLogo || '',
-            paypalLink: updatedPayment.paypalLink || '',
-            paypalQr: updatedPayment.paypalQr || '',
-            paypalLogo: updatedPayment.paypalLogo || '',
-            binanceGiftCardUrl: updatedPayment.binanceGiftCardUrl || '',
-            giftcardQr: updatedPayment.giftcardQr || '',
-            giftcardLogo: updatedPayment.giftcardLogo || '',
+            recommendationBadge: updatedPayment.recommendationBadge || 'RECOMMENDED',
+            ...updatedPayment
           }));
         } catch (_) {}
         showToast(`Payment method "${name}" saved successfully!`, 'success');
@@ -11526,6 +12307,7 @@ function attachGlobalHandlers() {
           ...prodData,
           image: prodData.image,
           thumbnail: prodData.image,
+          coverImage: prodData.image || (Array.isArray(prodData.images) && prodData.images[0]) || '',
           images: prodData.images,
           galleryImages: prodData.galleryImages,
           video: prodData.video,
@@ -11760,6 +12542,17 @@ function attachGlobalHandlers() {
     if (event.target.id === 'paymentSearch' || event.target.id === 'orderSearch') {
       ui.management.search = event.target.value;
       renderView(ui.data || {});
+      return;
+    }
+    if (event.target.id === 'reportsSearchInput') {
+      if (!ui.reports) ui.reports = {};
+      ui.reports.search = event.target.value;
+      renderView(ui.data || {});
+      const input = document.getElementById('reportsSearchInput');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
       return;
     }
     if (event.target.id === 'reviewsSearchInput') {
@@ -12241,6 +13034,17 @@ subscribe((data) => {
     syncRealApprovedOrdersToSettings(data);
   }
 });
+
+// Initial route handling renders the active route cleanly ONCE from cache
+initRouteHandling();
+isInitialBoot = false;
+
+// Protect route verifies auth and activates authenticated realtime sync
+protectRoute((user) => {
+  syncTopbar(user);
+  startRealtime(true);
+});
+
 
 // Initial route handling renders the active route cleanly ONCE from cache
 initRouteHandling();

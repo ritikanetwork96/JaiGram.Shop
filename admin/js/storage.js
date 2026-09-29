@@ -14,7 +14,7 @@ async function getUploadAuthHeaders() {
 }
 
 const SUPABASE_STORAGE_ROOT = `${SUPABASE_CONFIG.url}/storage/v1/object`;
-const RUSTFS_STORAGE_ROOT = `${RUSTFS_CONFIG.endpoint}/${encodeURIComponent(RUSTFS_CONFIG.bucket)}`;
+const R2_STORAGE_ROOT = (RUSTFS_CONFIG.publicUrl || RUSTFS_CONFIG.endpoint || 'https://media.jaigram.shop').replace(/\/+$/, '');
 
 function joinPath(...parts) {
   return parts
@@ -25,7 +25,7 @@ function joinPath(...parts) {
 
 export function getRustfsUrl(path) {
   const clean = String(path || '').replace(/^\/+/, '');
-  return `${RUSTFS_STORAGE_ROOT}/${encodeURI(clean)}`;
+  return `${R2_STORAGE_ROOT}/${encodeURI(clean)}`;
 }
 
 export function getSupabaseUrl(path) {
@@ -36,10 +36,21 @@ export function getSupabaseUrl(path) {
 export function getPublicUrl(path) {
   const clean = String(path || '').trim();
   if (!clean) return '';
-  if (/^https?:\/\//i.test(clean) || clean.startsWith('data:') || clean.startsWith('blob:')) {
-    if (clean.includes('supabase.co/storage/v1/object/public/media/')) {
-      return clean.replace('https://noecylfqhtfwbjfkjxoo.supabase.co/storage/v1/object/public/media/', `${RUSTFS_CONFIG.endpoint}/${encodeURIComponent(RUSTFS_CONFIG.bucket)}/`);
+  if (clean.includes('srv1942099.hstgr.cloud') || clean.includes('hstgr.cloud') || clean.includes('rustfs') || clean.includes('media.linkadda.shop')) {
+    let sub = '';
+    if (clean.includes('/linkadda-media/')) sub = clean.split('/linkadda-media/')[1];
+    else if (clean.includes('/jaigram-media/')) sub = clean.split('/jaigram-media/')[1];
+    else {
+      const parts = clean.split('/');
+      sub = parts.slice(3).join('/');
     }
+    sub = (sub || '').replace(/^\/+/, '');
+    if (sub && !sub.includes('/') && sub.match(/\.(jpg|jpeg|png|webp|gif|svg|avif|mp4|webm|mov|m4v)$/i)) {
+      sub = `products/${sub}`;
+    }
+    return `https://media.jaigram.shop/${sub}`;
+  }
+  if (/^https?:\/\//i.test(clean) || clean.startsWith('data:') || clean.startsWith('blob:')) {
     return clean;
   }
   return getRustfsUrl(clean);
@@ -86,6 +97,11 @@ export function getStoragePath(value) {
   try {
     const url = new URL(raw);
     
+    // Check media.jaigram.shop / media.linkadda.shop custom domain
+    if (url.hostname.includes('media.jaigram.shop') || url.hostname.includes('media.linkadda.shop')) {
+      return decodeURIComponent(url.pathname.replace(/^\/+/, ''));
+    }
+
     // Check RustFS pattern: /linkadda-media/path
     const rustfsMarker = `/${encodeURIComponent(RUSTFS_CONFIG.bucket)}/`;
     const rustfsIdx = url.pathname.indexOf(rustfsMarker);
@@ -113,16 +129,11 @@ export async function deletePublicAsset(path) {
 
   if (isSupabase) {
     try {
-      const res = await fetch(`${SUPABASE_STORAGE_ROOT}/${encodeURIComponent(SUPABASE_CONFIG.bucket)}/${encodeURI(storagePath)}`, {
-        method: 'DELETE',
-        headers: {
-          apikey: SUPABASE_CONFIG.anonKey,
-          Authorization: `Bearer ${SUPABASE_CONFIG.anonKey}`,
-        },
-      });
-      return res;
+      // Direct client deletion using public anonKey is disabled for security
+      console.info('Storage asset deletion skipped on client; managed by storage policy:', storagePath);
+      return true;
     } catch (e) {
-      console.warn('Supabase delete error (skipped):', e);
+      console.warn('Supabase delete notice:', e);
     }
   }
 

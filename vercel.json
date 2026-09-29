@@ -24,9 +24,11 @@
     { "source": "/seller/index.html", "destination": "/seller", "statusCode": 301 },
     { "source": "/seller/login.html", "destination": "/seller/login", "statusCode": 301 },
     { "source": "/seller/apply.html", "destination": "/seller/apply", "statusCode": 301 },
-    { "source": "/seller/dashboard.html", "destination": "/seller/dashboard", "statusCode": 301 }
+    { "source": "/seller/dashboard.html", "destination": "/seller/dashboard", "statusCode": 301 },
+    { "source": "/user/index.html", "destination": "/user", "statusCode": 301 }
   ],
   "rewrites": [
+    { "source": "/media/(.*)", "destination": "/api/media?path=$1" },
     { "source": "/seller.css", "destination": "/seller/seller.css" },
     { "source": "/assets/(.*)", "destination": "/admin/assets/$1" },
     { "source": "/about", "destination": "/about.html" },
@@ -40,7 +42,9 @@
     { "source": "/seller/login", "destination": "/seller/login.html" },
     { "source": "/seller/apply", "destination": "/seller/apply.html" },
     { "source": "/seller/dashboard", "destination": "/seller/dashboard.html" },
-    { "source": "/seller/(.*)", "destination": "/seller/index.html" }
+    { "source": "/seller/(.*)", "destination": "/seller/index.html" },
+    { "source": "/user", "destination": "/user/index.html" },
+    { "source": "/user/(.*)", "destination": "/user/index.html" }
   ],
   "headers": [
     {
@@ -48,7 +52,9 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
       ]
     },
     {

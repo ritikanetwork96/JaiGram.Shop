@@ -2,11 +2,11 @@ import crypto from 'node:crypto';
 import { getAuthSecret, isValidEmail, getClientIp, handleCors } from '../_utils.js';
 
 // In-memory rate limiting map: email -> timestamp of last request
-const otpCooldownMap = new Map();
+const otpCooldownMap = globalThis.__LINKADDA_OTP_COOLDOWN || (globalThis.__LINKADDA_OTP_COOLDOWN = new Map());
 const COOLDOWN_SECONDS = 60;
 
-// In-memory IP rate limiting: ip -> array of timestamps within window
-const ipRateLimitMap = new Map();
+// Shared IP rate limiting across warm serverless executions
+const ipRateLimitMap = globalThis.__LINKADDA_IP_LIMIT || (globalThis.__LINKADDA_IP_LIMIT = new Map());
 const IP_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_OTP_PER_IP = 6; // Max 6 OTP requests per 10 mins per IP
 
@@ -21,7 +21,7 @@ export function renderLuxuryEmailHtml(otp, userEmail) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your LinkAdda Verification Code</title>
+  <title>Your JaiGram Verification Code</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #07060c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07060c; padding: 40px 15px;">
@@ -34,7 +34,7 @@ export function renderLuxuryEmailHtml(otp, userEmail) {
           <tr>
             <td style="padding: 36px 32px 24px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
               <div style="font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">
-                LinkAdda <span style="color: #ff2a8d; font-size: 26px; margin: 0 4px;">&#9819;</span> <span style="background: linear-gradient(135deg, #ff2a8d 0%, #ff7bb0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Shop</span>
+                JaiGram <span style="color: #ff2a8d; font-size: 26px; margin: 0 4px;">&#9819;</span> <span style="background: linear-gradient(135deg, #ff2a8d 0%, #ff7bb0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Shop</span>
               </div>
               <div style="margin-top: 6px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">
                 Authentic Premium Marketplace
@@ -73,7 +73,7 @@ export function renderLuxuryEmailHtml(otp, userEmail) {
           <tr>
             <td style="padding: 20px 32px; background: rgba(255, 255, 255, 0.03); border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: left;">
               <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #94a3b8;">
-                <strong style="color: #cbd5e1;">Security Notice:</strong> LinkAdda staff will never ask you for this verification code. If you didn't attempt to sign in, please ignore this email.
+                <strong style="color: #cbd5e1;">Security Notice:</strong> JaiGram staff will never ask you for this verification code. If you didn't attempt to sign in, please ignore this email.
               </p>
             </td>
           </tr>
@@ -82,7 +82,7 @@ export function renderLuxuryEmailHtml(otp, userEmail) {
           <tr>
             <td style="padding: 24px 32px; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.04);">
               <p style="margin: 0; font-size: 12px; color: #64748b;">
-                &copy; ${new Date().getFullYear()} LinkAdda Shop &bull; <a href="https://linkadda.shop" style="color: #ff2a8d; text-decoration: none; font-weight: 600;">linkadda.shop</a>
+                &copy; ${new Date().getFullYear()} JaiGram Shop &bull; <a href="https://jaigram.shop" style="color: #ff2a8d; text-decoration: none; font-weight: 600;">jaigram.shop</a>
               </p>
             </td>
           </tr>
@@ -136,7 +136,7 @@ export default async function handler(req, res) {
     }
 
     const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
-    const senderName = (process.env.BREVO_SENDER_NAME || 'Linkadda Shop').trim();
+    const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
 
     // Generate 6-digit OTP and signed token (valid for 5 minutes)
     const otp = generateOtp();
@@ -157,7 +157,7 @@ export default async function handler(req, res) {
           email: email,
         },
       ],
-      subject: `${otp} is your LinkAdda verification code`,
+      subject: `${otp} is your JaiGram verification code`,
       htmlContent: renderLuxuryEmailHtml(otp, email),
     };
 

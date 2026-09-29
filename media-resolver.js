@@ -1,13 +1,14 @@
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
 
-const RUSTFS_BASE = "https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media";
+const RUSTFS_BASE = "https://media.jaigram.shop";
+const R2_BASE = "https://media.jaigram.shop";
 const mediaMap = new Map();
 const fallbackMap = new Map();
 let observer = null;
 let rafId = 0;
 
 // High-quality fallback SVG data URI for broken images
-const FALLBACK_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="100%" height="100%" fill="%2314141e"/><g fill="none" stroke="%237c3aed" stroke-width="2"><rect x="90" y="50" width="120" height="100" rx="16"/><circle cx="130" cy="85" r="12"/><path d="M100 135 l25-25 20 20 25-30 20 35"/></g><text x="50%" y="175" fill="%238b8baa" font-family="sans-serif" font-size="12" text-anchor="middle" font-weight="600">Linkadda Media</text></svg>';
+const FALLBACK_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="100%" height="100%" fill="%2314141e"/><g fill="none" stroke="%237c3aed" stroke-width="2"><rect x="90" y="50" width="120" height="100" rx="16"/><circle cx="130" cy="85" r="12"/><path d="M100 135 l25-25 20 20 25-30 20 35"/></g><text x="50%" y="175" fill="%238b8baa" font-family="sans-serif" font-size="12" text-anchor="middle" font-weight="600">JaiGram Media</text></svg>';
 
 // Known local bundled image assets
 const LOCAL_ASSETS_LIST = [
@@ -251,10 +252,9 @@ function updateImage(el) {
         return;
       }
 
-      // 4. Deterministic pool fallback for products
-      const poolFallback = `images/${PRODUCT_PHOTOS[(retries * 7) % PRODUCT_PHOTOS.length]}`;
-      if (!currentSrc.endsWith(poolFallback)) {
-        this.src = poolFallback;
+      // 4. Default clean fallback image
+      if (!currentSrc.includes('prod_vip_bundle.jpg')) {
+        this.src = 'images/prod_vip_bundle.jpg';
         return;
       }
 
@@ -265,30 +265,79 @@ function updateImage(el) {
     });
   }
 
-  // If the src is a bare filename like "photo_41_..." or relative without "images/", fix it
+  // Fix double-nested products/productsgallery bug if ever present
+  if (current.includes('/products/productsgallery/')) {
+    const fixedUrl = current.replace('/products/productsgallery/', '/productsgallery/');
+    el.dataset.resolvedSrc = fixedUrl;
+    el.setAttribute('src', fixedUrl);
+    return;
+  }
+
+  // Keep real CDN URLs intact
+  if (current.includes('media.jaigram.shop')) {
+    el.dataset.resolvedSrc = current;
+    return;
+  }
+
+  // Rewrite legacy Hostinger, RustFS, Cloudflare R2 direct, or old LinkAdda media domains to media.jaigram.shop
+  if (current.includes('srv1942099.hstgr.cloud') || current.includes('hstgr.cloud') || current.includes('rustfs') || current.includes('media.linkadda.shop') || current.includes('r2.cloudflarestorage.com')) {
+    let sub = '';
+    if (current.includes('/linkadda-media/')) {
+      sub = current.split('/linkadda-media/')[1];
+    } else if (current.includes('/jaigram-media/')) {
+      sub = current.split('/jaigram-media/')[1];
+    } else if (current.includes('media.linkadda.shop/')) {
+      sub = current.split('media.linkadda.shop/')[1];
+    } else {
+      try {
+        const parsed = new URL(current, window.location.href);
+        sub = parsed.pathname;
+      } catch (_) {
+        const parts = current.split('/');
+        sub = parts.slice(3).join('/');
+      }
+    }
+    sub = (sub || '').replace(/^\/+/, '');
+    if (sub && !sub.includes('/') && sub.match(/\.(jpg|jpeg|png|webp|gif|svg|avif|mp4|webm|mov|m4v)$/i)) {
+      sub = `products/${sub}`;
+    }
+    const realUrl = `https://media.jaigram.shop/${sub}`;
+    el.dataset.resolvedSrc = realUrl;
+    el.setAttribute('src', realUrl);
+    return;
+  }
+
+  // If path is a real storage path like /media/..., products/..., productsgallery/..., seller_products/..., categories/..., orders/...
+  if (current.startsWith('/media/') || current.startsWith('products/') || current.startsWith('productsgallery/') || current.startsWith('seller_products/') || current.startsWith('orders/') || current.startsWith('categories/') || current.startsWith('logos/')) {
+    const cleanKey = current.replace(/^\/?media\//, '').replace(/^\/+/, '');
+    const realUrl = `https://media.jaigram.shop/${cleanKey}`;
+    el.dataset.resolvedSrc = realUrl;
+    el.setAttribute('src', realUrl);
+    return;
+  }
+
+  // If the src is a bare filename like "photo_41_..." or relative without "images/", check if it's local
   if (!/^(https?:)?\/\//i.test(current) && !current.startsWith('data:') && !current.startsWith('blob:')) {
     if (!current.startsWith('images/') && !current.startsWith('/images/')) {
       const fn = current.split('/').pop().split('?')[0];
-      const local = getLocalFallback(fn, el) || `images/${fn}`;
-      el.setAttribute('src', local);
+      if (LOCAL_ASSETS.has(fn)) {
+        el.setAttribute('src', `images/${fn}`);
+        return;
+      }
+      // If it's an uploaded asset, map to media.jaigram.shop
+      const realUrl = `https://media.jaigram.shop/products/${fn}`;
+      el.dataset.resolvedSrc = realUrl;
+      el.setAttribute('src', realUrl);
       return;
     }
   }
 
-  // If it's a Supabase URL, seamlessly rewrite to RustFS S3
-  if (current.includes('supabase.co/storage/v1/object/public/media/')) {
-    const next = current.replace('https://noecylfqhtfwbjfkjxoo.supabase.co/storage/v1/object/public/media/', 'https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/');
+  const next = resolveValue(current);
+  if (next && next !== current && el.dataset.resolvedSrc !== next && el.getAttribute('src') !== next) {
     el.dataset.resolvedSrc = next;
     el.setAttribute('src', next);
-    return;
   }
-
-    const next = resolveValue(current);
-    if (next && next !== current && el.dataset.resolvedSrc !== next && el.getAttribute('src') !== next) {
-      el.dataset.resolvedSrc = next;
-      el.setAttribute('src', next);
-    }
-  }
+}
 
   function syncDocument() {
     document.querySelectorAll('img, source').forEach(updateImage);

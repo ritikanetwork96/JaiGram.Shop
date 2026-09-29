@@ -14,7 +14,7 @@ function renderSellerApprovalEmail(ownerName, storeName, sellerEmail, tempPasswo
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your LinkAdda Seller Account is Approved</title>
+  <title>Your JaiGram Seller Account is Approved</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #07060c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07060c; padding: 40px 15px;">
@@ -27,7 +27,7 @@ function renderSellerApprovalEmail(ownerName, storeName, sellerEmail, tempPasswo
           <tr>
             <td style="padding: 36px 32px 24px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
               <div style="font-size: 26px; font-weight: 800; color: #ffffff;">
-                LinkAdda <span style="color: #ff2a8d; font-size: 26px;">&#9819;</span> <span style="background: linear-gradient(135deg, #ff2a8d 0%, #ff7bb0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Seller Hub</span>
+                JaiGram <span style="color: #ff2a8d; font-size: 26px;">&#9819;</span> <span style="background: linear-gradient(135deg, #ff2a8d 0%, #ff7bb0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Seller Hub</span>
               </div>
               <div style="margin-top: 6px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #fbbf24; font-weight: 700;">
                 Official Partner Onboarding
@@ -88,7 +88,7 @@ function renderSellerApprovalEmail(ownerName, storeName, sellerEmail, tempPasswo
           <tr>
             <td style="padding: 20px 32px; background: rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #64748b;">
-                &copy; ${new Date().getFullYear()} LinkAdda Shop &bull; All Rights Reserved
+                &copy; ${new Date().getFullYear()} JaiGram Shop &bull; All Rights Reserved
               </p>
             </td>
           </tr>
@@ -232,6 +232,25 @@ export default async function handler(req, res) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(sellerRecord),
         }).catch(() => {});
+
+        // Sync to /public_sellers/${sellerId} so user dashboard sees it immediately
+        const publicSellerRecord = {
+          id: sellerId,
+          storeName: sellerRecord.storeName,
+          ownerName: sellerRecord.ownerName,
+          category: sellerRecord.category || 'Digital Creator',
+          avatar: sellerRecord.avatar || '',
+          verified: true,
+          status: 'active',
+          followerCount: 0,
+          totalProducts: 0,
+          joinedAt: Date.now(),
+        };
+        fetch(`${RTDB_URL}/public_sellers/${encodeURIComponent(sellerId)}.json${authQuery}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(publicSellerRecord),
+        }).catch(() => {});
       }
     } catch (e) {
       console.warn('RTDB background save notice:', e.message);
@@ -263,11 +282,11 @@ export default async function handler(req, res) {
     // 3. Send Credentials Email via Brevo API
     const apiKey = (process.env.BREVO_API_KEY || '').trim();
     const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
-    const senderName = (process.env.BREVO_SENDER_NAME || 'Linkadda Shop').trim();
+    const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
 
     const reqHost = req.headers['host'] || req.headers['x-forwarded-host'] || '';
     const isLocal = reqHost.includes('localhost') || reqHost.includes('127.0.0.1');
-    const portalUrl = isLocal ? `http://${reqHost}/seller/login` : 'https://linkadda.shop/seller/login';
+    const portalUrl = isLocal ? `http://${reqHost}/seller/login` : 'https://jaigram.shop/seller/login';
 
     let emailSent = false;
     if (apiKey) {
@@ -275,7 +294,7 @@ export default async function handler(req, res) {
         const brevoPayload = {
           sender: { name: senderName, email: senderEmail },
           to: [{ email: sellerRecord.email, name: sellerRecord.ownerName }],
-          subject: `🎉 Congratulations! Your LinkAdda Seller Account is Approved (${sellerRecord.storeName})`,
+          subject: `🎉 Congratulations! Your JaiGram Seller Account is Approved (${sellerRecord.storeName})`,
           htmlContent: renderSellerApprovalEmail(
             sellerRecord.ownerName,
             sellerRecord.storeName,

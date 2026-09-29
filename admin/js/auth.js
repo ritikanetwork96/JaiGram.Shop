@@ -287,11 +287,23 @@ export function mountLoginPage(root) {
 
 export function protectRoute(onReady) {
   let hasHandledAuth = false;
+  const MASTER_ADMIN_EMAIL = 'ritikanetwork96@gmail.com';
+
   onAuthStateChanged(auth, async (user) => {
+    const isLoginPath = /\/login(?:\.html)?\/?$/i.test(window.location.pathname);
     if (!user) {
-      if (!/\/login(?:\.html)?\/?$/i.test(window.location.pathname)) {
+      if (!isLoginPath) {
         window.location.href = '/admin/login';
       }
+      return;
+    }
+
+    const currentEmail = String(user.email || '').toLowerCase().trim();
+    if (currentEmail !== MASTER_ADMIN_EMAIL) {
+      console.warn('Unauthorized access to root admin blocked for user:', currentEmail);
+      try { await signOut(auth); } catch (_) {}
+      alert('Access Denied: You do not have master administrator privileges.');
+      window.location.href = '/admin/login';
       return;
     }
 

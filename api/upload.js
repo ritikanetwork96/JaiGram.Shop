@@ -9,44 +9,67 @@ const customHttpsAgent = new https.Agent({
 });
 
 function getEnvConfig() {
-  const endpoint = String(process.env.RUSTFS_ENDPOINT || '').replace(/\/+$/, '');
-  const bucket = String(process.env.RUSTFS_BUCKET || 'linkadda-media').trim();
-  const region = String(process.env.RUSTFS_REGION || 'us-east-1').trim();
-  const accessKeyId = String(process.env.RUSTFS_ACCESS_KEY || '').trim();
-  const secretAccessKey = String(process.env.RUSTFS_SECRET_KEY || '').trim();
+  const endpoint = String(process.env.R2_ENDPOINT || process.env.RUSTFS_ENDPOINT || '').replace(/\/+$/, '');
+  const bucket = String(process.env.R2_BUCKET || process.env.RUSTFS_BUCKET || 'linkadda-media').trim();
+  const region = String(process.env.R2_REGION || process.env.RUSTFS_REGION || 'auto').trim();
+  const accessKeyId = String(process.env.R2_ACCESS_KEY_ID || process.env.RUSTFS_ACCESS_KEY || '').trim();
+  const secretAccessKey = String(process.env.R2_SECRET_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY || '').trim();
+  const publicBaseUrl = String(process.env.R2_PUBLIC_URL || 'https://media.jaigram.shop').replace(/\/+$/, '');
 
   if (!endpoint || !accessKeyId || !secretAccessKey) {
-    throw new Error('RustFS storage credentials are not properly configured on server.');
+    throw new Error('Cloudflare R2 storage credentials are not properly configured on server.');
   }
 
-  return { endpoint, bucket, region, accessKeyId, secretAccessKey };
+  return { endpoint, bucket, region, accessKeyId, secretAccessKey, publicBaseUrl };
 }
 
 const uploadRateLimitMap = new Map();
-const MAX_UPLOADS_PER_MIN = 25;
+const MAX_UPLOADS_PER_MIN = 35;
 
-const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp']);
+const ALLOWED_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'avif',
+  'mp4', 'webm', 'mov', 'm4v', 'ogg', 'mkv'
+]);
 
 function isAllowedExtension(filename) {
   const ext = String(filename || '').split('.').pop().toLowerCase();
   return ALLOWED_EXTENSIONS.has(ext);
 }
 
-function isValidImageBuffer(buf) {
-  if (!buf || buf.length < 12) return false;
+function isValidMediaBuffer(buf, filename = '') {
+  if (!buf || buf.length < 8) return false;
+  const ext = String(filename || '').split('.').pop().toLowerCase();
+  
+  // Video files validation
+  const videoExts = new Set(['mp4', 'webm', 'mov', 'm4v', 'ogg', 'mkv']);
+  if (videoExts.has(ext)) {
+    // MP4/MOV/M4V typically contain 'ftyp' in first 16 bytes
+    if (buf.length >= 12 && buf.toString('ascii', 4, 8) === 'ftyp') return true;
+    // WEBM/MKV starts with EBML 0x1A 0x45 0xDF 0xA3
+    if (buf[0] === 0x1A && buf[1] === 0x45 && buf[2] === 0xDF && buf[3] === 0xA3) return true;
+    // General video buffer check
+    return buf.length >= 16;
+  }
+
+  // Image files validation
   // JPEG: FF D8 FF
   if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true;
   // PNG: 89 50 4E 47
   if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true;
   // WEBP: 'RIFF' ... 'WEBP'
   if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return true;
-  return false;
+  // GIF: GIF87a or GIF89a
+  if (buf.toString('ascii', 0, 3) === 'GIF') return true;
+  // SVG: contains '<svg'
+  if (buf.toString('utf8', 0, Math.min(buf.length, 512)).includes('<svg')) return true;
+
+  return buf.length >= 16;
 }
 
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '15mb',
+      sizeLimit: '60mb',
     },
   },
 };
@@ -99,7 +122,8 @@ export default async function handler(req, res) {
       isSeller = true;
     }
 
-    if (!isAdmin && !isSeller) {
+    const isCustomerOrderProof = !isAdmin && !isSeller && String(body.folder || '') === 'orders';
+    if (!isAdmin && !isSeller && !isCustomerOrderProof) {
       return res.status(401).json({ error: 'Unauthorized: Authentication required to upload files.' });
     }
 
@@ -128,8 +152,11 @@ export default async function handler(req, res) {
 
     const action = String(body.action || '').toLowerCase();
 
-    // ━━ 1. CHUNK UPLOAD MODE ━━
+    // ━━ 1. CHUNK UPLOAD MODE (Admin & Seller Only) ━━
     if (action === 'chunk') {
+      if (!isAdmin && !isSeller) {
+        return res.status(401).json({ error: 'Unauthorized: Admin or Seller credentials required for chunk uploads.' });
+      }
       const uploadId = String(body.uploadId || '').replace(/[^a-zA-Z0-9_-]/g, '');
       const partIndex = Number(body.partIndex);
       if (!uploadId || isNaN(partIndex)) {
@@ -157,8 +184,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // ━━ 2. ASSEMBLE CHUNKS MODE ━━
+    // ━━ 2. ASSEMBLE CHUNKS MODE (Admin & Seller Only) ━━
     if (action === 'assemble') {
+      if (!isAdmin && !isSeller) {
+        return res.status(401).json({ error: 'Unauthorized: Admin or Seller credentials required for chunk assembly.' });
+      }
       const uploadId = String(body.uploadId || '').replace(/[^a-zA-Z0-9_-]/g, '');
       const totalParts = Number(body.totalParts);
       const folder = String(body.folder || 'products').replace(/[^a-zA-Z0-9_-]/g, '') || 'products';
@@ -184,11 +214,17 @@ export default async function handler(req, res) {
       const combinedBuffer = Buffer.concat(partBuffers);
 
       if (!isAllowedExtension(filename)) {
-        return res.status(400).json({ error: 'Invalid file extension. Only images (.png, .jpg, .jpeg, .webp) are allowed.' });
+        return res.status(400).json({ error: 'Invalid file extension. Allowed formats: PNG, JPG, JPEG, WEBP, GIF, SVG, AVIF, MP4, WEBM, MOV, M4V, OGG, MKV.' });
       }
-      if (!isValidImageBuffer(combinedBuffer)) {
-        return res.status(400).json({ error: 'Uploaded file content is not a valid image format.' });
+      if (!isValidMediaBuffer(combinedBuffer, filename)) {
+        return res.status(400).json({ error: 'Uploaded file content is not a valid image or video format.' });
       }
+
+      // Auto-detect video contentType if generic
+      const ext = filename.split('.').pop().toLowerCase();
+      if (ext === 'mp4' && (!contentType || contentType.startsWith('image/'))) contentType = 'video/mp4';
+      if (ext === 'webm' && (!contentType || contentType.startsWith('image/'))) contentType = 'video/webm';
+      if (ext === 'mov' && (!contentType || contentType.startsWith('image/'))) contentType = 'video/quicktime';
 
       const key = `${folder}/${filename}`;
 
@@ -212,7 +248,7 @@ export default async function handler(req, res) {
         }
       })();
 
-      const publicUrl = `${config.endpoint}/${encodeURIComponent(config.bucket)}/${encodeURI(key)}`;
+      const publicUrl = `${config.publicBaseUrl}/${encodeURI(key)}`;
 
       return res.status(200).json({
         success: true,
@@ -235,6 +271,12 @@ export default async function handler(req, res) {
       filename = String(body.filename || `${Date.now()}_asset.png`).replace(/[^a-zA-Z0-9_.-]/g, '_');
       contentType = String(body.contentType || 'image/png');
 
+      // STRICT: Customer order proof can ONLY write to 'orders' with randomized safe filename
+      if (isCustomerOrderProof) {
+        folder = 'orders';
+        filename = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+      }
+
       if (body.base64) {
         const parsed = parseBase64(body.base64, contentType);
         bodyBuffer = parsed.buffer;
@@ -249,12 +291,18 @@ export default async function handler(req, res) {
     }
 
     if (!isAllowedExtension(filename)) {
-      return res.status(400).json({ error: 'Invalid file extension. Only images (.png, .jpg, .jpeg, .webp) are allowed.' });
+      return res.status(400).json({ error: 'Invalid file extension. Allowed formats: PNG, JPG, JPEG, WEBP, GIF, SVG, AVIF, MP4, WEBM, MOV, M4V, OGG, MKV.' });
     }
 
-    if (!isValidImageBuffer(bodyBuffer)) {
-      return res.status(400).json({ error: 'Uploaded file content is not a valid image format.' });
+    if (!isValidMediaBuffer(bodyBuffer, filename)) {
+      return res.status(400).json({ error: 'Uploaded file content is not a valid image or video format.' });
     }
+
+    // Auto-detect video contentType if generic
+    const directExt = filename.split('.').pop().toLowerCase();
+    if (directExt === 'mp4' && (!contentType || contentType.startsWith('image/'))) contentType = 'video/mp4';
+    if (directExt === 'webm' && (!contentType || contentType.startsWith('image/'))) contentType = 'video/webm';
+    if (directExt === 'mov' && (!contentType || contentType.startsWith('image/'))) contentType = 'video/quicktime';
 
     const key = `${folder}/${filename}`;
 
@@ -265,12 +313,13 @@ export default async function handler(req, res) {
       ContentType: contentType,
     }));
 
-    const publicUrl = `${config.endpoint}/${encodeURIComponent(config.bucket)}/${encodeURI(key)}`;
+    const publicUrl = `${config.publicBaseUrl}/${encodeURI(key)}`;
 
     return res.status(200).json({
       success: true,
       key,
       bucket: config.bucket,
+      url: publicUrl,
       publicUrl,
       size: bodyBuffer.length,
       contentType,

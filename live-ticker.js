@@ -137,7 +137,7 @@
       weeklyVisChip = `<div class="live-notif-chip chip-traffic">
         <span class="live-chip-icon chip-icon-traffic"><i class="fa-solid fa-chart-line"></i></span>
         <span class="live-chip-badge badge-traffic">Trending Store</span>
-        <span class="live-chip-text">Last week <strong>${wMilestone} people</strong> visited Linkadda!</span>
+        <span class="live-chip-text">Last week <strong>${wMilestone} people</strong> visited JaiGram!</span>
       </div>`;
     }
 

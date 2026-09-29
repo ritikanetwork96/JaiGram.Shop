@@ -134,6 +134,14 @@ const server = http.createServer(async (req, res) => {
         const mod = await import(`./api/mail/send.js${bust}`);
         return await mod.default(req, resEnhanced);
       }
+      if (pathname === '/api/orders') {
+        const mod = await import(`./api/orders.js${bust}`);
+        return await mod.default(req, resEnhanced);
+      }
+      if (pathname === '/api/media') {
+        const mod = await import(`./api/media.js${bust}`);
+        return await mod.default(req, resEnhanced);
+      }
 
       res.statusCode = 404;
       res.setHeader('Content-Type', 'application/json');
@@ -145,6 +153,19 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: err.message }));
       return;
+    }
+  }
+
+  // ━━ MEDIA EDGE REWRITE (/media/* -> api/media.js) ━━
+  if (pathname.startsWith('/media/')) {
+    try {
+      const resEnhanced = enhanceRes(res);
+      req.query = Object.fromEntries(url.searchParams.entries());
+      req.query.path = pathname.replace(/^\/media\//, '');
+      const mod = await import(`./api/media.js?v=${Date.now()}`);
+      return await mod.default(req, resEnhanced);
+    } catch (mErr) {
+      console.error('Media proxy error:', mErr);
     }
   }
 
@@ -187,6 +208,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/seller/login' || pathname === '/seller/login/') filePath = path.join(__dirname, 'seller', 'login.html');
   if (pathname === '/seller/apply' || pathname === '/seller/apply/') filePath = path.join(__dirname, 'seller', 'apply.html');
   if (pathname === '/seller/dashboard' || pathname === '/seller/dashboard/') filePath = path.join(__dirname, 'seller', 'dashboard.html');
+  if (pathname === '/user' || pathname === '/user/') filePath = path.join(__dirname, 'user', 'index.html');
   if (pathname === '/seller.css') filePath = path.join(__dirname, 'seller', 'seller.css');
   if (pathname.startsWith('/assets/')) filePath = path.join(__dirname, 'admin', pathname);
 
@@ -219,12 +241,12 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
-    if (ext === '.html' || pathname === '/') {
-      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    if (ext === '.html' || pathname === '/' || ['.css', '.js', '.mjs'].includes(ext)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
     } else if (['.jpg', '.jpeg', '.png', '.webp', '.svg', '.ico'].includes(ext)) {
       res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-    } else if (['.css', '.js', '.mjs'].includes(ext)) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
     }
     fs.createReadStream(filePath).pipe(res);
   });

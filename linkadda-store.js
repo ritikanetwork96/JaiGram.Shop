@@ -267,7 +267,7 @@
     const sellerNamePill = document.getElementById('fkPvSellerName');
     if (sellerRow) {
       const earlyRaw = String(prod.sellerName || '').trim();
-      const earlySeller = (!earlyRaw || /linkadda/i.test(earlyRaw)) ? 'Trusted Brother' : earlyRaw;
+      const earlySeller = (!earlyRaw || /linkadda|jaigram/i.test(earlyRaw)) ? '𓆩✶𓆪𝐓𝐑𝐔𝐒𝐓𝐄𝐃 𝐁𝐑𝐎𝐓𝐇𝐄𝐑𓆩✶𓆪' : earlyRaw;
       if (sellerNamePill) sellerNamePill.textContent = earlySeller;
       sellerRow.style.display = 'inline-flex';
     }
@@ -467,7 +467,7 @@
     const sellerCardNameEl = document.getElementById('fkPvSellerCardName');
     const siteName = (window.liveCollections?.settings?.siteName) || 'Trusted Brother';
     const rawSellerName = String(prod.sellerName || '').trim();
-    const sellerName = (!rawSellerName || /linkadda/i.test(rawSellerName)) ? 'Trusted Brother' : rawSellerName;
+    const sellerName = (!rawSellerName || /linkadda|jaigram/i.test(rawSellerName)) ? '𓆩✶𓆪𝐓𝐑𝐔𝐒𝐓𝐄𝐃 𝐁𝐑𝐎𝐓𝐇𝐄𝐑𓆩✶𓆪' : rawSellerName;
     if (sellerNameEl) sellerNameEl.textContent = sellerName;
     if (sellerCardNameEl) sellerCardNameEl.textContent = sellerName;
     const sellerRatingEl = document.getElementById('fkPvSellerRating');
@@ -565,16 +565,58 @@
     if (Array.isArray(prod.videos) && prod.videos.length) videos.push(...prod.videos.filter(Boolean));
     if (prod.video) videos.push(prod.video);
 
-    // Format clean RustFS S3 URLs
-    images = [...new Set(images)].map((u) => {
-      const str = String(u || '').trim();
-      if (str.startsWith('products/') || str.startsWith('categories/')) {
-        return `https://rustfs-mi5c.srv1942099.hstgr.cloud/linkadda-media/${str}`;
+    function resolveLinkAddaMedia(raw) {
+      let str = String(raw || '').trim();
+      if (!str) return '';
+      if (str.includes('media.jaigram.shop/')) {
+        return str.startsWith('http') ? str : `https://${str.replace(/^\/+/, '')}`;
+      }
+      if (str.includes('media.linkadda.shop/')) {
+        return `https://media.jaigram.shop/${str.split('media.linkadda.shop/')[1].replace(/^\/+/, '')}`;
+      }
+      if (str.includes('r2.cloudflarestorage.com/')) {
+        let sub = str.split('r2.cloudflarestorage.com/')[1].replace(/^\/+/, '');
+        if (sub.startsWith('linkadda-media/')) sub = sub.replace(/^linkadda-media\//, '');
+        if (sub.startsWith('jaigram-media/')) sub = sub.replace(/^jaigram-media\//, '');
+        return `https://media.jaigram.shop/${sub}`;
+      }
+      if (str.includes('/products/productsgallery/')) {
+        str = str.replace('/products/productsgallery/', '/productsgallery/');
+      }
+      if (str.includes('srv1942099.hstgr.cloud') || str.includes('hstgr.cloud') || str.includes('rustfs')) {
+        let sub = '';
+        if (str.includes('/linkadda-media/')) {
+          sub = str.split('/linkadda-media/')[1];
+        } else if (str.includes('/jaigram-media/')) {
+          sub = str.split('/jaigram-media/')[1];
+        } else {
+          const parts = str.split('/');
+          sub = parts.slice(3).join('/');
+        }
+        sub = (sub || '').replace(/^\/+/, '');
+        if (sub && !sub.includes('/') && sub.match(/\.(jpg|jpeg|png|webp|gif|svg|avif|mp4|webm|mov|m4v)$/i)) {
+          sub = `products/${sub}`;
+        }
+        return `https://media.jaigram.shop/${sub}`;
+      }
+      if (str.startsWith('products/') || str.startsWith('productsgallery/') || str.startsWith('categories/') || str.startsWith('seller_products/') || str.startsWith('orders/') || str.startsWith('logos/')) {
+        return `https://media.jaigram.shop/${str}`;
+      }
+      if (str.startsWith('/media/')) {
+        return `https://media.jaigram.shop/${str.replace(/^\/media\//, '')}`;
+      }
+      if (str.startsWith('images/') || str.startsWith('/images/')) {
+        return str.startsWith('/') ? str.substring(1) : str;
+      }
+      if (str.match(/\.(jpg|jpeg|png|webp|gif|svg|avif|mp4|webm|mov|m4v)$/i) && !str.startsWith('http')) {
+        return `https://media.jaigram.shop/products/${str.replace(/^\/+/, '')}`;
       }
       return str;
-    }).filter(Boolean);
+    }
 
-    videos = [...new Set(videos)];
+    // Format clean image and video URLs resolved via media.jaigram.shop
+    images = [...new Set(images)].map(resolveLinkAddaMedia).filter(Boolean);
+    videos = [...new Set(videos)].map(resolveLinkAddaMedia).filter(Boolean);
 
     const mediaList = [];
     videos.forEach((v) => mediaList.push({ type: 'vid', url: v }));

@@ -2658,11 +2658,16 @@ body {
   object-fit: cover;
   object-position: center center;
   display: block;
-  transition: transform 0.45s ease;
+  filter: blur(10px);
+  transform: scale(1.08);
+  transition: filter 0.35s ease, transform 0.35s ease;
 }
 .pcard:hover .pcard-img-wrap img,
-.pcard:hover .pcard-img {
-  transform: scale(1.06);
+.pcard:hover .pcard-img,
+.pcard:active .pcard-img-wrap img,
+.pcard:active .pcard-img {
+  filter: blur(0px);
+  transform: scale(1.02);
 }
 
 /* ── SLIDESHOW ── */

@@ -1,12 +1,14 @@
 // seller/js/seller-auth.js
-// Handles LinkAdda Seller Session, Authentication, Remember Me & Forgot Password
+// Handles JaiGram Seller Session, Authentication, Remember Me & Forgot Password
 
-const SELLER_SESSION_KEY = 'linkadda_seller_session';
-const SELLER_REMEMBER_KEY = 'linkadda_seller_remember';
+const SELLER_SESSION_KEY = 'jaigram_seller_session';
+const LEGACY_SELLER_SESSION_KEY = 'linkadda_seller_session';
+const SELLER_REMEMBER_KEY = 'jaigram_seller_remember';
+const LEGACY_SELLER_REMEMBER_KEY = 'linkadda_seller_remember';
 
 export function getSellerSession() {
   try {
-    const raw = localStorage.getItem(SELLER_SESSION_KEY);
+    const raw = localStorage.getItem(SELLER_SESSION_KEY) || localStorage.getItem(LEGACY_SELLER_SESSION_KEY);
     if (!raw) return null;
     const session = JSON.parse(raw);
     if (!session || !session.token || !session.seller || !session.seller.id) {
@@ -20,7 +22,9 @@ export function getSellerSession() {
 
 export function setSellerSession(sessionData) {
   try {
-    localStorage.setItem(SELLER_SESSION_KEY, JSON.stringify(sessionData));
+    const str = JSON.stringify(sessionData);
+    localStorage.setItem(SELLER_SESSION_KEY, str);
+    localStorage.setItem(LEGACY_SELLER_SESSION_KEY, str);
   } catch (err) {
     console.warn('Failed to save seller session in localStorage:', err);
   }
@@ -29,12 +33,13 @@ export function setSellerSession(sessionData) {
 export function clearSellerSession() {
   try {
     localStorage.removeItem(SELLER_SESSION_KEY);
+    localStorage.removeItem(LEGACY_SELLER_SESSION_KEY);
   } catch (_) {}
 }
 
 export function getRememberedEmail() {
   try {
-    return localStorage.getItem(SELLER_REMEMBER_KEY) || '';
+    return localStorage.getItem(SELLER_REMEMBER_KEY) || localStorage.getItem(LEGACY_SELLER_REMEMBER_KEY) || '';
   } catch (_) {
     return '';
   }
@@ -43,9 +48,12 @@ export function getRememberedEmail() {
 export function setRememberedEmail(email, remember = true) {
   try {
     if (remember && email) {
-      localStorage.setItem(SELLER_REMEMBER_KEY, String(email).trim().toLowerCase());
+      const val = String(email).trim().toLowerCase();
+      localStorage.setItem(SELLER_REMEMBER_KEY, val);
+      localStorage.setItem(LEGACY_SELLER_REMEMBER_KEY, val);
     } else {
       localStorage.removeItem(SELLER_REMEMBER_KEY);
+      localStorage.removeItem(LEGACY_SELLER_REMEMBER_KEY);
     }
   } catch (_) {}
 }

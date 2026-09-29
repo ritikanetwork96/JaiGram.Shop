@@ -84,4 +84,7 @@ out/
 scratch/
 migration-report.json
 migration-report.md
+*.bak
+*.bak*
+check_rtdb_*.mjs
 

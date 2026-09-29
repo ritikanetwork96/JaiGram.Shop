@@ -1,0 +1,44 @@
+# Cloudflare Pages Routing & Redirects (_redirects)
+
+# 1. Security Blocks (Sensitive system files protected from public access)
+/.env*                      /                           302
+/.git*                      /                           302
+/database.rules.json        /                           302
+/package.json               /                           302
+/package-lock.json          /                           302
+/dev-server.mjs             /                           302
+/.gitignore                 /                           302
+
+# 2. Static Asset Aliases & Mappings
+/seller.css                 /seller/seller.css          200
+/assets/*                   /admin/assets/:splat        200
+
+# 3. Canonical Redirects (.html extensions redirected to clean URLs)
+/index.html                 /                           301
+/about.html                 /about                      301
+/payment.html               /payment                    301
+/login.html                 /login                      301
+/legal.html                 /legal                      301
+/admin/index.html           /admin                      301
+/admin/login.html           /admin/login                301
+/seller/index.html          /seller                     301
+/seller/login.html          /seller/login               301
+/seller/apply.html          /seller/apply               301
+/seller/dashboard.html      /seller/dashboard           301
+/user/index.html            /user                       301
+
+# 4. Clean URLs & SPA Routing Rewrites (200 status)
+/about                      /about.html                 200
+/payment                    /payment.html               200
+/login                      /login.html                 200
+/legal                      /legal.html                 200
+/admin                      /admin/index.html           200
+/admin/login                /admin/login.html           200
+/admin/*                    /admin/index.html           200
+/seller                     /seller/index.html          200
+/seller/login               /seller/login.html          200
+/seller/apply               /seller/apply.html          200
+/seller/dashboard           /seller/dashboard.html      200
+/seller/*                   /seller/index.html          200
+/user                       /user/index.html            200
+/user/*                     /user/index.html            200

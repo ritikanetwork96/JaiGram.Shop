@@ -76,14 +76,14 @@
     });
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Seller Dashboard • LinkAdda Creator Hub</title>
-  <meta name="description" content="Manage your digital packs, monitor real sales, and grow your creator business on LinkAdda.">
+  <title>Seller Dashboard • JaiGram Creator Hub</title>
+  <meta name="description" content="Manage your digital packs, monitor real sales, and grow your creator business on JaiGram.">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="/seller/seller.css?v=3.7">
+  <link rel="stylesheet" href="/seller/seller.css?v=3.8">
 </head>
 <body class="seller-body">
   <div class="seller-glow-bg"></div>
@@ -100,7 +100,7 @@
             <i class="fa-solid fa-crown"></i>
           </div>
           <div class="sidebar-brand-text">
-            <span class="brand-title">LinkAdda</span>
+            <span class="brand-title">JaiGram</span>
             <span class="brand-badge">STUDIO</span>
           </div>
         </a>
@@ -170,7 +170,7 @@
           <div class="seller-avatar" id="seller-avatar">S</div>
           <div class="sidebar-user-details">
             <span class="user-name" id="seller-owner-name">Partner</span>
-            <span class="user-email" id="seller-email">partner@linkadda.shop</span>
+            <span class="user-email" id="seller-email">partner@jaigram.shop</span>
           </div>
         </div>
 
@@ -209,7 +209,7 @@
           <!-- Mobile Compact Brand (Only visible on mobile) -->
           <div class="header-mobile-brand">
             <i class="fa-solid fa-crown mobile-crown-icon" style="color: var(--ab-pink);"></i>
-            <span class="mobile-brand-title">LinkAdda</span>
+            <span class="mobile-brand-title">JaiGram</span>
             <span class="mobile-brand-tag">STUDIO</span>
           </div>
         </div>
@@ -241,6 +241,7 @@
               <div class="hero-creator-badges">
                 <span class="hero-badge-verified micro-badge-verified"><i class="fa-solid fa-shield-halved"></i> Verified Creator Partner</span>
                 <span class="hero-badge-cut micro-badge-cut"><i class="fa-solid fa-gem"></i> 100% Creator Share</span>
+                <span class="hero-badge-followers micro-badge-cut" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border-color: rgba(16, 185, 129, 0.28);"><i class="fa-solid fa-users"></i> <span id="hero-followers-count">0</span> Followers</span>
               </div>
               <h1 class="hero-creator-title">Welcome, <span id="hero-store-name" class="gradient-name">Creator Store</span></h1>
               <p class="hero-creator-desc">Manage your digital packs, upload media, customize pricing, and track your rolling 7-day UPI payouts in real time.</p>
@@ -301,6 +302,17 @@
               </div>
               <div class="metric-value" id="stat-total-likes">0</div>
               <div class="metric-sub"><i class="fa-solid fa-fire" style="color: #ef4444;"></i> Buyer likes received</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Store Followers</span>
+                <div class="metric-squircle-icon icon-emerald" style="background: rgba(16, 185, 129, 0.16); color: #10b981;">
+                  <i class="fa-solid fa-users"></i>
+                </div>
+              </div>
+              <div class="metric-value" id="stat-total-followers">0</div>
+              <div class="metric-sub"><i class="fa-solid fa-bell" style="color: #10b981;"></i> Customer followers</div>
             </div>
 
             <!-- Revenue VIP Hero Card -->
@@ -370,7 +382,7 @@
       <div class="section-toolbar">
         <div class="toolbar-title-box">
           <h2 class="section-title">My Published Packs</h2>
-          <p class="section-subtitle">Manage, edit, or delete your digital creator assets listed on LinkAdda marketplace</p>
+          <p class="section-subtitle">Manage, edit, or delete your digital creator assets listed on JaiGram marketplace</p>
         </div>
         <div class="toolbar-actions-group" style="display:flex; gap:10px; align-items:center;">
           <button type="button" id="btn-sync-packs" class="btn-seller-sync" title="Sync live likes, views & orders">
@@ -509,8 +521,8 @@
             <i class="fa-solid fa-headset" style="color: #38bdf8; margin-right: 10px;"></i>
             Payout & Finance Helpdesk
           </h3>
-          <p class="settings-card-desc">Have questions about your order settlement or need to update your payout phone number? LinkAdda finance support is available 24/7.</p>
-          <a href="https://t.me/TRUSTED_BROTHER1234" target="_blank" class="btn-seller-secondary" style="text-decoration: none;">
+          <p class="settings-card-desc">Have questions about your order settlement or need to update your payout phone number? JaiGram finance support is available 24/7.</p>
+          <a href="https://t.me/JaiGram_Support" target="_blank" class="btn-seller-secondary" style="text-decoration: none;">
             <i class="fa-brands fa-telegram"></i>
             <span>Chat with Admin on Telegram</span>
           </a>
@@ -530,16 +542,35 @@
       <!-- Creator Brand Showcase Banner -->
       <div class="creator-brand-showcase">
         <div class="profile-brand-left">
-          <div class="profile-avatar-disk" id="prof-hero-avatar">S</div>
+          <div class="profile-avatar-wrap" id="prof-avatar-wrap" title="Click to upload profile picture / store logo">
+            <div class="profile-avatar-disk" id="prof-hero-avatar">S</div>
+            <button type="button" class="btn-avatar-camera-overlay" id="btn-trigger-avatar-upload" title="Upload Store Logo">
+              <i class="fa-solid fa-camera"></i>
+            </button>
+            <input type="file" id="seller-avatar-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*" style="display: none;" />
+          </div>
           <div class="profile-brand-info">
             <div class="profile-brand-heading-row">
               <h3 class="profile-brand-name" id="prof-hero-store-name">Creator Store</h3>
               <span class="profile-verified-badge"><i class="fa-solid fa-shield-halved"></i> Verified Creator Partner</span>
             </div>
             <div class="profile-meta-chips">
-              <span class="profile-chip"><i class="fa-solid fa-envelope"></i> <span id="prof-hero-email">partner@linkadda.shop</span></span>
+              <span class="profile-chip"><i class="fa-solid fa-envelope"></i> <span id="prof-hero-email">partner@jaigram.shop</span></span>
+              <span class="profile-chip profile-chip-cat"><i class="fa-solid fa-shapes"></i> <span id="prof-hero-category">General</span></span>
+              <span class="profile-chip profile-chip-followers"><i class="fa-solid fa-users"></i> <span id="prof-hero-followers">0 Followers</span></span>
               <span class="profile-chip profile-chip-upi"><i class="fa-solid fa-bolt"></i> UPI: <span id="prof-hero-upi">Not Set</span></span>
               <span class="profile-chip profile-chip-share"><i class="fa-solid fa-gem"></i> 100% Creator Share</span>
+            </div>
+            <div class="profile-avatar-actions-row">
+              <button type="button" class="btn-upload-avatar-chip" id="btn-upload-avatar-chip">
+                <i class="fa-solid fa-image"></i>
+                <span>Upload Store Logo</span>
+              </button>
+              <button type="button" class="btn-remove-avatar-chip" id="btn-remove-avatar-chip" style="display: none;">
+                <i class="fa-solid fa-trash-can"></i>
+                <span>Remove Photo</span>
+              </button>
+              <span class="avatar-upload-hint"><i class="fa-solid fa-shield-check"></i> Direct Device Upload (PNG, JPG, WebP)</span>
             </div>
           </div>
         </div>
@@ -570,6 +601,12 @@
               <label for="prof-store-name">Store / Company Name <span class="req" style="color: var(--ab-pink);">*</span></label>
               <input type="text" id="prof-store-name" name="storeName" class="editor-input" required placeholder="e.g. GHost Layer Shop" />
               <span class="field-hint" style="font-size: 0.76rem; color: var(--sd-text-muted); margin-top: 4px; display: block;">Displays on every card: <strong style="color: #10b981;">"Sold by [Store Name] ✓ Verified Creator"</strong></span>
+            </div>
+
+            <div class="form-group" style="margin-top: 14px;">
+              <label for="prof-category">Primary Store Category</label>
+              <input type="text" id="prof-category" name="category" class="editor-input" placeholder="e.g. Digital Assets, Courses, Templates, Software..." autocomplete="off" />
+              <span class="field-hint" style="font-size: 0.76rem; color: var(--sd-text-muted); margin-top: 4px; display: block;">Displays under your store name across marketplace store directory.</span>
             </div>
 
             <div class="form-group" style="margin-top: 14px;">
@@ -650,7 +687,7 @@
               <i class="fa-solid fa-cloud-arrow-up" style="color: var(--ab-pink); margin-right: 8px;"></i>
               Instant Cloud Sync
             </div>
-            <div style="font-size: 0.8rem; color: var(--sd-text-muted);">All store name, UPI payout address, and contact details update across LinkAdda instantly.</div>
+            <div style="font-size: 0.8rem; color: var(--sd-text-muted);">All store name, UPI payout address, and contact details update across JaiGram instantly.</div>
           </div>
           <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
             <span id="profile-save-status" style="font-size: 0.88rem; font-weight: 700; color: #10b981; display: none;"></span>
@@ -740,7 +777,7 @@
         </div>
         <div class="pub-banner-info">
           <span class="pub-banner-title" id="pub-banner-title">Publishing Pack Live...</span>
-          <span class="pub-banner-sub" id="pub-banner-sub">Syncing pack with LinkAdda storefront &amp; database. Please wait...</span>
+          <span class="pub-banner-sub" id="pub-banner-sub">Syncing pack with JaiGram storefront &amp; database. Please wait...</span>
         </div>
         <div class="pub-banner-shimmer"></div>
       </div>
@@ -822,17 +859,9 @@
 
                 <div class="form-grid-2">
                   <div class="form-group">
-                    <div class="field-label-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                      <label for="product-category" style="margin-bottom: 0;">Category <span class="req">*</span></label>
-                      <button type="button" id="btn-toggle-custom-category" class="btn-cat-toggle-link" style="background: none; border: none; color: var(--ab-pink, #ff2a8d); font-size: 0.78rem; font-weight: 750; cursor: pointer; padding: 2px 6px; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; transition: all 0.2s ease;">
-                        <i class="fa-solid fa-pen-nib"></i> + Custom Category
-                      </button>
-                    </div>
-                    <select id="product-category" name="category" class="editor-select" required></select>
-                    <div id="custom-category-wrap" style="display: none; margin-top: 8px;">
-                      <input type="text" id="product-custom-category" class="editor-input" placeholder="Type your custom category (e.g. 4K Special, Anime, Web Series...)" maxlength="45" style="border-color: rgba(255, 42, 141, 0.45); background: rgba(255, 42, 141, 0.03);" />
-                      <span class="field-hint" style="margin-top: 4px; display: block; color: var(--ab-pink, #ff2a8d);">✨ Your custom category will be created and displayed live on the storefront.</span>
-                    </div>
+                    <label for="product-category">Category <span class="req">*</span></label>
+                    <input type="text" id="product-category" name="category" class="editor-input" placeholder="e.g. Courses, Templates, Software, VIP Packs..." required autocomplete="off" />
+                    <span class="field-hint">Type the category or niche for this pack.</span>
                   </div>
                   <div class="form-group">
                     <label for="modal-price">Selling Price (₹ INR) <span class="req">*</span></label>
@@ -1140,7 +1169,7 @@
         <i class="fa-solid fa-trash-can"></i>
       </div>
       <h3 class="confirm-dialog-title">Delete Digital Pack?</h3>
-      <p id="delete-modal-msg" class="confirm-dialog-text">Are you sure you want to delete this pack? It will be permanently removed from your dashboard and the public LinkAdda marketplace.</p>
+      <p id="delete-modal-msg" class="confirm-dialog-text">Are you sure you want to delete this pack? It will be permanently removed from your dashboard and the public JaiGram marketplace.</p>
       <div class="confirm-dialog-actions">
         <button type="button" id="btn-cancel-delete" class="btn-confirm-cancel">Cancel</button>
         <button type="button" id="btn-confirm-delete" class="btn-confirm-delete">Yes, Delete Pack</button>
@@ -1185,7 +1214,7 @@
 
   <!-- Script Initialization -->
   <script type="module">
-    import { initSellerDashboard } from '/seller/js/seller-dashboard.js?v=2.6';
+    import { initSellerDashboard } from '/seller/js/seller-dashboard.js?v=2.7_avatar';
 
     // Mobile Sidebar Drawer Toggle
     const toggleBtn = document.getElementById('btn-sidebar-toggle');

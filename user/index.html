@@ -1,0 +1,2711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    // Strict Customer Authentication Gatekeeper: Instant redirect if not logged in
+    (function() {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('demo') === '1' || params.get('preview') === '1') {
+          return;
+        }
+        var raw = localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session');
+        var sess = raw ? JSON.parse(raw) : null;
+        if (!sess || typeof sess !== 'object' || (!sess.email && !sess.uid)) {
+          document.documentElement.style.display = 'none';
+          sessionStorage.setItem('jaigram_pending_destination', 'user/index.html');
+          sessionStorage.setItem('linkadda_pending_destination', 'user/index.html');
+          window.location.replace('../login.html?returnUrl=user/index.html');
+        }
+      } catch (_) {
+        document.documentElement.style.display = 'none';
+        window.location.replace('../login.html?returnUrl=user/index.html');
+      }
+    })();
+  </script>
+  <script>
+    // Theme Bootstrap: Zero-latency light/dark/system initialization
+    (function() {
+      try {
+        var saved = localStorage.getItem('linkadda_theme') || 'light';
+        var theme = saved;
+        if (saved === 'system') {
+          theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        if (document.body) {
+          document.body.setAttribute('data-theme', theme);
+          if (theme === 'dark') document.body.classList.add('dark-theme');
+          else document.body.classList.remove('dark-theme');
+        }
+      } catch (_) {}
+    })();
+  </script>
+  <script>
+    // Theme & Clean UI Guard
+    (function() {
+      try {
+        document.documentElement.classList.remove('age-gate-pending');
+      } catch (_) {}
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" id="metaThemeColor" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="JaiGram" />
+  <title>User Dashboard — JaiGram Shop</title>
+  <meta name="description" content="View your digital purchases, followed stores, downloads, wallet balance, and subscriptions on JaiGram Shop." />
+
+  <!-- Google Fonts, FontAwesome & Remix Icons (Reicon) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" />
+
+  <!-- User Dashboard Stylesheet -->
+  <link rel="stylesheet" href="user.css?v=20260929_report_sheet_v4" />
+  <link rel="stylesheet" href="../shared/payment-gateway.css?v=20260929_v2" />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+</head>
+<body>
+
+  <!-- ━━ 1. TOP NAVBAR (App-Style Header without Hamburger) ━━ -->
+  <header class="user-navbar">
+    <div class="user-nav-container">
+      
+      <!-- Brand Logo -->
+      <div class="nav-left-brand">
+        <a href="../index.html" class="brand-logo-wrap">
+          <div class="brand-logo">
+            <i class="fa-solid fa-bag-shopping logo-icon"></i>
+            <span class="logo-link">Jai</span><span class="logo-adda">Gram</span>
+            <span class="logo-shop-pill">Shop</span>
+          </div>
+          <span class="brand-subtext">Digital Products • Premium Content</span>
+        </a>
+      </div>
+
+      <!-- Center Search Bar -->
+      <div class="nav-center-search">
+        <form class="search-box-form" id="globalSearchForm" onsubmit="event.preventDefault(); handleGlobalSearch();">
+          <input 
+            type="search" 
+            id="globalSearchInput" 
+            class="search-box-input" 
+            placeholder="Search products, creators, stores..." 
+            autocomplete="off" 
+          />
+          <button type="submit" class="search-submit-btn" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
+        </form>
+      </div>
+
+      <!-- Right Action Items (Clean App Bar: Notifications & Profile) -->
+      <div class="nav-right-actions">
+        <!-- Live Currency Switcher Chip -->
+        <button type="button" class="nav-currency-chip" id="navCurrencyPill" onclick="toggleCurrencyQuick()" title="Switch Currency (INR ₹ / USD $)">
+          <span class="currency-flag-icon" id="navCurrencyFlag">🇮🇳</span>
+          <span class="currency-code-text" id="navCurrencyCode">₹ INR</span>
+        </button>
+
+        <!-- Wishlist Trigger Button -->
+        <button type="button" class="nav-action-btn" id="navWishlistBtn" onclick="switchTab('wishlist')" title="My Wishlist">
+          <span class="bell-icon-wrap">
+            <i class="fa-solid fa-heart"></i>
+            <span class="nav-count-badge" id="navWishlistBadgeCount" style="display: none;">0</span>
+          </span>
+        </button>
+
+        <!-- Shopping Cart Trigger Button -->
+        <button type="button" class="nav-action-btn" id="navCartBtn" onclick="openCartDrawer()" title="Shopping Cart">
+          <span class="bell-icon-wrap">
+            <i class="fa-solid fa-cart-shopping"></i>
+            <span class="nav-count-badge" id="navCartBadgeCount" style="display: none;">0</span>
+          </span>
+        </button>
+
+        <!-- Notification Bell -->
+        <div style="position: relative;">
+          <button type="button" class="nav-action-btn" id="navNotificationBtn" onclick="toggleNotificationDropdown()" title="Notifications">
+            <span class="bell-icon-wrap">
+              <i class="fa-solid fa-bell"></i>
+              <span class="nav-count-badge" id="notifBadgeCount" style="display: none;">0</span>
+            </span>
+          </button>
+          
+          <!-- Notification Dropdown -->
+          <div class="user-dropdown-menu" id="notificationDropdown" style="width: 290px;">
+            <div style="padding: 10px 14px; font-weight: 700; font-size: 13.5px; border-bottom: 1px solid #eaedf2; display: flex; justify-content: space-between; align-items: center;">
+              <span>Notifications</span>
+            </div>
+            <div style="display: flex; flex-direction: column; padding: 26px 14px; text-align: center; color: var(--text-muted); font-size: 13px;">
+              <i class="fa-regular fa-bell" style="font-size: 22px; color: #cbd5e1; margin-bottom: 6px;"></i>
+              <span>No new notifications</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Profile Trigger Pill (Opens Full Native App Profile Page) -->
+        <button type="button" class="nav-user-chip" id="navUserProfileTrigger" onclick="switchTab('profile')" title="My Account & Profile" aria-label="Open Profile">
+          <div class="nav-avatar-wrap">
+            <img src="../images/popup-avatar-circle.png" alt="User Avatar" class="nav-avatar-img" id="navAvatarImg" />
+            <span class="avatar-live-status-dot"></span>
+          </div>
+          <span class="nav-user-greeting" id="navUserGreeting">Hello, Member</span>
+          <i class="fa-solid fa-chevron-right nav-user-chevron"></i>
+        </button>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Mobile Sidebar Backdrop -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
+
+  <!-- ━━ 2. APP LAYOUT: SIDEBAR + MAIN CONTENT ━━ -->
+  <div class="user-layout-container">
+    
+    <!-- ━━ LEFT SIDEBAR (Dark Navy/Black matching screenshot) ━━ -->
+    <aside class="user-sidebar" id="userSidebar">
+      
+      <div class="sidebar-top-section">
+        
+        <!-- User Profile Block -->
+        <div class="sidebar-user-card">
+          <div class="sidebar-avatar-wrap">
+            <img src="../images/popup-avatar-circle.png" alt="Member" class="sidebar-avatar-img" id="sidebarAvatarImg" />
+          </div>
+          <div class="sidebar-user-meta">
+            <span class="sidebar-user-name" id="sidebarUserName">Member</span>
+            <span class="sidebar-user-id-badge" id="sidebarUserUid" style="font-size: 11px; color: var(--sidebar-muted); font-family: monospace; font-weight: 600;">ID: ...</span>
+            <div class="sidebar-user-status">
+              <span class="status-dot"></span>
+              <span>Online</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar Navigation Menu -->
+        <ul class="sidebar-nav-menu">
+          
+          <!-- Dashboard (Active Pink Pill by Default) -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link active" data-tab="dashboard" onclick="switchTab('dashboard')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-house"></i>
+                <span>Dashboard</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- My Profile -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="profile" onclick="switchTab('profile')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-regular fa-user"></i>
+                <span>My Profile</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- My Orders -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="orders" onclick="switchTab('orders')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>My Orders</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- My Subscriptions (Hidden until future launch) -->
+          <li class="sidebar-nav-item" style="display: none;">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="subscriptions" onclick="switchTab('subscriptions')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span>My Subscriptions</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- Marketplace Catalog (In-dashboard catalog browsing) -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="marketplace" onclick="switchTab('marketplace')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-compass"></i>
+                <span>Marketplace</span>
+              </div>
+              <span class="sidebar-badge-count" style="background: rgba(255, 42, 141, 0.15); color: var(--primary-pink); font-size: 10px; padding: 2px 7px; border-radius: 10px;">Catalog</span>
+            </a>
+          </li>
+
+          <!-- Followed Stores -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="stores" onclick="switchTab('stores')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-store"></i>
+                <span>Followed Stores</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- My Wishlist -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="wishlist" onclick="switchTab('wishlist')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-regular fa-heart"></i>
+                <span>My Wishlist</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- Wallet & Payments -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="wallet" onclick="switchTab('wallet')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-wallet"></i>
+                <span>Wallet & Payments</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- Settings -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="settings" onclick="switchTab('settings')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-gear"></i>
+                <span>Settings</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- Help & Support -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" data-tab="support" onclick="switchTab('support')">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-regular fa-circle-question"></i>
+                <span>Help & Support</span>
+              </div>
+            </a>
+          </li>
+
+          <!-- Logout -->
+          <li class="sidebar-nav-item">
+            <a href="javascript:void(0)" class="sidebar-nav-link" onclick="handleLogout()" style="color: #f87171;">
+              <div class="sidebar-nav-link-left">
+                <i class="fa-solid fa-arrow-right-from-bracket" style="color: #f87171;"></i>
+                <span>Logout</span>
+              </div>
+            </a>
+          </li>
+
+        </ul>
+
+      </div>
+
+
+
+    </aside>
+
+    <!-- ━━ MAIN CONTENT WRAPPER ━━ -->
+    <main class="user-main-content">
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 1: DASHBOARD (Active default view matching screenshot)
+           ═════════════════════════════════════════════════════════════ -->
+      <div class="tab-view-content active" id="tab-dashboard">
+        
+        <!-- App Greeting Hero Card (Vibrant Modern Design) -->
+        <div class="dashboard-hero-card">
+          <div class="hero-card-glow"></div>
+          <div class="hero-card-content">
+            <div class="hero-left-meta">
+              <div class="hero-status-pill">
+                <span class="status-live-dot"></span>
+                <span>Verified Customer Account</span>
+              </div>
+              <h1 class="hero-welcome-title">Welcome Back, <span id="welcomeUserName">Member</span>! 👋</h1>
+              <p class="hero-welcome-sub">Manage your purchases, discover digital products, and access your orders anytime.</p>
+              
+              <div class="hero-quick-actions">
+                <button type="button" class="hero-chip-btn primary" onclick="switchTab('marketplace')">
+                  <i class="fa-solid fa-compass"></i>
+                  <span>Explore Marketplace</span>
+                </button>
+                <button type="button" class="hero-chip-btn" onclick="openAddMoneyModal()">
+                  <i class="fa-solid fa-plus"></i>
+                  <span>Add Money</span>
+                </button>
+                <button type="button" class="hero-chip-btn" onclick="switchTab('orders')">
+                  <i class="fa-solid fa-box-archive"></i>
+                  <span>My Vault</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="hero-right-badges">
+              <div class="hero-meta-badge">
+                <div class="badge-icon-box calendar-icon">
+                  <i class="fa-regular fa-calendar-check"></i>
+                </div>
+                <div class="badge-info">
+                  <span class="badge-info-label">Member Since</span>
+                  <span class="badge-info-val" id="memberSinceVal">Active Member</span>
+                </div>
+              </div>
+
+              <div class="hero-meta-badge">
+                <div class="badge-icon-box star-icon">
+                  <i class="fa-solid fa-bolt"></i>
+                </div>
+                <div class="badge-info">
+                  <span class="badge-info-label">Total Orders</span>
+                  <span class="badge-info-val" id="totalOrdersBadgeVal">0 Purchases</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ━━ 3 KEY METRIC STAT CARDS ━━ -->
+        <div class="dashboard-stats-grid">
+          
+          <!-- Card 1: My Orders (Green) -->
+          <div class="stat-metric-card order-card" onclick="switchTab('orders')">
+            <div class="stat-card-top">
+              <div class="stat-card-icon green-icon">
+                <i class="fa-solid fa-cart-shopping"></i>
+              </div>
+              <div class="stat-card-details">
+                <span class="stat-card-label">My Orders</span>
+                <span class="stat-card-number" id="statMyOrders">0</span>
+              </div>
+            </div>
+            <div class="stat-card-footer">
+              <span class="stat-card-link">
+                <span>View Purchases</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </span>
+            </div>
+          </div>
+
+          <!-- Card 2: Followed Stores (Purple) -->
+          <div class="stat-metric-card store-card" onclick="switchTab('stores')">
+            <div class="stat-card-top">
+              <div class="stat-card-icon purple-icon">
+                <i class="fa-solid fa-store"></i>
+              </div>
+              <div class="stat-card-details">
+                <span class="stat-card-label">Followed Stores</span>
+                <span class="stat-card-number" id="statFollowedStores">0</span>
+              </div>
+            </div>
+            <div class="stat-card-footer">
+              <span class="stat-card-link">
+                <span>View Creators</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </span>
+            </div>
+          </div>
+
+          <!-- Card 3: Wallet Balance (Blue) -->
+          <div class="stat-metric-card wallet-card" onclick="openAddMoneyModal()">
+            <div class="stat-card-top">
+              <div class="stat-card-icon blue-icon">
+                <i class="fa-solid fa-wallet"></i>
+              </div>
+              <div class="stat-card-details">
+                <span class="stat-card-label">Available Balance</span>
+                <span class="stat-card-number" id="statWalletBalance">₹0.00</span>
+              </div>
+            </div>
+            <div class="stat-card-footer">
+              <span class="stat-card-link">
+                <span>+ Add Fund</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ━━ SECTION 1: MY PURCHASED PRODUCTS ━━ -->
+        <section class="dashboard-section">
+          <div class="section-header-row">
+            <div class="section-title-wrap">
+              <div class="section-title-left">
+                <i class="fa-solid fa-bag-shopping section-title-icon"></i>
+                <h2 class="section-heading">My Purchased Products</h2>
+              </div>
+              <p class="section-subtitle">Content you have bought and can access anytime.</p>
+            </div>
+
+            <a href="javascript:void(0)" class="section-action-btn-pink" onclick="switchTab('orders')">
+              <span>View All Orders</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </a>
+          </div>
+
+          <!-- Purchased Products Grid -->
+          <div class="purchased-products-grid" id="purchasedProductsGrid">
+            <div class="modern-vault-empty-state">
+              <div class="empty-halo-glow"></div>
+              <div class="empty-icon-orb">
+                <i class="fa-solid fa-box-open"></i>
+              </div>
+              <h3 class="empty-title">Your Digital Vault is Ready</h3>
+              <p class="empty-desc">
+                Products, private video vaults, tools, and eBooks you purchase will be ready for instant 1-click browser streaming or direct download.
+              </p>
+              <button type="button" class="section-action-btn-pink" onclick="switchTab('marketplace')">
+                <i class="fa-solid fa-compass"></i> Discover Featured Collections
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ━━ SECTION 2: MY FOLLOWED STORES ━━ -->
+        <section class="dashboard-section">
+          <div class="section-header-row">
+            <div class="section-title-wrap">
+              <div class="section-title-left">
+                <i class="fa-solid fa-heart section-title-icon"></i>
+                <h2 class="section-heading">My Followed Stores</h2>
+              </div>
+              <p class="section-subtitle">Stores you follow. Get notified about new content and offers.</p>
+            </div>
+
+            <a href="javascript:void(0)" class="section-link-more" onclick="switchTab('stores')">
+              <span>View All Stores</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </a>
+          </div>
+
+          <!-- Followed Stores Grid (Dynamically Populated) -->
+          <div class="followed-stores-grid" id="dashboardFollowedStoresGrid"></div>
+        </section>
+
+        <!-- ━━ SECTION 3: RECENT ACTIVITY ━━ -->
+        <div class="dashboard-bottom-grid">
+          
+          <!-- Recent Activity -->
+          <div class="bottom-widget-card">
+            <div class="widget-header-row">
+              <div class="widget-title-left">
+                <i class="fa-regular fa-clock widget-title-icon"></i>
+                <h3 class="widget-title">Recent Activity</h3>
+              </div>
+              <a href="javascript:void(0)" class="section-link-more" onclick="switchTab('orders')">
+                <span>View All</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </a>
+            </div>
+
+            <!-- Activity Items List -->
+            <div class="activity-list" id="recentActivityList">
+              <div style="padding: 30px 16px; text-align: center; color: var(--text-muted); font-size: 13px;">
+                <i class="fa-solid fa-clock-rotate-left" style="font-size: 24px; color: #cbd5e1; display: block; margin-bottom: 8px;"></i>
+                No recent activity yet. Your purchases and actions will appear here.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 2: NATIVE APP PROFILE & ACCOUNT SCREEN (Full Page)
+           ═════════════════════════════════════════════════════════════ -->
+      <div class="tab-view-content" id="tab-profile">
+        
+        <!-- App Screen Header Bar -->
+        <div class="app-screen-header">
+          <div class="app-header-left">
+            <h1 class="app-header-title">My Account</h1>
+            <span class="app-header-sub">Manage profile, orders &amp; balance</span>
+          </div>
+          <div class="app-header-right">
+            <!-- TOP SETTINGS GEAR ICON BUTTON (User request: "upar settings ka icon ho") -->
+            <button type="button" class="app-settings-gear-btn" onclick="switchTab('settings')" title="Settings &amp; Theme" aria-label="Settings">
+              <i class="fa-solid fa-gear"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Hero User Profile Card -->
+        <div class="app-profile-hero-card">
+          <div class="app-hero-user-main">
+            <div class="app-hero-avatar-box" onclick="openAvatarPicker()" title="Tap to choose avatar">
+              <img src="../images/avatars/avatar1.svg" alt="Avatar" class="app-hero-avatar-img" id="hubAvatarImg" />
+              <span class="app-hero-avatar-camera"><i class="fa-solid fa-shapes"></i></span>
+            </div>
+            <div class="app-hero-user-details">
+              <div class="app-hero-name-row">
+                <h2 class="app-hero-user-name" id="hubUserName">Member</h2>
+                <span class="hub-badge-verified"><i class="fa-solid fa-circle-check"></i> Verified</span>
+              </div>
+              <div class="app-hero-handle-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span class="app-hero-uid-badge" onclick="copyCustomerId()" title="Click to copy Customer ID" style="cursor: pointer;">
+                  <span id="profileHeroUid">ID: ...</span> <i class="fa-regular fa-clone" style="margin-left: 3px;"></i>
+                </span>
+                <span class="app-hero-email-badge" id="hubUserEmail" style="font-size: 11.5px; color: var(--text-muted); font-weight: 500;">member@jaigram.shop</span>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="app-hero-edit-btn" onclick="switchTab('edit-profile')">
+            <i class="fa-solid fa-pen-to-square"></i> Edit
+          </button>
+        </div>
+
+        <!-- Quick Stats Strip (Orders, Stores, Balance) -->
+        <div class="app-quick-stats-strip">
+          <div class="app-stat-col" onclick="switchTab('orders')">
+            <span class="app-stat-num" id="statOrdersCount">0</span>
+            <span class="app-stat-lbl">Orders</span>
+          </div>
+          <div class="app-stat-divider"></div>
+          <div class="app-stat-col" onclick="switchTab('stores')">
+            <span class="app-stat-num" id="statStoresCount">0</span>
+            <span class="app-stat-lbl">Stores</span>
+          </div>
+          <div class="app-stat-divider"></div>
+          <div class="app-stat-col" onclick="switchTab('wallet')">
+            <span class="app-stat-num" id="statWalletSum">₹0.00</span>
+            <span class="app-stat-lbl">Wallet</span>
+          </div>
+          <div class="app-stat-divider"></div>
+          <div class="app-stat-col">
+            <span class="app-stat-num" style="color: #10b981;">Active</span>
+            <span class="app-stat-lbl">Status</span>
+          </div>
+        </div>
+
+        <!-- Available Balance Card Strip (Matching Screenshot) -->
+        <div class="hub-wallet-card" style="margin: 16px 0;">
+          <div class="hub-wallet-left" onclick="switchTab('wallet')">
+            <div class="hub-wallet-icon-box">
+              <i class="fa-solid fa-wallet"></i>
+            </div>
+            <div class="hub-wallet-info">
+              <span class="hub-wallet-label">AVAILABLE BALANCE</span>
+              <span class="hub-wallet-amount" id="hubWalletBalance">₹0.00</span>
+            </div>
+          </div>
+          <button type="button" class="hub-add-money-btn" onclick="openAddMoneyModal()">
+            <i class="fa-solid fa-plus"></i> Add Fund
+          </button>
+        </div>
+
+        <!-- Account Options Sections (Matching Screenshot in Full Page) -->
+        <div class="app-menu-container">
+          <div class="hub-menu-section-label">ACCOUNT OPTIONS</div>
+          
+          <div class="hub-menu-list">
+            <!-- 1. My Profile -->
+            <button type="button" class="hub-menu-item" onclick="switchTab('edit-profile')">
+              <div class="hub-item-icon-box icon-pink">
+                <i class="fa-regular fa-user"></i>
+              </div>
+              <div class="hub-item-text">
+                <span class="hub-item-title">My Profile</span>
+                <span class="hub-item-sub">Personal details, name &amp; phone</span>
+              </div>
+              <i class="fa-solid fa-chevron-right hub-item-chevron"></i>
+            </button>
+
+            <!-- 2. My Orders -->
+            <button type="button" class="hub-menu-item" onclick="switchTab('orders')">
+              <div class="hub-item-icon-box icon-blue">
+                <i class="fa-solid fa-bag-shopping"></i>
+              </div>
+              <div class="hub-item-text">
+                <span class="hub-item-title">My Orders</span>
+                <span class="hub-item-sub">Downloads &amp; verified passes</span>
+              </div>
+              <i class="fa-solid fa-chevron-right hub-item-chevron"></i>
+            </button>
+
+            <!-- 3. Wallet & Payments -->
+            <button type="button" class="hub-menu-item" onclick="switchTab('wallet')">
+              <div class="hub-item-icon-box icon-emerald">
+                <i class="fa-solid fa-wallet"></i>
+              </div>
+              <div class="hub-item-text">
+                <span class="hub-item-title">Wallet &amp; Payments</span>
+                <span class="hub-item-sub">Balance, top-up &amp; transactions</span>
+              </div>
+              <i class="fa-solid fa-chevron-right hub-item-chevron"></i>
+            </button>
+
+            <!-- 4. Followed Stores -->
+            <button type="button" class="hub-menu-item" onclick="switchTab('stores')">
+              <div class="hub-item-icon-box icon-purple">
+                <i class="fa-solid fa-store"></i>
+              </div>
+              <div class="hub-item-text">
+                <span class="hub-item-title">Followed Stores</span>
+                <span class="hub-item-sub">Favorite sellers &amp; drops</span>
+              </div>
+              <i class="fa-solid fa-chevron-right hub-item-chevron"></i>
+            </button>
+
+            <!-- 5. My Wishlist -->
+            <button type="button" class="hub-menu-item" onclick="switchTab('wishlist')">
+              <div class="hub-item-icon-box icon-rose">
+                <i class="fa-regular fa-heart"></i>
+              </div>
+              <div class="hub-item-text">
+                <span class="hub-item-title">My Wishlist</span>
+                <span class="hub-item-sub">Saved products &amp; packs</span>
+              </div>
+              <i class="fa-solid fa-chevron-right hub-item-chevron"></i>
+            </button>
+
+          </div>
+
+          <div class="hub-menu-section-label" style="margin-top: 20px;">APP PREFERENCES &amp; HELP</div>
+
+          <div class="hub-menu-list">
+            <!-- 8. Settings & Theme -->
+            <button type="button" class="hub-menu-item" onclick="switchTab('settings')">
+              <div class="hub-item-icon-box icon-indigo">
+                <i class="fa-solid fa-gear"></i>
+              </div>
+              <div class="hub-item-text">
+                <span class="hub-item-title">Settings &amp; Theme</span>
+                <span class="hub-item-sub">Dark / Light mode, security</span>
+              </div>
+              <i class="fa-solid fa-chevron-right hub-item-chevron"></i>
+            </button>
+
+            <!-- 9. Help & Support -->
+            <button type="button" class="hub-menu-item" onclick="switchTab('support')">
+              <div class="hub-item-icon-box icon-sky">
+                <i class="fa-solid fa-headset"></i>
+              </div>
+              <div class="hub-item-text">
+                <span class="hub-item-title">Help &amp; Support</span>
+                <span class="hub-item-sub">24/7 Telegram VIP Support</span>
+              </div>
+              <i class="fa-solid fa-chevron-right hub-item-chevron"></i>
+            </button>
+
+            <!-- 10. Logout -->
+            <button type="button" class="hub-menu-item hub-logout-item" onclick="handleLogout()">
+              <div class="hub-item-icon-box icon-red">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              </div>
+              <div class="hub-item-text">
+                <span class="hub-item-title" style="color: #ef4444;">Log Out</span>
+                <span class="hub-item-sub">Sign out from this device</span>
+              </div>
+              <i class="fa-solid fa-chevron-right hub-item-chevron" style="color: #ef4444;"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 2B: EDIT PERSONAL PROFILE TAB (Sub-view with Back Arrow)
+           ═════════════════════════════════════════════════════════════ -->
+      <div class="tab-view-content" id="tab-edit-profile">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('profile')" aria-label="Back to Account">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">Personal Details</h2>
+            <span class="app-sub-desc">Update your profile display name &amp; preferences</span>
+          </div>
+        </div>
+
+        <div class="profile-card-container">
+          <div class="profile-avatar-edit-row">
+            <div class="profile-large-avatar-wrap" onclick="openAvatarPicker()" title="Tap to choose your avatar">
+              <img src="../images/avatars/avatar1.svg" alt="Avatar" class="profile-large-avatar" id="profileViewAvatar" />
+              <span class="avatar-change-badge"><i class="fa-solid fa-shapes"></i></span>
+            </div>
+            <div class="profile-avatar-meta">
+              <h3 style="font-size: 18px; font-weight: 800;" id="profileCardName">Member</h3>
+              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;" id="profileCardEmail">member@jaigram.shop</p>
+              <button type="button" class="section-action-btn-pink" onclick="openAvatarPicker()" style="padding: 7px 16px; font-size: 12.5px;">
+                <i class="fa-solid fa-shapes"></i> Choose Avatar (20 Available)
+              </button>
+            </div>
+          </div>
+
+          <form id="profileForm" onsubmit="event.preventDefault(); saveUserProfile();">
+            <div class="profile-form-grid">
+              <div class="form-group-item">
+                <label class="form-label">Full Name</label>
+                <input type="text" id="profFullName" class="form-input" value="Member" />
+              </div>
+              <div class="form-group-item">
+                <label class="form-label">Unique Customer ID</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <input type="text" id="profUidDisplay" class="form-input" value="cust_..." readonly style="font-family: monospace; font-weight: 700; color: var(--primary-pink); background: var(--main-bg); cursor: default;" />
+                  <button type="button" class="btn-copy-chip" onclick="copyCustomerId()" title="Copy Customer ID" style="padding: 10px 14px; border-radius: var(--radius-md); background: rgba(255, 45, 85, 0.1); color: var(--primary-pink); font-size: 12px; font-weight: 700; border: 1px solid rgba(255, 45, 85, 0.25); white-space: nowrap; cursor: pointer;">
+                    <i class="fa-regular fa-clone"></i> Copy
+                  </button>
+                </div>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">Permanent unique ID for orders, vault verification &amp; customer support.</span>
+              </div>
+              <div class="form-group-item">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label class="form-label" style="margin-bottom: 0;">Email Address</label>
+                  <span style="font-size: 11px; color: #10b981; font-weight: 750; display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="ri-checkbox-circle-fill"></i> Verified
+                  </span>
+                </div>
+                <input type="email" id="profEmail" class="form-input" value="member@jaigram.shop" readonly style="opacity: 0.85; background: var(--main-bg); cursor: default;" />
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">Primary email used for account authentication.</span>
+                  <a href="javascript:void(0)" onclick="openEmailChangeModal()" style="font-size: 11px; color: var(--primary-pink); text-decoration: none; font-weight: 700; white-space: nowrap;">Change Email</a>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 20px;">
+              <button type="submit" class="section-action-btn-pink">Save Changes</button>
+              <button type="button" class="btn-following-toggle" onclick="switchTab('profile')" style="width: auto; padding: 0 20px;">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 3: MY ORDERS TAB
+           ═════════════════════════════════════════════════════════════ -->
+      <div class="tab-view-content" id="tab-orders">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('dashboard')" aria-label="Back to Home">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">My Order History</h2>
+            <span class="app-sub-desc">Digital purchases &amp; verified download passes</span>
+          </div>
+        </div>
+
+        <!-- Desktop Orders Table -->
+        <div class="data-table-container orders-desktop-table">
+          <table class="custom-data-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Item Purchased</th>
+                <th>Seller</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="userOrdersTableBody">
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                  You haven't placed any orders yet. 
+                  <a href="javascript:void(0)" onclick="switchTab('marketplace')" style="color: var(--primary-pink); font-weight: 700; margin-left: 6px;">Start Exploring &rarr;</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Native Mobile Order Cards (Shown on mobile devices) -->
+        <div class="orders-cards-list" id="userOrdersCardsList">
+          <!-- Populated dynamically via renderUserOrders() -->
+        </div>
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 4: MY SUBSCRIPTIONS TAB (Hidden until future launch)
+           ═════════════════════════════════════════════════════════════ -->
+      <div class="tab-view-content" id="tab-subscriptions" style="display: none;">
+        <div class="dashboard-welcome-row">
+          <div class="welcome-text-wrap">
+            <h1>Active Memberships & Subscriptions 👑</h1>
+            <p>Manage your recurring passes and exclusive access tiers.</p>
+          </div>
+        </div>
+
+        <div class="data-table-container">
+          <table class="custom-data-table">
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Store / Creator</th>
+                <th>Renewal Date</th>
+                <th>Cycle</th>
+                <th>Status</th>
+                <th>Manage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                  Subscription passes are currently under scheduled maintenance and will launch soon.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 5: WALLET & PAYMENTS TAB
+           ═════════════════════════════════════════════════════════════ -->
+      <div class="tab-view-content" id="tab-wallet">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('dashboard')" aria-label="Back to Home">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">Wallet &amp; Payments</h2>
+            <span class="app-sub-desc">Instant 1-click checkout with JaiGram balance</span>
+          </div>
+        </div>
+
+        <div class="wallet-screen-grid">
+          
+          <!-- Virtual Holographic Debit / Pass Card -->
+          <div class="wallet-virtual-card-box">
+            <div class="virtual-card-chip-row">
+              <div class="virtual-emv-chip">
+                <span class="emv-lines"></span>
+              </div>
+              <div class="virtual-contactless-wave">
+                <i class="fa-solid fa-wifi"></i>
+              </div>
+              <div class="virtual-brand-badge">
+                <i class="fa-solid fa-bag-shopping"></i> JAIGRAM PASS
+              </div>
+            </div>
+
+            <div class="virtual-card-balance-section">
+              <span class="virtual-card-balance-lbl">AVAILABLE BALANCE</span>
+              <h2 class="virtual-card-balance-num" id="walletTabBalanceDisplay">₹0.00</h2>
+            </div>
+
+            <!-- Quick Top-up Pills directly on Card -->
+            <div class="virtual-card-quick-pills">
+              <span class="quick-pills-label">QUICK TOP-UP</span>
+              <div class="quick-pills-row">
+                <button type="button" class="virtual-pill-btn" onclick="setRechargeAmount(100); openAddMoneyModal();">+₹100</button>
+                <button type="button" class="virtual-pill-btn" onclick="setRechargeAmount(200); openAddMoneyModal();">+₹200</button>
+                <button type="button" class="virtual-pill-btn active" onclick="setRechargeAmount(500); openAddMoneyModal();">+₹500</button>
+                <button type="button" class="virtual-pill-btn" onclick="setRechargeAmount(1000); openAddMoneyModal();">+₹1000</button>
+              </div>
+            </div>
+
+            <div class="virtual-card-footer-row">
+              <button type="button" class="virtual-card-add-btn" onclick="openAddMoneyModal()">
+                <i class="fa-solid fa-plus"></i> Recharge Wallet
+              </button>
+              <div class="virtual-card-secure-meta">
+                <i class="fa-solid fa-shield-halved"></i> 256-Bit SSL Safe
+              </div>
+            </div>
+          </div>
+
+          <!-- Transaction History Section -->
+          <div class="wallet-history-section">
+            <div class="wallet-history-header">
+              <div class="history-title-wrap">
+                <i class="fa-solid fa-receipt history-icon"></i>
+                <h3 class="history-title">Transaction History</h3>
+              </div>
+              <span class="history-tag-pill">Real-time</span>
+            </div>
+
+            <!-- Desktop Transactions Table -->
+            <div class="data-table-container tx-desktop-table">
+              <table class="custom-data-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="walletTransactionsTableBody">
+                  <!-- Dynamically populated from real transactions -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mobile Transaction Cards List -->
+            <div class="wallet-tx-cards-list" id="walletTxCardsList">
+              <!-- Populated dynamically via renderWalletTransactions() -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           OTHER GENERIC TABS (Stores, Wishlist, Messages, Refer, Settings, Support)
+           ═════════════════════════════════════════════════════════════ -->
+      <div class="tab-view-content" id="tab-stores">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('dashboard')" aria-label="Back to Home">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">Creator Stores &amp; Partners</h2>
+            <span class="app-sub-desc">Discover verified creator storefronts, follow your favorites &amp; shop exclusive digital drops</span>
+          </div>
+        </div>
+
+        <!-- Store Discovery Toolbar -->
+        <div class="stores-discovery-bar">
+          <div class="stores-search-wrap">
+            <i class="fa-solid fa-magnifying-glass stores-search-icon"></i>
+            <input type="text" id="storeSearchInput" class="stores-search-input" placeholder="Search creators, stores, or categories..." oninput="handleStoreSearch(this.value)" />
+          </div>
+          <div class="stores-filter-pills">
+            <button type="button" class="store-filter-btn active" id="filterBtnAllStores" onclick="setStoreDirectoryFilter('all')">
+              <i class="fa-solid fa-store"></i> <span>All Stores</span>
+            </button>
+            <button type="button" class="store-filter-btn" id="filterBtnFollowedStores" onclick="setStoreDirectoryFilter('followed')">
+              <i class="fa-solid fa-heart"></i> <span>Followed (<strong id="followedCountPill">0</strong>)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="followed-stores-grid" id="storesTabGrid">
+          <!-- Populated dynamically from all verified sellers + followed stores -->
+        </div>
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW: IN-DASHBOARD MARKETPLACE CATALOG (Native E-Commerce App Store)
+           ═════════════════════════════════════════════════════════════ -->
+      <div class="tab-view-content" id="tab-marketplace">
+        <div class="app-screen-sub-header">
+          <div>
+            <h2 class="app-sub-title">Marketplace Catalog</h2>
+            <span class="app-sub-desc">Browse verified creator drops, trending video packs &amp; exclusive bundles</span>
+          </div>
+        </div>
+
+        <!-- Marketplace Discovery Toolbar (E-Commerce App Standard) -->
+        <div class="marketplace-app-toolbar">
+          <div class="stores-search-wrap mp-search-bar">
+            <i class="fa-solid fa-magnifying-glass stores-search-icon"></i>
+            <input 
+              type="text" 
+              id="marketplaceSearchInput" 
+              class="stores-search-input" 
+              placeholder="Search products, video packs, categories..." 
+              oninput="handleMarketplaceSearch(this.value)" 
+              autocomplete="off"
+            />
+            <button type="button" class="search-clear-btn" id="mpSearchClearBtn" onclick="clearMarketplaceSearch()" title="Clear search" style="display: none;">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          
+          <!-- Aligned Filter & Sort Strip: All Items on Left, Sort on Right (Same Line) -->
+          <div class="mp-filter-sort-row">
+            <div class="stores-filter-pills" id="marketplaceCategoryFilterPills">
+              <button type="button" class="store-filter-btn active" data-cat="all" onclick="setMarketplaceCategoryFilter('all')">
+                <i class="fa-solid fa-layer-group"></i> <span>All Items</span>
+              </button>
+            </div>
+            <div class="mp-sort-chips-group">
+              <span class="sort-label"><i class="fa-solid fa-arrow-down-wide-short"></i> Sort:</span>
+              <select id="marketplaceSortSelect" class="mp-sort-dropdown" onchange="setMarketplaceSort(this.value)">
+                <option value="popular">🔥 Popular</option>
+                <option value="price_asc">💰 Price: Low to High</option>
+                <option value="price_desc">💎 Price: High to Low</option>
+                <option value="rating">⭐ Top Rated (4.8+)</option>
+                <option value="newest">🆕 Newest Drops</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="marketplace-catalog-grid" id="marketplaceCatalogGrid">
+          <!-- Populated dynamically from allMarketplaceProducts in user.js -->
+        </div>
+      </div>
+
+      <div class="tab-view-content" id="tab-wishlist">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('dashboard')" aria-label="Back to Home">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">My Wishlist</h2>
+            <span class="app-sub-desc">Products and bundles saved to buy later</span>
+          </div>
+        </div>
+        <div class="purchased-products-grid" id="wishlistProductsGrid">
+          <div style="grid-column: 1 / -1; background: var(--card-bg); border: 2px dashed var(--card-border); border-radius: var(--radius-lg); padding: 40px 20px; text-align: center;">
+            <div style="font-size: 32px; color: #cbd5e1; margin-bottom: 10px;"><i class="fa-regular fa-heart"></i></div>
+            <h4 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Your Wishlist is Empty</h4>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Save your favorite products to buy later.</p>
+            <button type="button" class="section-action-btn-pink" onclick="switchTab('marketplace')" style="display: inline-flex;"><i class="fa-solid fa-compass"></i> Explore Marketplace</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-view-content" id="tab-messages">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('profile')" aria-label="Back to Account">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">Messages &amp; Inquiries</h2>
+            <span class="app-sub-desc">Direct communication with creators &amp; team</span>
+          </div>
+        </div>
+        <div style="background: var(--card-bg); border: 2px dashed var(--card-border); border-radius: var(--radius-lg); padding: 50px 24px; text-align: center;">
+          <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(56, 189, 248, 0.1); color: #0284c7; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 14px;">
+            <i class="fa-regular fa-comment-dots"></i>
+          </div>
+          <div style="display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0369a1; border-radius: 20px; font-size: 11.5px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Coming Soon</div>
+          <h3 style="font-size: 19px; font-weight: 800; margin-bottom: 8px;">Direct Creator Messaging</h3>
+          <p style="font-size: 13.5px; color: var(--text-muted); max-width: 460px; margin: 0 auto 20px auto; line-height: 1.6;">
+            Direct 1-on-1 private messaging with verified creators and seller channels is launching soon in the next platform update.
+          </p>
+          <a href="https://t.me/jaigramsupport" target="_blank" class="section-action-btn-pink" style="display: inline-flex; background: #0284c7;">
+            <i class="fa-brands fa-telegram"></i> Contact Support on Telegram
+          </a>
+        </div>
+      </div>
+
+      <div class="tab-view-content" id="tab-refer">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('profile')" aria-label="Back to Account">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">Refer &amp; Earn</h2>
+            <span class="app-sub-desc">10% commission on every order friends place</span>
+          </div>
+        </div>
+        <div style="background: var(--card-bg); border: 2px dashed var(--card-border); border-radius: var(--radius-lg); padding: 50px 24px; text-align: center;">
+          <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(245, 158, 11, 0.1); color: #f59e0b; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 14px;">
+            <i class="fa-solid fa-gift"></i>
+          </div>
+          <div style="display: inline-block; padding: 4px 12px; background: #fef3c7; color: #b45309; border-radius: 20px; font-size: 11.5px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Coming Soon</div>
+          <h3 style="font-size: 19px; font-weight: 800; margin-bottom: 8px;">10% Commission Affiliate Program</h3>
+          <p style="font-size: 13.5px; color: var(--text-muted); max-width: 460px; margin: 0 auto 20px auto; line-height: 1.6;">
+            Our lifetime affiliate and referral program is in final deployment. You'll be able to generate unique tracking links and earn passive commission.
+          </p>
+          <button type="button" class="section-action-btn-pink" onclick="switchTab('marketplace')" style="display: inline-flex;">
+            <i class="fa-solid fa-compass"></i> Explore Marketplace
+          </button>
+        </div>
+      </div>
+
+      <div class="tab-view-content" id="tab-settings">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('profile')" aria-label="Back to Account">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">App &amp; Account Settings</h2>
+            <span class="app-sub-desc">Visual appearance, light/dark mode &amp; security</span>
+          </div>
+        </div>
+
+        <div class="settings-grid-layout">
+          
+          <!-- Section 1: Appearance & Theme (Research-Backed Modern Theme Switcher) -->
+          <div class="settings-section-card">
+            <div class="settings-section-header">
+              <div class="settings-section-icon icon-theme">
+                <i class="fa-solid fa-palette"></i>
+              </div>
+              <div>
+                <h3 class="settings-section-title">Visual Appearance &amp; Theme</h3>
+                <p class="settings-section-desc">Choose a theme mode that suits your eyes and device setup</p>
+              </div>
+            </div>
+
+            <!-- 3 Interactive Visual Theme Cards -->
+            <div class="theme-selector-cards-grid">
+              
+              <!-- Card 1: Light Theme -->
+              <div class="theme-picker-card" data-theme-mode="light" onclick="setAppTheme('light')">
+                <div class="theme-mockup-frame mockup-light">
+                  <div class="mockup-header-bar">
+                    <span class="mockup-dot red"></span>
+                    <span class="mockup-dot yellow"></span>
+                    <span class="mockup-dot green"></span>
+                  </div>
+                  <div class="mockup-preview-body">
+                    <div class="mockup-card-line w-60"></div>
+                    <div class="mockup-card-line w-80"></div>
+                    <div class="mockup-pill-strip"></div>
+                  </div>
+                </div>
+                <div class="theme-card-footer">
+                  <div class="theme-card-radio">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                  <div class="theme-card-meta">
+                    <div class="theme-card-name">
+                      <i class="fa-solid fa-sun" style="color: #f59e0b;"></i>
+                      <span>Light Mode</span>
+                    </div>
+                    <span class="theme-card-hint">Clean, crisp daylight</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: Dark Theme -->
+              <div class="theme-picker-card" data-theme-mode="dark" onclick="setAppTheme('dark')">
+                <div class="theme-mockup-frame mockup-dark">
+                  <div class="mockup-header-bar">
+                    <span class="mockup-dot red"></span>
+                    <span class="mockup-dot yellow"></span>
+                    <span class="mockup-dot green"></span>
+                  </div>
+                  <div class="mockup-preview-body">
+                    <div class="mockup-card-line w-60"></div>
+                    <div class="mockup-card-line w-80"></div>
+                    <div class="mockup-pill-strip"></div>
+                  </div>
+                </div>
+                <div class="theme-card-footer">
+                  <div class="theme-card-radio">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                  <div class="theme-card-meta">
+                    <div class="theme-card-name">
+                      <i class="fa-solid fa-moon" style="color: #8b5cf6;"></i>
+                      <span>Dark Mode</span>
+                    </div>
+                    <span class="theme-card-hint">AMOLED black, eye comfort</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3: System Auto -->
+              <div class="theme-picker-card" data-theme-mode="system" onclick="setAppTheme('system')">
+                <div class="theme-mockup-frame mockup-system">
+                  <div class="mockup-header-bar">
+                    <span class="mockup-dot red"></span>
+                    <span class="mockup-dot yellow"></span>
+                    <span class="mockup-dot green"></span>
+                  </div>
+                  <div class="mockup-preview-body mockup-split">
+                    <div class="split-half light"></div>
+                    <div class="split-half dark"></div>
+                  </div>
+                </div>
+                <div class="theme-card-footer">
+                  <div class="theme-card-radio">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                  <div class="theme-card-meta">
+                    <div class="theme-card-name">
+                      <i class="fa-solid fa-display" style="color: #06b6d4;"></i>
+                      <span>System Sync</span>
+                    </div>
+                    <span class="theme-card-hint">Auto-matches device mode</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Quick Inline Switch Row -->
+            <div class="theme-quick-switch-strip">
+              <div class="theme-switch-label-wrap">
+                <span class="theme-switch-title">Quick Dark Mode Toggle</span>
+                <span class="theme-switch-status" id="themeSwitchStatusText">Currently using Light Mode</span>
+              </div>
+              <label class="app-ios-switch" for="themeSwitchToggle">
+                <input type="checkbox" id="themeSwitchToggle" onchange="toggleThemeSwitch(this.checked)" />
+                <span class="app-ios-slider">
+                  <i class="fa-solid fa-sun slider-icon-sun"></i>
+                  <i class="fa-solid fa-moon slider-icon-moon"></i>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Section 2: Marketplace Currency & Region (Auto IP Geo-Targeting + Selection) -->
+          <div class="settings-section-card">
+            <div class="settings-section-header">
+              <div class="settings-section-icon icon-currency" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                <i class="fa-solid fa-coins"></i>
+              </div>
+              <div>
+                <h3 class="settings-section-title">Marketplace Currency &amp; Region</h3>
+                <p class="settings-section-desc">Prices automatically adapt based on your location (India: INR ₹, Global: USD $)</p>
+              </div>
+            </div>
+
+            <!-- Auto-Detection Status Badge -->
+            <div class="currency-location-badge-strip" id="currencyDetectedStrip">
+              <i class="fa-solid fa-location-dot" style="color: var(--primary-pink);"></i>
+              <span id="currencyLocationDetectText">Auto-detected location: Detecting country by IP...</span>
+              <span class="currency-auto-tag">Live GeoIP</span>
+            </div>
+
+            <!-- Currency Selection Cards (INR vs USD) -->
+            <div class="currency-selector-cards-grid">
+              
+              <!-- Card 1: INR (Indian Rupee) -->
+              <div class="currency-picker-card active" id="currencyCardINR" data-currency="INR" onclick="setAppCurrency('INR')">
+                <div class="currency-card-top">
+                  <div class="currency-flag-circle">🇮🇳</div>
+                  <div class="currency-card-radio">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                </div>
+                <div class="currency-card-meta">
+                  <span class="currency-code">INR (₹)</span>
+                  <span class="currency-name">Indian Rupee</span>
+                  <span class="currency-sample-tag">Recommended for India</span>
+                </div>
+                <div class="currency-card-hint">
+                  <i class="fa-solid fa-qrcode"></i> UPI, QR, PhonePe, Paytm, GooglePay, Netbanking
+                </div>
+              </div>
+
+              <!-- Card 2: USD (United States Dollar) -->
+              <div class="currency-picker-card" id="currencyCardUSD" data-currency="USD" onclick="setAppCurrency('USD')">
+                <div class="currency-card-top">
+                  <div class="currency-flag-circle">🇺🇸</div>
+                  <div class="currency-card-radio">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                </div>
+                <div class="currency-card-meta">
+                  <span class="currency-code">USD ($)</span>
+                  <span class="currency-name">US Dollar</span>
+                  <span class="currency-sample-tag">Global International</span>
+                </div>
+                <div class="currency-card-hint">
+                  <i class="fa-brands fa-bitcoin"></i> International Cards, USDT (BEP-20 / ERC-20), Crypto
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Section 3: Account Credentials & Security -->
+          <div class="settings-section-card">
+            <div class="settings-section-header">
+              <div class="settings-section-icon icon-security">
+                <i class="fa-solid fa-shield-halved"></i>
+              </div>
+              <div>
+                <h3 class="settings-section-title">Account &amp; Security</h3>
+                <p class="settings-section-desc">View your customer credentials and session encryption</p>
+              </div>
+            </div>
+
+            <div class="settings-fields-list">
+              <div class="settings-field-row">
+                <div class="settings-field-left">
+                  <span class="field-title">Verified Email</span>
+                  <span class="field-sub" id="settingsEmailDisplay">member@linkadda.shop</span>
+                </div>
+                <span class="badge-verified-pill"><i class="fa-solid fa-circle-check"></i> Verified</span>
+              </div>
+
+              <div class="settings-field-row">
+                <div class="settings-field-left">
+                  <span class="field-title">Customer ID</span>
+                  <span class="field-sub" id="settingsUidDisplay" style="font-family: monospace;">cust_...</span>
+                </div>
+                <button type="button" class="btn-copy-chip" onclick="copyCustomerId()" title="Copy User ID">
+                  <i class="fa-regular fa-clone"></i> Copy
+                </button>
+              </div>
+
+              <div class="settings-field-row">
+                <div class="settings-field-left">
+                  <span class="field-title">Session Security</span>
+                  <span class="field-sub">256-Bit SSL Encrypted HTTPS Session</span>
+                </div>
+                <span class="badge-secure-pill"><i class="fa-solid fa-lock"></i> Active</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Notification Preferences -->
+          <div class="settings-section-card">
+            <div class="settings-section-header">
+              <div class="settings-section-icon icon-notif">
+                <i class="fa-solid fa-bell"></i>
+              </div>
+              <div>
+                <h3 class="settings-section-title">Notification Alerts</h3>
+                <p class="settings-section-desc">Manage how you receive delivery passes and instant updates</p>
+              </div>
+            </div>
+
+            <div class="settings-fields-list">
+              <div class="settings-field-row">
+                <div class="settings-field-left">
+                  <span class="field-title">Order &amp; Download Links</span>
+                  <span class="field-sub">Instant notifications when seller approves digital access pass</span>
+                </div>
+                <label class="app-ios-switch">
+                  <input type="checkbox" checked onchange="showAppToast('Notification preferences saved')" />
+                  <span class="app-ios-slider simple"></span>
+                </label>
+              </div>
+
+              <div class="settings-field-row">
+                <div class="settings-field-left">
+                  <span class="field-title">Telegram / WhatsApp Receipts</span>
+                  <span class="field-sub">Send delivery confirmation receipts to messaging apps</span>
+                </div>
+                <label class="app-ios-switch">
+                  <input type="checkbox" checked onchange="showAppToast('Receipt preferences saved')" />
+                  <span class="app-ios-slider simple"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 4: Data & Diagnostics -->
+          <div class="settings-section-card">
+            <div class="settings-section-header">
+              <div class="settings-section-icon icon-cache">
+                <i class="fa-solid fa-database"></i>
+              </div>
+              <div>
+                <h3 class="settings-section-title">App Diagnostics &amp; Cache</h3>
+                <p class="settings-section-desc">Clean up cached images and check application build details</p>
+              </div>
+            </div>
+
+            <div class="settings-fields-list">
+              <div class="settings-field-row">
+                <div class="settings-field-left">
+                  <span class="field-title">Temporary Local Cache</span>
+                  <span class="field-sub">Clears temporary cached thumbnails while keeping your login intact</span>
+                </div>
+                <button type="button" class="btn-clear-cache" onclick="clearAppCache()">
+                  <i class="fa-solid fa-broom"></i> Clear Cache
+                </button>
+              </div>
+
+              <div class="settings-field-row">
+                <div class="settings-field-left">
+                  <span class="field-title">Application Version</span>
+                  <span class="field-sub">JaiGram Web App v2.8 (Build 2026.09.25) • PWA Ready</span>
+                </div>
+                <span class="badge-build-pill">Latest Stable</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 5: Privacy & Legal Policies -->
+          <div class="settings-section-card">
+            <div class="settings-section-header">
+              <div class="settings-section-icon icon-legal">
+                <i class="fa-solid fa-scale-balanced"></i>
+              </div>
+              <div>
+                <h3 class="settings-section-title">Privacy &amp; Legal Policies</h3>
+                <p class="settings-section-desc">100% transparent privacy terms, secure payments &amp; customer rights</p>
+              </div>
+            </div>
+
+            <div class="settings-fields-list">
+              <!-- Policy 1: Privacy Policy -->
+              <div class="settings-field-row clickable-policy-row" onclick="openLegalPolicyModal('privacy')" role="button" tabindex="0">
+                <div class="settings-field-left">
+                  <span class="field-title"><i class="fa-solid fa-user-shield text-pink"></i> Customer Privacy &amp; Data Minimization</span>
+                  <span class="field-sub">We collect only Name &amp; Email ID. We NEVER collect card PINs, CVVs, passwords or phone contacts.</span>
+                </div>
+                <div class="policy-row-action">
+                  <span class="badge-policy-pill"><i class="fa-solid fa-shield-halved"></i> Name &amp; Email Only</span>
+                  <i class="fa-solid fa-chevron-right chevron-icon"></i>
+                </div>
+              </div>
+
+              <!-- Policy 2: 256-Bit Payment Security -->
+              <div class="settings-field-row clickable-policy-row" onclick="openLegalPolicyModal('payment-security')" role="button" tabindex="0">
+                <div class="settings-field-left">
+                  <span class="field-title"><i class="fa-solid fa-lock text-green"></i> 256-Bit Payment &amp; Gateway Security</span>
+                  <span class="field-sub">End-to-end encrypted direct UPI &amp; Binance Pay rails. Zero banking secrets stored.</span>
+                </div>
+                <div class="policy-row-action">
+                  <span class="badge-policy-pill badge-green"><i class="fa-solid fa-circle-check"></i> 100% Encrypted</span>
+                  <i class="fa-solid fa-chevron-right chevron-icon"></i>
+                </div>
+              </div>
+
+              <!-- Policy 3: Terms of Service -->
+              <div class="settings-field-row clickable-policy-row" onclick="openLegalPolicyModal('terms')" role="button" tabindex="0">
+                <div class="settings-field-left">
+                  <span class="field-title"><i class="fa-solid fa-file-contract text-blue"></i> Terms of Service &amp; Digital Delivery</span>
+                  <span class="field-sub">Digital access delivery, creator rights and honest dealing guidelines.</span>
+                </div>
+                <div class="policy-row-action">
+                  <span class="badge-policy-pill"><i class="fa-solid fa-book"></i> Store Terms</span>
+                  <i class="fa-solid fa-chevron-right chevron-icon"></i>
+                </div>
+              </div>
+
+              <!-- Policy 4: Refund & Replacement Guarantee -->
+              <div class="settings-field-row clickable-policy-row" onclick="openLegalPolicyModal('refund')" role="button" tabindex="0">
+                <div class="settings-field-left">
+                  <span class="field-title"><i class="fa-solid fa-rotate-left text-amber"></i> Lifetime Link Replacement Guarantee</span>
+                  <span class="field-sub">Free link replacement anytime &amp; 100% money-back protection for duplicate payments.</span>
+                </div>
+                <div class="policy-row-action">
+                  <span class="badge-policy-pill badge-amber"><i class="fa-solid fa-circle-check"></i> Lifetime Guarantee</span>
+                  <i class="fa-solid fa-chevron-right chevron-icon"></i>
+                </div>
+              </div>
+
+              <!-- Open Full Legal Page Link -->
+              <div class="settings-field-row legal-external-link-row">
+                <div class="settings-field-left">
+                  <span class="field-title">Official Legal Documentation Webpage</span>
+                  <span class="field-sub">Read our complete legal documents in a full standalone browser tab</span>
+                </div>
+                <a href="../legal.html" target="_blank" rel="noopener" class="btn-open-legal-external">
+                  <span>Open Full Page</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="tab-view-content" id="tab-support">
+        <div class="app-screen-sub-header">
+          <button type="button" class="app-back-btn" onclick="switchTab('profile')" aria-label="Back to Account">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h2 class="app-sub-title">Help &amp; VIP Support</h2>
+            <span class="app-sub-desc">24/7 dedicated Telegram &amp; email assistance</span>
+          </div>
+        </div>
+        <div class="profile-card-container">
+          <div style="margin-bottom: 24px;">
+            <h3 style="font-size: 16px; margin-bottom: 8px;">24/7 Customer Care</h3>
+            <p style="font-size: 13px; color: #64748b; line-height: 1.5;">Our support team is available around the clock to assist you with order delivery, link expiration, or refunds.</p>
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <a href="https://t.me/jaigramsupport" target="_blank" class="section-action-btn-pink" style="background: #0284c7;">
+              <i class="fa-brands fa-telegram"></i> Telegram Support
+            </a>
+            <a href="mailto:support@jaigram.shop" class="section-action-btn-pink">
+              <i class="fa-regular fa-envelope"></i> Email Support
+            </a>
+          </div>
+        </div>
+
+        <!-- My Submitted Reports Section (Trust & Safety) -->
+        <div class="profile-card-container" style="margin-top: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 style="font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-flag" style="color: #ff2a8d;"></i> My Submitted Reports
+              </h3>
+              <p style="font-size: 12.5px; color: #64748b; margin: 0;">Reports you filed against sellers or products.</p>
+            </div>
+            <button type="button" class="hero-chip-btn" onclick="loadUserReports()" style="padding: 6px 14px; font-size: 12px;">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh Reports
+            </button>
+          </div>
+
+          <div id="userReportsListContainer">
+            <!-- Populated dynamically via loadUserReports() -->
+            <div style="text-align: center; padding: 24px 16px; color: #94a3b8; font-size: 13px;">
+              <i class="fa-solid fa-spinner fa-spin"></i> Checking your reports...
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- ━━ 3. MOBILE NATIVE BOTTOM NAVIGATION BAR (Always Pinned at Bottom) ━━ -->
+  <nav class="mobile-app-bottom-bar" id="mobileAppBottomBar" aria-label="Bottom Navigation">
+    <button type="button" class="bottom-tab-btn mob-nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <div class="mob-nav-icon"><i class="fa-solid fa-house"></i></div>
+      <span class="mob-nav-label">Home</span>
+    </button>
+    <button type="button" class="bottom-tab-btn mob-nav-item" data-tab="marketplace" onclick="switchTab('marketplace')" title="Marketplace Catalog">
+      <div class="mob-nav-icon"><i class="fa-solid fa-compass"></i></div>
+      <span class="mob-nav-label">Market</span>
+    </button>
+    <button type="button" class="bottom-tab-btn mob-nav-item" data-tab="orders" onclick="switchTab('orders')">
+      <div class="mob-nav-icon">
+        <i class="fa-solid fa-bag-shopping"></i>
+        <span class="mob-nav-badge" id="bottomOrdersBadgeCount" style="display: none;">0</span>
+      </div>
+      <span class="mob-nav-label">Orders</span>
+    </button>
+    <button type="button" class="bottom-tab-btn mob-nav-item" data-tab="wallet" onclick="switchTab('wallet')">
+      <div class="mob-nav-icon"><i class="fa-solid fa-wallet"></i></div>
+      <span class="mob-nav-label">Wallet</span>
+    </button>
+    <button type="button" class="bottom-tab-btn mob-nav-item" data-tab="profile" id="bottomTabAccountBtn" onclick="switchTab('profile')">
+      <div class="bottom-avatar-icon-wrap mob-nav-icon">
+        <img src="../images/popup-avatar-circle.png" alt="Avatar" class="bottom-avatar-img" id="bottomAvatarImg" />
+      </div>
+      <span class="mob-nav-label">Profile</span>
+    </button>
+  </nav>
+
+  <!-- ━━ 5. MODALS ━━ -->
+
+  <!-- Modal 1: Content Access Player / Download Modal -->
+  <div class="user-modal-overlay" id="accessModal">
+    <div class="user-modal-card">
+      <button type="button" class="modal-close-btn" onclick="closeModal('accessModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <div style="width: 44px; height: 44px; border-radius: var(--radius-md); background: var(--primary-pink-light); color: var(--primary-pink); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+          <i class="fa-solid fa-circle-play"></i>
+        </div>
+        <div>
+          <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;" id="accessModalCategory">DIGITAL VAULT</span>
+          <h3 style="font-size: 18px; font-weight: 800;" id="accessModalTitle">Product Access</h3>
+        </div>
+      </div>
+
+      <div style="background: #f8fafc; border-radius: var(--radius-md); padding: 14px; margin-bottom: 18px; font-size: 13px; color: var(--text-muted); line-height: 1.5;" id="accessModalDesc">
+        Your access pass has been verified. You can stream directly in browser or download the full media bundle.
+      </div>
+
+      <div style="display: flex; justify-content: space-between; font-size: 12.5px; padding: 10px 0; border-top: 1px solid #eaedf2; border-bottom: 1px solid #eaedf2; margin-bottom: 20px;">
+        <span><strong>Creator:</strong> <span id="accessModalSeller">HotWorld Store</span></span>
+        <span><strong>Size:</strong> <span id="accessModalSize">14.2 GB</span></span>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button type="button" class="section-action-btn-pink" onclick="handleStreamMedia()" style="flex: 1; justify-content: center;">
+          <i class="fa-solid fa-play"></i> Stream Now
+        </button>
+        <button type="button" class="section-action-btn-pink" onclick="handleDownloadDirect()" style="flex: 1; justify-content: center; background: #0f172a;">
+          <i class="fa-solid fa-download"></i> Direct Download
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Add Money / Wallet Recharge Modal -->
+  <div class="user-modal-overlay" id="addMoneyModal">
+    <div class="user-modal-card" style="max-width: 440px;">
+      <button type="button" class="modal-close-btn" onclick="closeModal('addMoneyModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #dbeafe; color: #2563eb; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 10px;">
+          <i class="fa-solid fa-wallet"></i>
+        </div>
+        <h3 style="font-size: 20px; font-weight: 800;">Add Money to Wallet</h3>
+        <p style="font-size: 13px; color: var(--text-muted);">Current balance: <strong id="modalCurrentBalance">₹0.00</strong></p>
+      </div>
+
+      <div style="margin-bottom: 12px; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Select Amount</div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;">
+        <button type="button" class="btn-following-toggle recharge-quick-btn" onclick="setRechargeAmount(100)">+ ₹100</button>
+        <button type="button" class="btn-following-toggle recharge-quick-btn" onclick="setRechargeAmount(200)">+ ₹200</button>
+        <button type="button" class="btn-following-toggle recharge-quick-btn active" onclick="setRechargeAmount(500)">+ ₹500</button>
+        <button type="button" class="btn-following-toggle recharge-quick-btn" onclick="setRechargeAmount(1000)">+ ₹1000</button>
+      </div>
+
+      <div class="form-group-item" style="margin-bottom: 16px;">
+        <label class="form-label">Enter Custom Amount (₹)</label>
+        <input type="number" id="customAmountInput" class="form-input" value="500" min="10" max="50000" />
+      </div>
+
+      <div style="margin-bottom: 12px; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Select Payment Mode</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+        <label style="display: flex; align-items: center; gap: 8px; padding: 12px; border: 1.5px solid var(--primary-pink); border-radius: var(--radius-md); background: rgba(255, 45, 85, 0.05); cursor: pointer;" id="rechargeMethodUpiLabel">
+          <input type="radio" name="rechargeMethod" value="upi" checked style="accent-color: var(--primary-pink);" />
+          <div>
+            <div style="font-size: 13px; font-weight: 700;"><i class="fa-solid fa-qrcode" style="color: var(--primary-pink); margin-right: 4px;"></i> UPI / QR</div>
+            <div style="font-size: 11px; color: var(--text-muted);">GPay, PhonePe, Paytm</div>
+          </div>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--card-bg); cursor: pointer;" id="rechargeMethodCryptoLabel">
+          <input type="radio" name="rechargeMethod" value="bep20" style="accent-color: var(--primary-pink);" />
+          <div>
+            <div style="font-size: 13px; font-weight: 700;"><i class="fa-solid fa-coins" style="color: #f59e0b; margin-right: 4px;"></i> USDT / Crypto</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Binance Pay &amp; BEP20</div>
+          </div>
+        </label>
+      </div>
+
+      <button type="button" class="section-action-btn-pink" onclick="executeRecharge()" style="width: 100%; justify-content: center; padding: 13px; font-weight: 800; font-size: 14.5px;">
+        <i class="fa-solid fa-lock"></i> Proceed to Add Funds
+      </button>
+
+      <div style="margin-top: 12px; text-align: center; font-size: 11.5px; color: var(--text-muted);">
+        <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> 100% Secure &amp; Protected via JaiGram Gateway
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal 3: Fix 20 App Avatars Selector -->
+  <div class="user-modal-overlay" id="avatarPickerModal">
+    <div class="user-modal-card avatar-picker-modal-card">
+      <button type="button" class="modal-close-btn" onclick="closeModal('avatarPickerModal')" aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="avatar-modal-header">
+        <div class="avatar-modal-icon-badge">
+          <i class="fa-solid fa-shapes"></i>
+        </div>
+        <div>
+          <h3 class="avatar-modal-title">Choose Your App Avatar</h3>
+          <p class="avatar-modal-subtitle">Pick from 20 exclusive curated avatars for your account</p>
+        </div>
+      </div>
+
+      <!-- 20 Avatars Grid Container -->
+      <div class="avatar-picker-grid" id="avatarPickerGrid">
+        <!-- Rendered dynamically by user.js -->
+      </div>
+
+      <div class="avatar-modal-footer">
+        <button type="button" id="avatarApplyBtn" class="section-action-btn-pink" onclick="saveSelectedAvatar()" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px; font-weight: 800;">
+          <i class="fa-solid fa-circle-check"></i> Apply Selected Avatar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Secure Email Change via OTP -->
+  <div class="user-modal-overlay" id="changeEmailModal">
+    <div class="user-modal-card" style="max-width: 440px; width: 95%; border-radius: 24px; padding: 24px;">
+      <button type="button" class="modal-close-btn" onclick="closeModal('changeEmailModal')" aria-label="Close">
+        <i class="ri-close-line"></i>
+      </button>
+
+      <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+        <div style="width: 44px; height: 44px; border-radius: 14px; background: rgba(255, 42, 141, 0.12); color: var(--primary-pink); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
+          <i class="ri-shield-keyhole-line"></i>
+        </div>
+        <div>
+          <h3 style="font-size: 18px; font-weight: 800; color: var(--text-main); letter-spacing: -0.3px;">Update Account Email</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Email cannot be edited directly. OTP verification is strictly required.</p>
+        </div>
+      </div>
+
+      <!-- Step 1: Request OTP -->
+      <div id="emailChangeStep1">
+        <div class="form-group-item" style="margin-bottom: 14px;">
+          <label class="form-label">Current Verified Email</label>
+          <input type="text" id="currentEmailDisp" class="form-input" readonly style="opacity: 0.75; cursor: not-allowed;" />
+        </div>
+        <div class="form-group-item" style="margin-bottom: 18px;">
+          <label class="form-label">New Email Address</label>
+          <input type="email" id="newEmailInput" class="form-input" placeholder="Enter new email address" required />
+          <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">We will send a 6-digit security OTP to verify this email.</span>
+        </div>
+        <button type="button" class="section-action-btn-pink" id="sendEmailOtpBtn" onclick="handleSendEmailChangeOtp()" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px; font-weight: 800;">
+          <i class="ri-mail-send-line"></i> Send Verification OTP
+        </button>
+      </div>
+
+      <!-- Step 2: Enter & Verify OTP -->
+      <div id="emailChangeStep2" style="display: none;">
+        <div style="background: rgba(255, 42, 141, 0.08); border: 1px solid rgba(255, 42, 141, 0.2); border-radius: 12px; padding: 12px; margin-bottom: 16px; font-size: 12.5px; color: var(--text-main); line-height: 1.4;">
+          Verification OTP sent to <strong id="sentTargetEmailText" style="color: var(--primary-pink);"></strong>. Please enter the 6-digit code below:
+        </div>
+        <div class="form-group-item" style="margin-bottom: 18px;">
+          <label class="form-label" style="text-align: center;">Enter 6-Digit OTP</label>
+          <input type="text" id="emailOtpInput" class="form-input" placeholder="• • • • • •" maxlength="6" style="text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 6px;" />
+        </div>
+        <button type="button" class="section-action-btn-pink" id="verifyEmailOtpBtn" onclick="handleVerifyEmailChangeOtp()" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px; font-weight: 800;">
+          <i class="ri-checkbox-circle-line"></i> Verify &amp; Update Email
+        </button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+          <button type="button" onclick="resetEmailChangeModal()" style="background: none; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+            <i class="ri-arrow-left-line"></i> Back
+          </button>
+          <button type="button" id="resendEmailOtpBtn" onclick="handleSendEmailChangeOtp()" style="background: none; border: none; color: var(--primary-pink); font-size: 12px; font-weight: 700; cursor: pointer;">
+            Resend OTP
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════
+       FULL-PAGE STORE SHOWCASE VIEW (Real Creator Storefront)
+       ═════════════════════════════════════════════════════════════ -->
+  <div class="store-modal-overlay store-fullpage-view" id="storeShowcaseModal" style="display: none;">
+    <div class="store-fullpage-scroller">
+      
+      <!-- Sticky Top Header Bar -->
+      <header class="store-fullpage-topbar">
+        <div class="store-topbar-left">
+          <button type="button" class="store-fullpage-back-btn" onclick="closeStoreShowcaseModal()" title="Back to Dashboard" aria-label="Back">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span class="back-btn-text">Back</span>
+          </button>
+          <div class="store-topbar-title-wrap">
+            <span class="store-topbar-title" id="modalStoreTopName">Creator Store</span>
+            <span class="store-verified-tag mini"><i class="fa-solid fa-circle-check"></i> Verified</span>
+          </div>
+        </div>
+        <div class="store-topbar-actions">
+          <button type="button" class="store-modal-follow-btn" id="modalStoreFollowBtn" title="Follow Store">
+            <i class="fa-solid fa-plus"></i> <span class="follow-btn-label">Follow</span>
+          </button>
+          <button type="button" class="store-header-share-btn" onclick="shareStoreShowcase()" title="Share Store" aria-label="Share Store">
+            <i class="fa-solid fa-arrow-up-from-bracket"></i>
+          </button>
+          <button type="button" class="store-header-report-btn" onclick="openReportSellerModal()" title="Report Creator" aria-label="Report Creator">
+            <i class="fa-solid fa-flag"></i>
+          </button>
+          <button type="button" class="store-modal-close-btn" onclick="closeStoreShowcaseModal()" aria-label="Close Store" title="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Store Hero Cover Banner -->
+      <section class="store-fullpage-hero">
+        <div class="store-hero-backdrop"></div>
+        <div class="store-hero-inner">
+          <div class="store-hero-creator-row">
+            <div class="store-hero-avatar-wrap">
+              <div class="store-hero-avatar-disc" id="modalStoreAvatar">S</div>
+              <span class="store-hero-online-dot" title="Active Verified Store"></span>
+            </div>
+            <div class="store-hero-meta">
+              <div class="store-hero-name-row">
+                <h1 class="store-hero-title" id="modalStoreName">Creator Store</h1>
+                <span class="store-verified-pill"><i class="fa-solid fa-circle-check"></i> Verified Creator Partner</span>
+              </div>
+              <div class="store-hero-badges-row">
+                <span class="store-hero-category-badge" id="modalStoreCategory">Digital Creator</span>
+                <span class="store-hero-stat-badge"><i class="fa-solid fa-users"></i> <strong id="modalStoreFollowersCount">0</strong> Followers</span>
+                <span class="store-hero-stat-badge"><i class="fa-solid fa-box-open"></i> <strong id="modalStoreProductsCount">0</strong> Digital Drops</span>
+                <span class="store-hero-stat-badge star"><i class="fa-solid fa-star"></i> 4.9 Rating</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trust & Protection Notice -->
+      <div class="store-fullpage-trust-bar">
+        <div class="store-trust-inner">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span><strong>JaiGram Safe Guarantee:</strong> Instant cloud access links, secured 256-bit checkout &amp; orders vault delivery protected by JaiGram.</span>
+        </div>
+      </div>
+
+      <!-- Store Catalog Section -->
+      <main class="store-fullpage-content">
+        <div class="store-content-inner">
+          <div class="store-catalog-toolbar">
+            <div class="store-catalog-title-group">
+              <h3 class="store-catalog-title">
+                <i class="fa-solid fa-layer-group" style="color: var(--primary-pink);"></i>
+                <span>Creator Drops &amp; Packs</span>
+              </h3>
+              <span class="store-catalog-count-pill" id="modalStoreCatalogBadge">0 Items</span>
+            </div>
+            <div class="store-catalog-search-wrap">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="modalStoreSearchInput" placeholder="Filter this creator's items..." oninput="filterStoreCatalog(this.value)" />
+            </div>
+          </div>
+
+          <!-- Quick Category Filter Pills -->
+          <div class="store-catalog-filter-pills" id="modalStoreCategoryPills">
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- Store Products Grid -->
+          <div class="store-fullpage-products-grid" id="modalStoreProductsGrid">
+            <!-- Dynamically loaded -->
+          </div>
+            <!-- Dynamically loaded -->
+          </div>
+
+          <!-- Bottom Report Creator Action Card -->
+          <div class="store-bottom-report-box">
+            <div class="store-report-text">
+              <strong>Encountered an issue with this store?</strong>
+              <span>Help maintain JaiGram's safe and verified marketplace.</span>
+            </div>
+            <button type="button" class="store-report-trigger-btn" onclick="openReportSellerModal()">
+              <i class="fa-solid fa-flag"></i>
+              <span>Report this Creator</span>
+            </button>
+          </div>
+        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════
+       FULL-PAGE IN-DASHBOARD PRODUCT SHOWCASE VIEW (Expansive, No Cramped Popup!)
+       ═════════════════════════════════════════════════════════════ -->
+  <!-- ═════════════════════════════════════════════════════════════
+       FULL-PAGE PRODUCT VIEW (100% Flipkart Real Page Layout — No Popups!)
+       ═════════════════════════════════════════════════════════════ -->
+  <div class="fk-full-page-view" id="productDetailModal" style="display: none;">
+    
+    <!-- Flipkart Full-Width Top Navigation Bar -->
+    <header class="fk-full-top-nav">
+      <div class="fk-full-nav-left">
+        <button type="button" class="fk-nav-back-action" onclick="closeProductDetailModal()" title="Back to Marketplace">
+          <i class="fa-solid fa-arrow-left"></i> <span>Back to Marketplace</span>
+        </button>
+        <div class="fk-full-brand">
+          <div class="brand-logo" style="margin: 0; font-size: 16px;">
+            <i class="fa-solid fa-bag-shopping logo-icon"></i>
+            <span class="logo-link">Link</span><span class="logo-adda">Adda</span>
+            <span class="logo-shop-pill">Shop</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="fk-full-nav-right">
+        <button type="button" class="fk-nav-icon-action" onclick="shareProductFromModal()" title="Share Product">
+          <i class="fa-solid fa-share-nodes"></i> <span>Share</span>
+        </button>
+        <button type="button" class="fk-nav-icon-action" id="pdmWishlistBtn" onclick="toggleProductWishlistFromModal()" title="Wishlist">
+          <i class="fa-regular fa-heart"></i> <span>Wishlist</span>
+        </button>
+        <button type="button" class="fk-nav-icon-action" onclick="openReportItemModal('product')" title="Report this Product" style="color: #ef4444;">
+          <i class="fa-regular fa-flag"></i> <span>Report</span>
+        </button>
+        <button type="button" class="fk-nav-cart-action" onclick="openCartDrawer()" title="View Cart">
+          <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
+          <span class="fk-nav-cart-pill" id="pdmNavCartCount">0</span>
+        </button>
+        <button type="button" class="fk-nav-close-action" onclick="closeProductDetailModal()" aria-label="Close" title="Close and return">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Flipkart Breadcrumbs Strip -->
+    <div class="fk-full-breadcrumbs-strip">
+      <div class="fk-full-breadcrumbs-inner">
+        <span class="fk-crumb" onclick="closeProductDetailModal()">Home</span>
+        <i class="fa-solid fa-chevron-right fk-crumb-sep"></i>
+        <span class="fk-crumb" onclick="closeProductDetailModal()">Marketplace</span>
+        <i class="fa-solid fa-chevron-right fk-crumb-sep"></i>
+        <span class="fk-crumb fk-crumb-active" id="pdmCategoryBadge">Digital Pack</span>
+        <span class="fk-crumb-title-sep">&bull;</span>
+        <span class="fk-crumb-title-truncate" id="pdmTopBreadcrumbTitle">Product Title</span>
+      </div>
+    </div>
+
+    <!-- Main Full-Page Content Container (1360px centered on desktop) -->
+    <div class="fk-full-page-body">
+      <div class="fk-page-content-grid">
+        
+        <!-- ─── LEFT COLUMN: Gallery & Trust Highlights ─── -->
+        <div class="fk-full-col-left">
+          <div class="fk-gallery-wrapper">
+            
+            <!-- Vertical Thumbnail Rail (Flipkart signature left strip) -->
+            <div class="fk-thumbnails-rail" id="pdmThumbnailsStrip">
+              <!-- Dynamically populated thumbnail cards -->
+            </div>
+
+            <!-- Main Large Product Image/Video Frame with Swipe Support -->
+            <div class="fk-main-image-frame" id="pdmMainMediaFrame">
+              <div class="fk-media-viewport" id="pdmMediaViewport">
+                <img src="" alt="Product Image" id="pdmMainImg" class="fk-main-img" />
+                <video id="pdmMainVideo" controls playsinline preload="metadata" class="fk-main-video" style="display: none;"></video>
+              </div>
+              
+              <!-- Floating Wishlist Heart on Image -->
+              <button type="button" class="fk-img-wishlist-btn" onclick="toggleProductWishlistFromModal()" title="Wishlist">
+                <i class="fa-regular fa-heart"></i>
+              </button>
+
+              <!-- Gallery Nav Arrows -->
+              <button type="button" class="fk-gallery-arrow prev" id="pdmGalleryPrevBtn" onclick="navigateProductGallery(-1)" aria-label="Previous Media">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <button type="button" class="fk-gallery-arrow next" id="pdmGalleryNextBtn" onclick="navigateProductGallery(1)" aria-label="Next Media">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+
+              <!-- Media Counter Pill -->
+              <div class="fk-gallery-counter" id="pdmGalleryCounter">
+                <i class="fa-regular fa-images"></i> <span>1 / 1</span>
+              </div>
+
+              <!-- Interactive Dots Indicator -->
+              <div class="fk-media-dots" id="pdmMediaDots"></div>
+            </div>
+          </div>
+
+          <!-- Optional Sample Video Player -->
+          <div class="fk-video-box" id="pdmVideoWrap" style="display: none;">
+            <div class="fk-video-title">
+              <i class="fa-solid fa-circle-play"></i> <span>Live Video Preview</span>
+            </div>
+            <video id="pdmVideoPlayer" controls playsinline preload="metadata" class="fk-video-el"></video>
+          </div>
+
+          <!-- Flipkart Trust Strip -->
+          <div class="fk-trust-strip">
+            <div class="fk-trust-item">
+              <i class="fa-solid fa-shield-halved fk-trust-icon"></i>
+              <div class="fk-trust-text">
+                <strong>Safe &amp; Secure</strong>
+                <span>100% Protected Payment</span>
+              </div>
+            </div>
+            <div class="fk-trust-item">
+              <i class="fa-solid fa-cloud-arrow-down fk-trust-icon"></i>
+              <div class="fk-trust-text">
+                <strong>Instant Delivery</strong>
+                <span>Direct Cloud Vault</span>
+              </div>
+            </div>
+            <div class="fk-trust-item">
+              <i class="fa-solid fa-rotate-left fk-trust-icon"></i>
+              <div class="fk-trust-text">
+                <strong>Link Guarantee</strong>
+                <span>Free Link Replacement</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ─── RIGHT COLUMN: Product Information, Price, Actions, Offers, Specs ─── -->
+        <div class="fk-full-col-right">
+
+          <!-- Category Pill & Count Hint -->
+          <div class="fk-category-row">
+            <span class="fk-cat-chip" id="pdmCategoryPill">DIGITAL PACK</span>
+            <span class="fk-thumbs-count" id="pdmThumbsCountHint">Photos</span>
+          </div>
+
+          <!-- Product Title -->
+          <h1 class="fk-title" id="pdmTitle">Product Title</h1>
+
+          <!-- Ratings & Reviews + Flipkart Assured Badge -->
+          <div class="fk-rating-row">
+            <span class="fk-rating-badge">
+              <span class="fk-rating-val">4.8</span> <i class="fa-solid fa-star"></i>
+            </span>
+            <span class="fk-rating-count">1,482 Ratings &amp; 360 Reviews</span>
+            
+            <!-- JaiGram Verified Badge -->
+            <div class="fk-assured-badge" title="JaiGram Verified Vault Delivery">
+              <i class="fa-solid fa-shield-halved" style="color: var(--primary-pink); font-size: 11px;"></i>
+              <span class="fk-assured-name">JaiGram</span>
+              <span class="fk-assured-tag">Verified</span>
+            </div>
+          </div>
+
+          <!-- Pricing Box -->
+          <div class="fk-price-box">
+            <span class="fk-special-tag">Special price</span>
+            <div class="fk-price-line">
+              <span class="fk-current-price" id="pdmPriceINR">₹99</span>
+              <span class="fk-mrp-price" id="pdmPriceMRP">₹349</span>
+              <span class="fk-discount-tag" id="pdmDiscountPill">72% off</span>
+            </div>
+            <div class="fk-price-terms">
+              <i class="fa-solid fa-circle-check"></i> Single payment &bull; All taxes &amp; cloud server bandwidth included
+            </div>
+            <div class="fk-currency-switch">
+              <i class="fa-solid fa-globe"></i>
+              <span>Showing in <strong id="pdmCurrentCurrencyName">INR (₹)</strong> &bull; <a href="javascript:void(0)" onclick="toggleCurrencyQuick()">Switch to <span id="pdmAltCurrencyName">USD ($)</span></a></span>
+            </div>
+          </div>
+
+          <!-- FLIPKART SIGNATURE DUAL ACTION BUTTONS (Directly Under Price Box!) -->
+          <div class="fk-action-buttons-strip">
+            <button type="button" class="fk-btn-cart" id="pdmAddCartBtn" onclick="toggleCartFromModal()">
+              <i class="fa-solid fa-cart-shopping"></i> <span id="pdmCartBtnText">ADD TO CART</span>
+            </button>
+            <a href="#" class="fk-btn-buy" id="pdmBuyBtn">
+              <i class="fa-solid fa-bolt"></i> <span id="pdmBuyBtnText">BUY NOW</span>
+            </a>
+          </div>
+
+          <!-- Delivery & Fulfillment Info Row -->
+          <div class="fk-delivery-row">
+            <div class="fk-delivery-col-label">Delivery</div>
+            <div class="fk-delivery-col-val">
+              <div class="fk-del-status">
+                <span class="fk-del-free">FREE</span> Instant Cloud Delivery
+              </div>
+              <div class="fk-del-sub">Direct access link instantly sent to your email &amp; dashboard vault</div>
+            </div>
+          </div>
+
+          <!-- Seller Information Row -->
+          <div class="fk-seller-row">
+            <div class="fk-seller-label">Seller</div>
+            <div class="fk-seller-card">
+              <div class="fk-seller-main">
+                <div class="fk-seller-avatar" id="pdmCreatorAvatar">L</div>
+                <div class="fk-seller-details">
+                  <div class="fk-seller-name-row">
+                    <strong class="fk-seller-name" id="pdmCreatorName" onclick="handlePdmCreatorClick()">LinkAdda Official</strong>
+                    <span class="fk-seller-rating">4.9 <i class="fa-solid fa-star"></i></span>
+                  </div>
+                  <span class="fk-seller-hint" onclick="handlePdmCreatorClick()">View seller profile &amp; verified drops &rarr;</span>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                <button type="button" class="fk-follow-btn" id="pdmCreatorFollowBtn" onclick="toggleFollowCreatorFromModal()">
+                  <i class="fa-solid fa-plus"></i> <span>Follow</span>
+                </button>
+                <button type="button" class="fk-seller-report-action-btn" onclick="openReportItemModal('seller')" title="Report this Seller" style="border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.08); color: #ef4444; border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease;">
+                  <i class="fa-regular fa-flag"></i> <span>Report</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Specifications Table (Flipkart Signature Spec Table) -->
+          <div class="fk-specs-section">
+            <h3 class="fk-section-heading">Specifications</h3>
+            <div class="fk-spec-group">
+              <div class="fk-spec-group-title">General</div>
+              <div class="fk-spec-table">
+                <div class="fk-spec-row">
+                  <span class="fk-spec-col-k">In The Box</span>
+                  <span class="fk-spec-col-v">Complete Digital Pack + High-Speed Cloud Access Keys</span>
+                </div>
+                <div class="fk-spec-row">
+                  <span class="fk-spec-col-k">Video Resolution</span>
+                  <span class="fk-spec-col-v" id="pdmSpecResolution">4K 2160p Ultra HD</span>
+                </div>
+                <div class="fk-spec-row">
+                  <span class="fk-spec-col-k">Audio Quality</span>
+                  <span class="fk-spec-col-v" id="pdmSpecAudio">Studio Stereo Audio</span>
+                </div>
+                <div class="fk-spec-row">
+                  <span class="fk-spec-col-k">Delivery Channels</span>
+                  <span class="fk-spec-col-v" id="pdmSpecDelivery">Mega.nz &amp; Google Drive Fast Direct Links</span>
+                </div>
+                <div class="fk-spec-row">
+                  <span class="fk-spec-col-k">Supported Devices</span>
+                  <span class="fk-spec-col-v" id="pdmSpecDevices">Android, iPhone / iPad, Windows PC, Mac, Smart TV</span>
+                </div>
+                <div class="fk-spec-row">
+                  <span class="fk-spec-col-k">Access Validity</span>
+                  <span class="fk-spec-col-v" id="pdmSpecAccess">Permanent Lifetime Unlimited + Free Replacement</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Features & Included Sources -->
+          <div class="fk-features-section" id="pdmFeaturesCard" style="display: none;">
+            <h3 class="fk-section-heading">Features &amp; Highlights</h3>
+            <div class="fk-features-tags" id="pdmFeaturesCloud"></div>
+          </div>
+
+          <!-- Product Description -->
+          <div class="fk-description-section">
+            <h3 class="fk-section-heading">Product Description</h3>
+            <div class="fk-description-body" id="pdmDescription">
+              Exclusive digital media pack. Instant high-speed delivery to your Orders Vault.
+            </div>
+          </div>
+
+          <!-- Buyer Protection & Trust Report Banner -->
+          <div class="fk-report-banner" style="margin-top: 24px; padding: 16px 18px; border-radius: 16px; background: rgba(239, 68, 68, 0.04); border: 1px dashed rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(239, 68, 68, 0.12); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
+                <i class="fa-solid fa-shield-halved"></i>
+              </div>
+              <div>
+                <div style="font-size: 13px; font-weight: 700; color: var(--text-main, #ffffff);">Safe &amp; Protected Marketplace</div>
+                <div style="font-size: 11px; color: var(--text-muted, #94a3b8);">Issue with this pack or seller? Report directly to LinkAdda Trust &amp; Safety.</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn-report-outline-prod" onclick="openReportItemModal('product')" style="padding: 7px 14px; font-size: 11.5px; font-weight: 700; border-radius: 10px; border: 1px solid rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); color: #ef4444; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-regular fa-flag"></i> Report Product
+              </button>
+              <button type="button" class="btn-report-outline-seller" onclick="openReportItemModal('seller')" style="padding: 7px 14px; font-size: 11.5px; font-weight: 700; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.3); background: rgba(148, 163, 184, 0.08); color: var(--text-muted, #94a3b8); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-regular fa-flag"></i> Report Seller
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─── MOBILE STICKY BOTTOM BAR (Pinned to bottom like Flipkart Mobile App) ─── -->
+    <div class="fk-mobile-sticky-bar">
+      <button type="button" class="fk-mob-cart-btn" id="pdmMobAddCartBtn" onclick="toggleCartFromModal()">
+        <i class="fa-solid fa-cart-shopping"></i> <span id="pdmMobCartBtnText">ADD TO CART</span>
+      </button>
+      <a href="#" class="fk-mob-buy-btn" id="pdmMobBuyBtn">
+        <i class="fa-solid fa-bolt"></i> <span id="pdmMobBuyBtnText">BUY NOW</span>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════
+       UNIVERSAL TRUST & SAFETY REPORT MODAL (Product & Seller)
+       ═════════════════════════════════════════════════════════════ -->
+  <div class="user-modal-overlay report-modal-overlay" id="reportSellerModal" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+    <div class="user-modal-card report-modal-card">
+      <!-- Native Mobile App Bottom-Sheet Drag Handle -->
+      <div class="mobile-sheet-drag-handle" aria-hidden="true"></div>
+
+      <button type="button" class="modal-close-btn report-modal-close-btn" onclick="closeModal('reportSellerModal')" aria-label="Close Report Modal" title="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <input type="hidden" id="reportTargetType" value="seller" />
+      <input type="hidden" id="reportTargetId" value="" />
+      <input type="hidden" id="reportTargetName" value="" />
+
+      <div class="report-modal-header">
+        <div class="report-modal-icon-badge">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="report-modal-header-text">
+          <h3 id="reportModalTitle" class="report-modal-title">Report Issue</h3>
+          <div class="report-target-meta">
+            <span class="report-target-label">Reporting:</span>
+            <span id="reportTargetTypeBadge" class="report-target-badge">SELLER</span>
+            <strong id="reportSellerNameDisplay" class="report-target-name">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- In-Modal Alert / Error Banner -->
+      <div id="reportModalAlert" class="report-modal-alert" style="display: none;"></div>
+
+      <!-- Report Form -->
+      <div id="reportFormSection" class="report-form-section">
+        <div class="form-group-item report-form-group">
+          <label class="form-label" for="reporterNameInput">Your Full Name <span class="required-star">*</span></label>
+          <div class="report-input-wrap">
+            <i class="fa-regular fa-user report-input-icon"></i>
+            <input type="text" id="reporterNameInput" class="form-input report-input" placeholder="e.g. Rahul Sharma" autocomplete="name" required />
+          </div>
+        </div>
+
+        <div class="form-group-item report-form-group">
+          <label class="form-label" for="reporterEmailInput">Your Email Address <span class="form-label-hint">(For resolution updates)</span></label>
+          <div class="report-input-wrap">
+            <i class="fa-regular fa-envelope report-input-icon"></i>
+            <input type="email" id="reporterEmailInput" class="form-input report-input" placeholder="name@example.com" autocomplete="email" />
+          </div>
+        </div>
+
+        <div class="form-group-item report-form-group">
+          <label class="form-label" for="reportReasonSelect">Report Reason <span class="required-star">*</span></label>
+          <div class="report-input-wrap select-wrap">
+            <i class="fa-solid fa-list-check report-input-icon"></i>
+            <select id="reportReasonSelect" class="form-input report-input report-select" required>
+              <option value="">— Select a reason —</option>
+              <option value="Broken or Dead Download Link">Broken or Dead Download Link</option>
+              <option value="Fake or Misleading Images/Title">Fake or Misleading Images/Title</option>
+              <option value="Incomplete or Missing Files">Incomplete or Missing Files</option>
+              <option value="Copyright or Pirated Content">Copyright or Pirated Content</option>
+              <option value="Scam or Fraud Attempt">Scam or Fraud Attempt</option>
+              <option value="Offensive or Inappropriate Content">Offensive or Inappropriate Content</option>
+              <option value="Spam or Repetitive Listings">Spam or Repetitive Listings</option>
+              <option value="Other Policy Violation">Other Policy Violation</option>
+            </select>
+            <i class="fa-solid fa-chevron-down report-select-arrow"></i>
+          </div>
+        </div>
+
+        <div class="form-group-item report-form-group">
+          <label class="form-label" for="reportDetailsInput">Description / Evidence <span class="form-label-hint">(Optional)</span></label>
+          <textarea id="reportDetailsInput" class="form-input report-input report-textarea" placeholder="Provide details, specific error messages, or why this violates guidelines..." rows="3"></textarea>
+        </div>
+
+        <button type="button" class="btn-submit-report" id="submitReportBtn" onclick="submitUnifiedReport()">
+          <i class="fa-solid fa-paper-plane"></i> <span>Submit Report</span>
+        </button>
+
+        <div class="report-trust-badge">
+          <i class="fa-solid fa-shield-check"></i>
+          <span>Reports are delivered directly to JaiGram Admin Panel for immediate investigation.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════
+       IN-APP LEGAL & PRIVACY POLICIES MODAL
+       ═════════════════════════════════════════════════════════════ -->
+  <div class="user-modal-overlay legal-modal-overlay" id="legalPolicyModal" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle" onclick="if(event.target===this) closeModal('legalPolicyModal')">
+    <div class="user-modal-card legal-modal-card">
+      <div class="mobile-sheet-drag-handle" aria-hidden="true"></div>
+
+      <!-- Modal Header -->
+      <div class="legal-modal-header">
+        <div class="legal-modal-header-left">
+          <div class="legal-modal-icon-badge">
+            <i class="fa-solid fa-scale-balanced"></i>
+          </div>
+          <div>
+            <h3 id="legalModalTitle" class="legal-modal-title">JaiGram Legal &amp; Privacy Center</h3>
+            <span class="legal-modal-sub">Transparent policies, verified security &amp; customer rights</span>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('legalPolicyModal')" aria-label="Close Legal Modal" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Quick Nav Pills / Tabs -->
+      <div class="legal-tabs-bar" role="tablist">
+        <button type="button" class="legal-tab-btn active" id="btnLegalTab-privacy" onclick="switchLegalModalTab('privacy')" role="tab">
+          <i class="fa-solid fa-user-shield"></i>
+          <span>Privacy Policy</span>
+        </button>
+        <button type="button" class="legal-tab-btn" id="btnLegalTab-payment-security" onclick="switchLegalModalTab('payment-security')" role="tab">
+          <i class="fa-solid fa-lock"></i>
+          <span>Payment Security</span>
+        </button>
+        <button type="button" class="legal-tab-btn" id="btnLegalTab-terms" onclick="switchLegalModalTab('terms')" role="tab">
+          <i class="fa-solid fa-file-contract"></i>
+          <span>Terms of Service</span>
+        </button>
+        <button type="button" class="legal-tab-btn" id="btnLegalTab-refund" onclick="switchLegalModalTab('refund')" role="tab">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span>Refund Guarantee</span>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="legal-modal-body" id="legalModalBody">
+        
+        <!-- Tab 1: Privacy Policy -->
+        <div class="legal-tab-content active" id="legalTabPane-privacy">
+          <div class="legal-trust-banner green">
+            <div class="trust-banner-icon"><i class="fa-solid fa-shield-check"></i></div>
+            <div class="trust-banner-text">
+              <strong>Strict Data Minimization Guarantee</strong>
+              <span>We collect ONLY your <strong>Full Name &amp; Email ID</strong> (and transaction UTR entered by you). We NEVER ask for or collect banking passwords, card PINs, CVVs, contacts, or private files.</span>
+            </div>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-circle-check text-pink"></i> 1. What Information We Collect (Name &amp; Email Only)</h4>
+            <p>At <strong>JaiGram Shop</strong>, privacy is built into our core. We only request the absolute bare minimum details necessary to deliver digital purchases to you:</p>
+            <ul class="legal-bullets">
+              <li><strong>Customer Name:</strong> Used exclusively to personalize your customer vault greeting and invoices.</li>
+              <li><strong>Email Address:</strong> Used for secure single-use Email OTP login verification, order confirmation receipts, and permanent digital access link delivery.</li>
+              <li><strong>Payment Reference / Transaction UTR:</strong> When you complete a UPI or Binance Pay transaction, you enter the reference ID so our automated system can match the payment with your order.</li>
+            </ul>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-ban text-red"></i> 2. What We Strictly NEVER Collect</h4>
+            <ul class="legal-bullets">
+              <li>❌ <strong>NO Debit/Credit Card Details:</strong> We never collect, see, or store 16-digit card numbers, CVVs, expiry dates, or ATM PINs.</li>
+              <li>❌ <strong>NO Banking Passwords:</strong> We never ask for your NetBanking credentials, UPI MPIN, or bank login info.</li>
+              <li>❌ <strong>NO Phone Tracking:</strong> We do not require or store your mobile phone number, phonebook contacts, or SMS messages.</li>
+              <li>❌ <strong>NO Data Sharing:</strong> Your email and name are strictly private. We never sell, rent, or distribute user details to third parties, ad networks, or brokers.</li>
+            </ul>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-lock text-green"></i> 3. Discreet Digital Vault Delivery</h4>
+            <p>All purchased digital content, streaming links, and cloud storage folders are delivered directly inside your encrypted <strong>Orders Vault</strong>. Your order history is completely private to your account.</p>
+          </div>
+        </div>
+
+        <!-- Tab 2: Payment Security -->
+        <div class="legal-tab-content" id="legalTabPane-payment-security">
+          <div class="legal-trust-banner blue">
+            <div class="trust-banner-icon"><i class="fa-solid fa-lock"></i></div>
+            <div class="trust-banner-text">
+              <strong>256-Bit SSL Encrypted Payment Rails</strong>
+              <span>Payments are routed directly through official UPI apps or Binance Pay. Zero banking credentials touch or store on our servers.</span>
+            </div>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-shield-halved text-pink"></i> 1. How Payments Work on JaiGram</h4>
+            <p>We use direct peer-to-peer and bank-to-bank settlement methods:</p>
+            <ul class="legal-bullets">
+              <li><strong>Instant UPI (Google Pay, PhonePe, Paytm, BHIM):</strong> You scan our official dynamic merchant QR code or copy our official UPI ID. You authorize the payment securely inside your own trusted banking app. JaiGram never sees your bank account login or MPIN.</li>
+              <li><strong>Binance Pay &amp; Crypto:</strong> Fast, decentralized digital asset settlement with zero card fraud risk and instant blockchain / Pay ID verification.</li>
+            </ul>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-circle-check text-green"></i> 2. Zero Financial Credential Storage</h4>
+            <p>Because payments are initiated by you within your preferred banking app (Google Pay, PhonePe, Paytm) or Binance app, <strong>JaiGram does not possess or store any financial credentials</strong>. Your money moves directly and safely through NPCI-authorized banking channels.</p>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-satellite-dish text-blue"></i> 3. 256-Bit HTTPS Session Security</h4>
+            <p>Every communication between your web browser and JaiGram is guarded by SHA-256 TLS 1.3 encryption, ensuring your session is completely protected against eavesdropping and tampering.</p>
+          </div>
+        </div>
+
+        <!-- Tab 3: Terms of Service -->
+        <div class="legal-tab-content" id="legalTabPane-terms">
+          <div class="legal-trust-banner amber">
+            <div class="trust-banner-icon"><i class="fa-solid fa-file-contract"></i></div>
+            <div class="trust-banner-text">
+              <strong>Digital Creator Marketplace Terms</strong>
+              <span>Simple, common-sense rules governing digital access passes and store purchases.</span>
+            </div>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-id-card text-pink"></i> 1. User Eligibility</h4>
+            <p>You must be of the legal age of majority in your jurisdiction to browse and complete purchases on JaiGram Shop.</p>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-key text-green"></i> 2. Personal Access Rights</h4>
+            <ul class="legal-bullets">
+              <li>All digital vault passes and media links are provided for your own personal, private collection viewing.</li>
+              <li>Public redistribution, unauthorized mass reselling, or dumping into public forums is strictly prohibited.</li>
+            </ul>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-truck-fast text-blue"></i> 3. Instant Digital Delivery</h4>
+            <p>Once your payment is verified, digital access passes are activated and stored inside your <strong>Orders Vault</strong>. Delivery takes only seconds under normal operation.</p>
+          </div>
+        </div>
+
+        <!-- Tab 4: Refund Guarantee -->
+        <div class="legal-tab-content" id="legalTabPane-refund">
+          <div class="legal-trust-banner green">
+            <div class="trust-banner-icon"><i class="fa-solid fa-rotate-left"></i></div>
+            <div class="trust-banner-text">
+              <strong>Lifetime Link Replacement Guarantee</strong>
+              <span>Never lose access to your purchases. Free replacement links anytime via 24/7 VIP Support.</span>
+            </div>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-circle-check text-green"></i> 1. Free Lifetime Replacement</h4>
+            <p>If any cloud storage link, Google Drive pass, or Mega folder ever goes down or quota exceeds, simply message our support with your order reference. A fresh, working replacement link is issued promptly at zero extra cost.</p>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-hand-holding-dollar text-pink"></i> 2. 100% Refund Scenarios</h4>
+            <ul class="legal-bullets">
+              <li><strong>Duplicate Payment:</strong> If you were charged twice due to a UPI or banking delay, the duplicate charge is refunded immediately.</li>
+              <li><strong>Non-Delivery:</strong> If we fail to deliver your digital access within 12 hours of verified payment, you receive an immediate 100% refund.</li>
+              <li><strong>Permanent Unavailability:</strong> If a collection is permanently unavailable, you may choose an alternative pack of equal value or receive a full 100% refund.</li>
+            </ul>
+          </div>
+
+          <div class="legal-article-section">
+            <h4><i class="fa-solid fa-headset text-blue"></i> 3. 24/7 Dedicated Support</h4>
+            <p>Our official support is always ready to help: Telegram: <strong>@jaigramsupport</strong> • Email: <strong>support@jaigram.shop</strong></p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="legal-modal-footer">
+        <div class="legal-footer-left">
+          <i class="fa-solid fa-shield-halved text-green"></i>
+          <span>JaiGram Shop Official Policies</span>
+        </div>
+        <div class="legal-footer-right">
+          <a href="../legal.html" target="_blank" rel="noopener" class="btn-legal-full-page">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Full Web Page
+          </a>
+          <button type="button" class="btn-legal-close" onclick="closeModal('legalPolicyModal')">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="user-toast" id="userAppToast">
+    <i class="fa-solid fa-circle-check" style="color: #10b981;"></i>
+    <span id="toastMessage">Success</span>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════
+       SHOPPING CART DRAWER (Modern Slide-Over & Mobile Bottom Sheet)
+       ═════════════════════════════════════════════════════════════ -->
+  <div class="cart-drawer-overlay" id="cartDrawerOverlay" onclick="handleCartOverlayClick(event)">
+    <aside class="cart-drawer-panel" id="cartDrawerPanel">
+      <div class="sheet-drag-handle"></div>
+      
+      <div class="cart-drawer-header">
+        <div class="cart-drawer-title">
+          <div class="cart-title-icon-badge">
+            <i class="fa-solid fa-bag-shopping"></i>
+          </div>
+          <div class="cart-title-text-wrap">
+            <h3 class="cart-title-main">Shopping Cart</h3>
+            <span class="cart-count-pill" id="drawerCartCount">0 items</span>
+          </div>
+        </div>
+        <div class="cart-drawer-actions">
+          <button type="button" class="cart-clear-btn" onclick="clearCart()" title="Clear all items">
+            <i class="fa-solid fa-trash-can"></i> Clear
+          </button>
+          <button type="button" class="cart-close-btn" onclick="closeCartDrawer()" aria-label="Close cart">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="cart-drawer-body" id="cartDrawerBody">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <div class="cart-drawer-footer" id="cartDrawerFooter">
+        <div class="cart-summary-row">
+          <div>
+            <div class="cart-summary-label">Total Payable</div>
+            <div class="cart-summary-sublabel">Inclusive of all taxes</div>
+          </div>
+          <div style="text-align: right;">
+            <div class="cart-summary-total" id="cartTotalINR">₹0</div>
+            <div class="cart-summary-total-usd" id="cartTotalUSD">$0</div>
+          </div>
+        </div>
+        <button type="button" class="btn-cart-checkout" id="cartCheckoutBtn" onclick="handleCartCheckout()">
+          <i class="fa-solid fa-bolt"></i> <span>Proceed to Checkout</span> <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <button type="button" class="btn-cart-add-more" id="cartAddMoreBtn" onclick="closeCartDrawer(); switchTab('marketplace');" title="Explore more products">
+          <i class="fa-solid fa-plus"></i> <span>Add More Products</span>
+        </button>
+        <div class="cart-trust-row">
+          <span><i class="fa-solid fa-circle-check" style="color: #10b981;"></i> Instant Fulfillment</span>
+          <span><i class="fa-solid fa-shield-halved" style="color: #0ea5e9;"></i> 100% Protected</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+
+
+
+  <!-- ═════════════════════════════════════════════════════════════
+       STRICT 18+ AGE & CONTENT VERIFICATION MODAL (NON-BYPASSABLE)
+       No close button, backdrop click disabled, cancel sends back
+       ═════════════════════════════════════════════════════════════ -->
+  <!-- Age Gate Overlay (Quiet Guard) -->
+  <div class="age-gate-overlay" id="ageGateOverlay" style="display: none !important;" role="dialog" aria-modal="true" aria-hidden="true"></div>
+  <script>
+    (function() {
+      var TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
+
+      function getCustomerId() {
+        try {
+          var raw = localStorage.getItem('linkadda_customer_session');
+          var sess = raw ? JSON.parse(raw) : null;
+          if (sess && (sess.email || sess.uid)) {
+            return String(sess.email || sess.uid).toLowerCase().trim();
+          }
+        } catch (_) {}
+        return '';
+      }
+
+      function checkIs18PlusValid() {
+        try {
+          var now = Date.now();
+          // 1. Global 10-day timestamp
+          var globalUntil = parseInt(localStorage.getItem('linkadda_18plus_valid_until') || '0', 10);
+          if (globalUntil && globalUntil > now) {
+            return true;
+          }
+
+          // 2. User-specific 10-day timestamp
+          var id = getCustomerId();
+          if (id) {
+            var userUntil = parseInt(localStorage.getItem('linkadda_18plus_valid_until_' + id) || '0', 10);
+            if (userUntil && userUntil > now) {
+              return true;
+            }
+          }
+
+          // 3. Fallback: verified_time recorded within last 10 days
+          var vTime = parseInt(localStorage.getItem('linkadda_18plus_verified_time') || '0', 10);
+          if (vTime && (now - vTime) < TEN_DAYS_MS) {
+            localStorage.setItem('linkadda_18plus_valid_until', String(vTime + TEN_DAYS_MS));
+            return true;
+          }
+
+          return false;
+        } catch (_) {
+          return false;
+        }
+      }
+      window.is18PlusActive = checkIs18PlusValid;
+
+      function confirm18PlusAccess() {
+        var now = Date.now();
+        var validUntil = now + TEN_DAYS_MS;
+        var id = getCustomerId();
+
+        try {
+          localStorage.setItem('linkadda_18plus_valid_until', String(validUntil));
+          localStorage.setItem('linkadda_18plus_verified_time', String(now));
+          localStorage.setItem('linkadda_18plus_verified', 'true');
+          if (id) {
+            localStorage.setItem('linkadda_18plus_valid_until_' + id, String(validUntil));
+            localStorage.setItem('linkadda_18plus_verified_time_' + id, String(now));
+            localStorage.setItem('linkadda_18plus_verified_' + id, 'true');
+          }
+        } catch (err) {
+          console.warn('Storage save error:', err);
+        }
+
+        // Instantly unlock UI
+        document.documentElement.classList.remove('age-gate-pending');
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+
+        var modal = document.getElementById('ageGateOverlay');
+        if (modal) {
+          modal.classList.remove('active');
+          modal.classList.add('hidden');
+          modal.style.setProperty('display', 'none', 'important');
+        }
+
+        // Open deep linked product or store if present
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var pId = params.get('productId') || params.get('id');
+          var st = params.get('store');
+          if (pId && typeof window.openProductDetailModal === 'function') {
+            window.openProductDetailModal(pId);
+          } else if (st && typeof window.openStoreShowcaseModal === 'function') {
+            window.openStoreShowcaseModal(st);
+          }
+        } catch (_) {}
+      }
+      window.confirm18PlusAccess = confirm18PlusAccess;
+
+      function cancel18PlusAccess() {
+        var btnCancel = document.getElementById('btnAgeCancel');
+        if (btnCancel) {
+          btnCancel.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Exiting...</span>';
+          btnCancel.style.pointerEvents = 'none';
+        }
+
+        try {
+          localStorage.removeItem('linkadda_customer_session');
+          sessionStorage.removeItem('linkadda_pending_destination');
+        } catch (_) {}
+
+        // Go back in history if available; otherwise go to site login page (NEVER external Google!)
+        if (window.history.length > 1 && document.referrer && document.referrer.indexOf(window.location.host) !== -1) {
+          window.history.back();
+        } else {
+          window.location.replace('../login.html');
+        }
+      }
+      window.cancel18PlusAccess = cancel18PlusAccess;
+
+      function applyGateState() {
+        var modal = document.getElementById('ageGateOverlay');
+        if (!modal) return;
+
+        if (checkIs18PlusValid()) {
+          modal.classList.remove('active');
+          modal.classList.add('hidden');
+          modal.style.setProperty('display', 'none', 'important');
+          document.documentElement.classList.remove('age-gate-pending');
+          document.body.style.overflow = '';
+          document.documentElement.style.overflow = '';
+        } else {
+          modal.classList.remove('hidden');
+          modal.classList.add('active');
+          modal.style.setProperty('display', 'flex', 'important');
+          document.documentElement.classList.add('age-gate-pending');
+          document.body.style.overflow = 'hidden';
+          document.documentElement.style.overflow = 'hidden';
+        }
+      }
+
+      // Run immediately
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyGateState);
+      } else {
+        applyGateState();
+      }
+
+      // Direct event bindings for maximum browser compatibility
+      window.addEventListener('DOMContentLoaded', function() {
+        var btnConfirm = document.getElementById('btnAgeConfirm');
+        if (btnConfirm) {
+          btnConfirm.addEventListener('click', confirm18PlusAccess);
+        }
+        var btnCancel = document.getElementById('btnAgeCancel');
+        if (btnCancel) {
+          btnCancel.addEventListener('click', cancel18PlusAccess);
+        }
+        var modal = document.getElementById('ageGateOverlay');
+        if (modal) {
+          modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+              e.preventDefault();
+              e.stopPropagation();
+              var card = modal.querySelector('.age-gate-card');
+              if (card) {
+                card.classList.remove('age-gate-shake');
+                void card.offsetWidth;
+                card.classList.add('age-gate-shake');
+              }
+            }
+          });
+        }
+        window.addEventListener('keydown', function(e) {
+          var m = document.getElementById('ageGateOverlay');
+          if (m && m.style.display !== 'none' && (e.key === 'Escape' || e.key === 'Esc')) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
+      });
+    })();
+  </script>
+
+  <!-- Shared Payment Gateway Modal Script -->
+  <script src="../shared/payment-gateway.js"></script>
+
+  <!-- User Dashboard Script -->
+  <script src="user.js?v=20260929_report_sheet_v4"></script>
+</body>
+</html>

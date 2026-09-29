@@ -142,7 +142,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       applicationId,
-      message: 'Your seller application has been submitted successfully! LinkAdda admin will review your profile.',
+      message: 'Your seller application has been submitted successfully! JaiGram admin will review your profile.',
     });
   } catch (err) {
     console.error('Unexpected error in /api/seller/apply:', err);

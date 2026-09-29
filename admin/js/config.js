@@ -1,6 +1,6 @@
 export const APP_CONFIG = {
-  appName: 'Linkadda Admin',
-  appSlug: 'linkadda-admin',
+  appName: 'JaiGram Admin',
+  appSlug: 'jaigram-admin',
   themeKey: 'linkadda_admin_theme',
   sessionKey: 'linkadda_admin_session',
   commandKey: 'linkadda_admin_commands',
@@ -18,12 +18,14 @@ export const FIREBASE_CONFIG = {
   measurementId: 'G-PCH50PK2N7',
 };
 
-// RustFS S3-compatible public config (No secrets on frontend!)
+// Cloudflare R2 S3-compatible public config (No secrets on frontend!)
 export const RUSTFS_CONFIG = {
-  endpoint: 'https://rustfs-mi5c.srv1942099.hstgr.cloud',
+  endpoint: 'https://media.jaigram.shop',
   bucket: 'linkadda-media',
-  region: 'us-east-1',
+  region: 'auto',
+  publicUrl: 'https://media.jaigram.shop',
 };
+export const R2_CONFIG = RUSTFS_CONFIG;
 
 // Supabase config retained for zero-downtime transition & backward compatibility
 export const SUPABASE_CONFIG = {
@@ -50,11 +52,14 @@ export const RTDB_NODES = {
   customers: 'customers',
   sellers: 'events/sellers',
   seller_applications: 'events/seller_applications',
+  reports: 'reports',
 };
 
 export const NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
   { key: 'catalog', label: 'Catalog', icon: 'package' },
+  { key: 'orders', label: 'Orders', icon: 'receipt-text' },
+  { key: 'reports', label: 'Reports', icon: 'flag' },
   { key: 'reviews', label: 'Reviews', icon: 'star' },
   { key: 'media', label: 'Media', icon: 'image-plus' },
   { key: 'hero', label: 'Hero', icon: 'sparkles' },
@@ -63,7 +68,6 @@ export const NAV_ITEMS = [
   { key: 'testimonials', label: 'Testimonials', icon: 'messages-square' },
   { key: 'settings', label: 'Settings', icon: 'settings-2' },
   { key: 'payment', label: 'Payment', icon: 'credit-card' },
-  { key: 'orders', label: 'Orders', icon: 'receipt-text' },
   { key: 'users', label: 'Users', icon: 'users' },
   { key: 'sellers', label: 'Sellers', icon: 'store' },
   { key: 'screenshots', label: 'Screenshots', icon: 'image' },

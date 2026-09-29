@@ -87,7 +87,8 @@ if (typeof window !== 'undefined') {
   getFirebaseAuth().then(() => checkGoogleRedirectResult()).catch(() => {});
 }
 
-const SESSION_KEY = 'linkadda_customer_session';
+const SESSION_KEY = 'jaigram_customer_session';
+const LEGACY_SESSION_KEY = 'linkadda_customer_session';
 
 // State variables
 let currentEmail = '';
@@ -131,6 +132,12 @@ export function getApiEndpoint(path) {
 
 export async function getCustomerId(email) {
   const clean = String(email || '').toLowerCase().trim();
+  if (!clean || !clean.includes('@')) {
+    const rand = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+      : (Date.now().toString(36) + Math.random().toString(36).substring(2, 10));
+    return `cust_${rand}`;
+  }
   const hash = await clientSha256(clean);
   return `cust_${hash.substring(0, 16)}`;
 }
@@ -141,29 +148,29 @@ export async function resolveUnifiedCustomer(email, incomingData = {}) {
   const uid = await getCustomerId(cleanEmail);
   const fallbackName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-  let existing = null;
+  let existing = incomingData.existingRecord || null;
 
   // 1. Check local session
   const local = getCustomerSession();
   if (local && local.email && local.email.toLowerCase() === cleanEmail) {
-    existing = local;
+    existing = { ...local, ...existing };
   }
 
-  // 2. Check remote database (parallel fast lookup) - skip if Google already provided a real name
+  // 2. Check remote database (parallel fast lookup) - skip if Google already provided a real name or record already has saved name
   const hasRealName = (existing?.displayName && existing.displayName !== fallbackName && existing.displayName !== 'Customer') ||
                       (incomingData.provider === 'google' && incomingData.displayName && incomingData.displayName !== fallbackName);
 
-  if (!hasRealName && !incomingData.newName) {
+  if (!hasRealName && !incomingData.newName && !existing?.hasSavedName) {
     try {
       const timeoutPromise = (ms) => new Promise(r => setTimeout(r, ms));
       const fetchApi = fetch(getApiEndpoint(`/api/auth/customer?email=${encodeURIComponent(cleanEmail)}`), { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null).catch(() => null);
-      const fetchRtdb = fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${uid}.json`)
+      const fetchRtdb = fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/customers/${uid}.json`)
         .then(r => r.ok ? r.json() : null).catch(() => null);
 
       const [apiRes, rtdbRes] = await Promise.race([
         Promise.all([fetchApi, fetchRtdb]),
-        timeoutPromise(600).then(() => [null, null])
+        timeoutPromise(1200).then(() => [null, null])
       ]);
 
       if (apiRes?.customer) existing = { ...existing, ...apiRes.customer };
@@ -172,31 +179,47 @@ export async function resolveUnifiedCustomer(email, incomingData = {}) {
   }
 
   // 5. Smart display name determination:
-  // - If incoming explicit newName is provided, use it.
-  // - If existing record already has a custom name (not default fallback), retain it.
-  // - If Google provided a real name, use it.
-  // - Otherwise use incoming displayName or fallback name.
-  let finalDisplayName = fallbackName;
-  let hasSavedCustomName = false;
+  // Persistent name check across sessions (never ask again once saved!)
+  const persistentSavedName = localStorage.getItem('linkadda_customer_name_' + cleanEmail);
+  const isNameMarkedSaved = localStorage.getItem('linkadda_name_saved_' + cleanEmail) === 'true';
+
+  let finalDisplayName = persistentSavedName || existing?.displayName || fallbackName;
+  let hasSavedCustomName = Boolean(
+    persistentSavedName || 
+    isNameMarkedSaved || 
+    (existing?.hasSavedName && existing.displayName) ||
+    (existing?.displayName && existing.displayName !== fallbackName && existing.displayName !== 'Customer' && existing.displayName !== cleanEmail)
+  );
 
   if (incomingData.newName && String(incomingData.newName).trim()) {
     finalDisplayName = String(incomingData.newName).trim();
     hasSavedCustomName = true;
+    localStorage.setItem('linkadda_customer_name_' + cleanEmail, finalDisplayName);
+    localStorage.setItem('linkadda_name_saved_' + cleanEmail, 'true');
+  } else if (persistentSavedName) {
+    finalDisplayName = persistentSavedName;
+    hasSavedCustomName = true;
   } else if (existing?.displayName && existing.displayName !== fallbackName && existing.displayName !== 'Customer') {
     finalDisplayName = existing.displayName;
     hasSavedCustomName = true;
+    localStorage.setItem('linkadda_customer_name_' + cleanEmail, finalDisplayName);
+    localStorage.setItem('linkadda_name_saved_' + cleanEmail, 'true');
   } else if (existing?.hasSavedName && existing.displayName) {
     finalDisplayName = existing.displayName;
     hasSavedCustomName = true;
+    localStorage.setItem('linkadda_customer_name_' + cleanEmail, finalDisplayName);
+    localStorage.setItem('linkadda_name_saved_' + cleanEmail, 'true');
   } else if (incomingData.provider === 'google' && incomingData.displayName && incomingData.displayName !== fallbackName) {
     finalDisplayName = incomingData.displayName;
     hasSavedCustomName = true;
+    localStorage.setItem('linkadda_customer_name_' + cleanEmail, finalDisplayName);
+    localStorage.setItem('linkadda_name_saved_' + cleanEmail, 'true');
   } else if (incomingData.displayName && String(incomingData.displayName).trim()) {
     finalDisplayName = String(incomingData.displayName).trim();
   }
 
   // Determine whether this user needs a first-time name prompt:
-  // ONLY if they have never saved a name and didn't provide one via Google!
+  // ONLY if they have NEVER saved a name before AND it's not Google!
   const isNewUserWithNameNeeded = !hasSavedCustomName && incomingData.provider !== 'google';
 
   // 6. Merge providers list (supports logging in with Google or Email OTP interchangeably)
@@ -207,11 +230,13 @@ export async function resolveUnifiedCustomer(email, incomingData = {}) {
   const mergedProviders = Array.from(new Set([...existingProviders, incomingProvider].filter(Boolean)));
 
   // 7. Construct Unified Customer Profile (No Avatar Image!)
+  const sessionToken = incomingData.token || incomingData.sessionToken || incomingData.existingRecord?.sessionToken || existing?.sessionToken;
   const unifiedUser = {
     uid: uid,
     email: cleanEmail,
     displayName: finalDisplayName,
     hasSavedName: hasSavedCustomName,
+    sessionToken: sessionToken || undefined,
     provider: incomingProvider,
     providers: mergedProviders,
     verified: true,
@@ -221,13 +246,15 @@ export async function resolveUnifiedCustomer(email, incomingData = {}) {
   };
 
   localStorage.setItem(SESSION_KEY, JSON.stringify(unifiedUser));
+  localStorage.setItem(LEGACY_SESSION_KEY, JSON.stringify(unifiedUser));
   syncCustomerToDatabase(unifiedUser);
 
-  const welcomedKey = `linkadda_welcomed_${uid}`;
-  if (!localStorage.getItem(welcomedKey)) {
+  const welcomedKey = `jaigram_welcomed_${uid}`;
+  if (!localStorage.getItem(welcomedKey) && !localStorage.getItem(`linkadda_welcomed_${uid}`)) {
     addUserWelcomeNotification(uid, unifiedUser.displayName);
   }
 
+  window.dispatchEvent(new CustomEvent('jaigram:auth-changed', { detail: unifiedUser }));
   window.dispatchEvent(new CustomEvent('linkadda:auth-changed', { detail: unifiedUser }));
   updateHeaderUserUI();
 
@@ -236,7 +263,7 @@ export async function resolveUnifiedCustomer(email, incomingData = {}) {
 
 export function getCustomerSession() {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    const raw = localStorage.getItem(SESSION_KEY) || localStorage.getItem(LEGACY_SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (_) {
     return null;
@@ -251,13 +278,25 @@ export async function logoutCustomer() {
     }
   } catch (_) {}
   localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(LEGACY_SESSION_KEY);
+  sessionStorage.removeItem('jaigram_pending_destination');
+  sessionStorage.removeItem('linkadda_pending_destination');
+  window.dispatchEvent(new CustomEvent('jaigram:auth-changed', { detail: null }));
   window.dispatchEvent(new CustomEvent('linkadda:auth-changed', { detail: null }));
   updateHeaderUserUI();
+
+  const path = window.location.pathname.toLowerCase();
+  if (path.includes('product') || path.includes('payment') || path.includes('/user')) {
+    document.documentElement.style.display = 'none';
+    window.location.replace((path.includes('/user/') ? '../' : '') + 'login.html');
+    return;
+  }
+
   showProfilePage();
   showAppToast('You have been signed out.');
 }
 
-async function syncCustomerToDatabase(user) {
+export async function syncCustomerToDatabase(user) {
   if (!user || !user.uid) return;
   const payload = {
     uid: user.uid,
@@ -271,11 +310,16 @@ async function syncCustomerToDatabase(user) {
     newName: user.newName || undefined,
   };
 
+  const reqHeaders = { 'Content-Type': 'application/json' };
+  if (user.sessionToken) {
+    reqHeaders['Authorization'] = `Bearer ${user.sessionToken}`;
+  }
+
   // 1. Backend Serverless API sync (with admin credentials, guarantees persistence!)
   try {
     fetch(getApiEndpoint('/api/auth/customer'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: reqHeaders,
       body: JSON.stringify(payload),
     }).catch(() => {});
   } catch (_) {}
@@ -327,7 +371,7 @@ function getLuxuryEmailTemplate(otp, userEmail) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your LinkAdda Verification Code</title>
+  <title>Your JaiGram Verification Code</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #07060c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07060c; padding: 40px 15px;">
@@ -337,7 +381,7 @@ function getLuxuryEmailTemplate(otp, userEmail) {
           <tr>
             <td style="padding: 36px 32px 24px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
               <div style="font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">
-                LinkAdda <span style="color: #ff2a8d; font-size: 26px; margin: 0 4px;">&#9819;</span> <span style="background: linear-gradient(135deg, #ff2a8d 0%, #ff7bb0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Shop</span>
+                JaiGram <span style="color: #ff2a8d; font-size: 26px; margin: 0 4px;">&#9819;</span> <span style="background: linear-gradient(135deg, #ff2a8d 0%, #ff7bb0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Shop</span>
               </div>
               <div style="margin-top: 6px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">
                 Authentic Premium Marketplace
@@ -366,14 +410,14 @@ function getLuxuryEmailTemplate(otp, userEmail) {
           <tr>
             <td style="padding: 20px 32px; background: rgba(255, 255, 255, 0.03); border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: left;">
               <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #94a3b8;">
-                <strong style="color: #cbd5e1;">Security Notice:</strong> LinkAdda will never ask you for this code. If you didn't request this, please ignore this email.
+                <strong style="color: #cbd5e1;">Security Notice:</strong> JaiGram will never ask you for this code. If you didn't request this, please ignore this email.
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding: 24px 32px; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.04);">
               <p style="margin: 0; font-size: 12px; color: #64748b;">
-                &copy; ${new Date().getFullYear()} LinkAdda Shop &bull; <a href="https://linkadda.shop" style="color: #ff2a8d; text-decoration: none; font-weight: 600;">linkadda.shop</a>
+                &copy; ${new Date().getFullYear()} JaiGram Shop &bull; <a href="https://jaigram.shop" style="color: #ff2a8d; text-decoration: none; font-weight: 600;">jaigram.shop</a>
               </p>
             </td>
           </tr>
@@ -614,7 +658,7 @@ export function showProfilePage() {
   const likesCountEl = document.getElementById('profileLikedCount');
   if (likesCountEl) {
     try {
-      const rawLikes = localStorage.getItem('la_wishlist') || localStorage.getItem('linkadda_wishlist') || '[]';
+      const rawLikes = localStorage.getItem('jaigram_wishlist') || localStorage.getItem('la_wishlist') || localStorage.getItem('linkadda_wishlist') || '[]';
       likesCountEl.textContent = `${JSON.parse(rawLikes).length || 0} Saved`;
     } catch (_) {
       likesCountEl.textContent = '0 Saved';
@@ -624,7 +668,7 @@ export function showProfilePage() {
   const cartCountEl = document.getElementById('profileCartCount');
   if (cartCountEl) {
     try {
-      const rawCart = localStorage.getItem('linkadda_cart_v1') || '[]';
+      const rawCart = localStorage.getItem('jaigram_cart_v1') || localStorage.getItem('linkadda_cart_v1') || '[]';
       const cartList = JSON.parse(rawCart);
       let totalQty = 0;
       if (Array.isArray(cartList)) cartList.forEach(item => totalQty += (item.qty || 1));
@@ -667,7 +711,7 @@ export function showProfilePage() {
 
       // Check seller session
       try {
-        const sellerRaw = localStorage.getItem('linkadda_seller_session');
+        const sellerRaw = localStorage.getItem('jaigram_seller_session') || localStorage.getItem('linkadda_seller_session');
         if (sellerRaw) {
           const sellerSess = JSON.parse(sellerRaw);
           if (sellerSess && sellerSess.token && sellerSess.seller) {
@@ -679,7 +723,7 @@ export function showProfilePage() {
       // Check seller application status
       if (!isApprovedSeller) {
         try {
-          const appRaw = localStorage.getItem('linkadda_seller_app_status');
+          const appRaw = localStorage.getItem('jaigram_seller_app_status') || localStorage.getItem('linkadda_seller_app_status');
           if (appRaw) {
             const appData = JSON.parse(appRaw);
             if (appData && appData.status === 'pending') {
@@ -692,7 +736,7 @@ export function showProfilePage() {
       if (sellerTitleEl && sellerBtnEl) {
         if (isApprovedSeller) {
           sellerTitleEl.textContent = 'Your Seller Hub is Live!';
-          sellerDescEl.textContent = 'You are an official LinkAdda verified seller. Manage your packs, monitor live customer orders, and view sales earnings.';
+          sellerDescEl.textContent = 'You are an official JaiGram verified seller. Manage your packs, monitor live customer orders, and view sales earnings.';
           sellerBtnEl.href = './seller/dashboard.html';
           if (sellerBtnTextEl) sellerBtnTextEl.textContent = 'Go to Seller Dashboard';
           if (sellerIndicatorEl) {
@@ -702,7 +746,7 @@ export function showProfilePage() {
           if (sellerLoginLinkEl) sellerLoginLinkEl.style.display = 'none';
         } else if (isPendingApp) {
           sellerTitleEl.textContent = 'Seller Application Under Review';
-          sellerDescEl.textContent = 'Your application has been received. LinkAdda Admin is verifying your store details. Your login credentials will be emailed to you upon approval.';
+          sellerDescEl.textContent = 'Your application has been received. JaiGram Admin is verifying your store details. Your login credentials will be emailed to you upon approval.';
           sellerBtnEl.href = './seller/apply.html';
           if (sellerBtnTextEl) sellerBtnTextEl.textContent = 'View Application Info';
           if (sellerIndicatorEl) {
@@ -714,7 +758,7 @@ export function showProfilePage() {
             sellerLoginLinkEl.style.display = 'inline-block';
           }
         } else {
-          sellerTitleEl.textContent = 'Become a LinkAdda Seller';
+          sellerTitleEl.textContent = 'Become a JaiGram Seller';
           sellerDescEl.textContent = 'Monetize your exclusive Mega & Google Drive collections, viral Telegram packs, and private vaults. Earn 100% creator share settled within 7 days of verified customer purchase.';
           sellerBtnEl.href = './seller/index.html';
           if (sellerBtnTextEl) sellerBtnTextEl.textContent = 'Become a Seller';
@@ -826,7 +870,7 @@ export async function saveCustomerName(newName) {
   let user = getCustomerSession();
   if (!user || !user.email) {
     const emailInput = document.getElementById('authEmailInput');
-    const fallbackEmail = currentEmail || (emailInput ? emailInput.value.trim() : '') || 'customer@linkadda.shop';
+    const fallbackEmail = currentEmail || (emailInput ? emailInput.value.trim() : '') || 'customer@jaigram.shop';
     const computedUid = await getCustomerId(fallbackEmail);
     user = {
       uid: computedUid,
@@ -846,7 +890,14 @@ export async function saveCustomerName(newName) {
     user.isNewUserWithNameNeeded = false;
   }
 
+  const cleanUserEmail = user.email.toLowerCase().trim();
+  localStorage.setItem('jaigram_customer_name_' + cleanUserEmail, trimmed);
+  localStorage.setItem('linkadda_customer_name_' + cleanUserEmail, trimmed);
+  localStorage.setItem('jaigram_name_saved_' + cleanUserEmail, 'true');
+  localStorage.setItem('linkadda_name_saved_' + cleanUserEmail, 'true');
+
   localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  try { localStorage.setItem(LEGACY_SESSION_KEY, JSON.stringify(user)); } catch (_) {}
   syncCustomerToDatabase({ ...user, newName: trimmed, hasSavedName: true });
 
   const greetingEl = document.getElementById('profileGreetingName');
@@ -991,6 +1042,8 @@ export async function saveCustomerProfile() {
     }
 
     localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+    try { localStorage.setItem(LEGACY_SESSION_KEY, JSON.stringify(updatedUser)); } catch (_) {}
+    window.dispatchEvent(new CustomEvent('jaigram:auth-changed', { detail: updatedUser }));
     window.dispatchEvent(new CustomEvent('linkadda:auth-changed', { detail: updatedUser }));
 
     // Always sync to /events/customers/ for admin panel real-time visibility
@@ -1017,9 +1070,14 @@ export async function saveCustomerProfile() {
 
 // ━━ 7. AUTH MODAL CONTROLLERS ━━
 export function openAuthModal(step = 'input') {
-  hideProfilePage(true);
+  if (document.getElementById('appAccountView') && typeof hideProfilePage === 'function') {
+    hideProfilePage(true);
+  }
   const modal = document.getElementById('authModal');
   if (!modal) return;
+  modal.style.display = 'flex';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
   modal.classList.add('open');
   document.body.style.overflow = 'hidden';
 
@@ -1036,6 +1094,9 @@ export function closeAuthModal() {
   const modal = document.getElementById('authModal');
   if (!modal) return;
   modal.classList.remove('open');
+  modal.style.display = 'none';
+  modal.style.visibility = 'hidden';
+  modal.style.opacity = '0';
   document.body.style.overflow = '';
   clearStatus();
   if (countdownInterval) clearInterval(countdownInterval);
@@ -1062,6 +1123,31 @@ function showInputView() {
   }, 150);
 }
 
+function syncOtpCellsUI(code = '') {
+  const clean = (code || '').replace(/\D/g, '').slice(0, 6);
+  const cells = document.querySelectorAll('.otp-cell-segment');
+  cells.forEach((cell, idx) => {
+    const numEl = cell.querySelector('.cell-number');
+    const hasChar = idx < clean.length;
+    if (numEl) numEl.textContent = hasChar ? clean[idx] : '';
+    if (hasChar) {
+      cell.classList.add('filled');
+    } else {
+      cell.classList.remove('filled');
+    }
+    if (idx === clean.length) {
+      cell.classList.add('active');
+    } else {
+      cell.classList.remove('active');
+    }
+  });
+
+  const boxes = document.querySelectorAll('.otp-digit-box');
+  boxes.forEach((b, i) => {
+    b.value = clean[i] || '';
+  });
+}
+
 function showOtpView() {
   const inputView = document.getElementById('authInputView');
   const otpView = document.getElementById('authOtpView');
@@ -1074,9 +1160,18 @@ function showOtpView() {
   const targetEmailEl = document.getElementById('otpTargetEmail');
   if (targetEmailEl) targetEmailEl.textContent = currentEmail;
 
+  const masterInput = document.getElementById('otpMasterInput');
+  if (masterInput) {
+    masterInput.value = '';
+    syncOtpCellsUI('');
+    setTimeout(() => masterInput.focus(), 120);
+  }
+
   const boxes = document.querySelectorAll('.otp-digit-box');
   boxes.forEach(b => b.value = '');
-  if (boxes[0]) boxes[0].focus();
+  if (boxes[0] && !masterInput) {
+    setTimeout(() => boxes[0].focus(), 120);
+  }
 
   startCountdown();
 }
@@ -1101,14 +1196,16 @@ function showNameSetupView() {
 function showStatus(message, type = 'error') {
   const banner = document.getElementById('authMsgBanner');
   if (!banner) return;
-  banner.className = `auth-msg-banner active ${type}`;
-  banner.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check'}" style="margin-right: 6px;"></i> ${message}`;
+  banner.className = `auth-status-alert auth-msg-banner active ${type}`;
+  banner.style.display = 'block';
+  banner.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check'}" style="margin-right: 6px;"></i> <span>${message}</span>`;
 }
 
 function clearStatus() {
   const banner = document.getElementById('authMsgBanner');
   if (!banner) return;
-  banner.className = 'auth-msg-banner';
+  banner.className = 'auth-status-alert auth-msg-banner';
+  banner.style.display = 'none';
   banner.innerHTML = '';
 }
 
@@ -1234,11 +1331,22 @@ async function handleGoogleSignIn() {
   } catch (err) {
     console.error('Google Sign-In Error:', err);
     if (err.code === 'auth/unauthorized-domain') {
-      const is127 = window.location.hostname === '127.0.0.1';
+      const localhostUrl = `http://localhost:${window.location.port || '5501'}${window.location.pathname}${window.location.search}`;
       showStatus(`
-        <strong>Domain not authorized by Firebase!</strong><br/>
-        ${is127 ? 'Please open the site at <a href="http://localhost:' + (window.location.port || '5500') + '" style="color:#ff2a8d; font-weight:700; text-decoration:underline;">http://localhost:' + (window.location.port || '5500') + '</a> instead of 127.0.0.1<br/>OR ' : ''}
-        Add <code>${window.location.hostname}</code> in <strong>Firebase Console &gt; Authentication &gt; Settings &gt; Authorized domains</strong>.
+        <div style="text-align: left; padding: 4px 0;">
+          <div style="color: #ef4444; font-weight: 700; margin-bottom: 4px;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Google Auth Domain Notice
+          </div>
+          <div style="font-size: 12.5px; color: #cbd5e1; margin-bottom: 8px;">
+            Firebase requires <strong>localhost</strong> instead of 127.0.0.1 for Google Sign-In.
+          </div>
+          <a href="${localhostUrl}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; background: #ff2a8d; color: #fff; border-radius: 9999px; text-decoration: none; font-weight: 700; font-size: 12px; margin-bottom: 8px;">
+            <i class="fa-solid fa-arrow-right"></i> Open on localhost:${window.location.port || '5501'}
+          </a>
+          <div style="font-size: 11.5px; color: #94a3b8;">
+            Or simply enter your email below for instant sign-in via 6-digit code!
+          </div>
+        </div>
       `, 'error');
     } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
       showStatus(err.message || 'Google sign-in could not be completed.', 'error');
@@ -1300,13 +1408,14 @@ async function handleSendOtp() {
     try { data = JSON.parse(text); } catch (_) {}
 
     if (!res.ok || !data.success || !data.token) {
-      throw new Error(data.error || 'Failed to dispatch verification code. Please try again.');
+      throw new Error(data.error || 'Failed to dispatch verification code. Please check your email.');
     }
 
     currentEmail = email;
     currentToken = data.token;
     showOtpView();
-    showStatus(`A 6-digit code has been sent to ${email}`, 'success');
+    showStatus(`A 6-digit code has been sent to ${email}. Please check your inbox.`, 'success');
+    startCountdown();
   } catch (err) {
     console.error('Send OTP Error:', err);
     showStatus(err.message || 'Error sending code. Please try again.', 'error');
@@ -1320,12 +1429,20 @@ async function handleSendOtp() {
 
 async function handleVerifyOtp() {
   clearStatus();
-  const boxes = document.querySelectorAll('.otp-digit-box');
-  let otp = '';
-  boxes.forEach(b => otp += (b.value || '').trim());
+  const masterInput = document.getElementById('otpMasterInput');
+  let otp = masterInput ? masterInput.value.replace(/\D/g, '').slice(0, 6) : '';
+  if (!otp) {
+    const boxes = document.querySelectorAll('.otp-digit-box');
+    boxes.forEach(b => otp += (b.value || '').trim());
+  }
 
   if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-    showStatus('Please enter the complete 6-digit code.', 'error');
+    showStatus('Please enter the complete 6-digit verification code.', 'error');
+    const cluster = document.getElementById('otpCellsCluster');
+    if (cluster) {
+      cluster.classList.add('shake-error');
+      setTimeout(() => cluster.classList.remove('shake-error'), 500);
+    }
     return;
   }
 
@@ -1356,21 +1473,30 @@ async function handleVerifyOtp() {
 
     const customer = await resolveUnifiedCustomer(currentEmail, {
       provider: 'email_otp',
+      existingRecord: data.user,
+      token: data.token,
+      isNew: data.isNew,
     });
 
-      if (customer && customer.isNewUserWithNameNeeded) {
-        // First-time user only: ask for name to complete profile setup
-        showNameSetupView();
-        showAuthToast(`Account verified! Enter your name to complete setup.`);
-      } else {
-        // Existing user: NEVER show name setup view! Log in immediately.
-        closeAuthModal();
-        showAppToast(`Welcome back, ${customer.displayName}! 🎉`);
-        const resumed = checkAndResumePendingCheckout();
-        if (!resumed) {
+    if (customer && customer.isNewUserWithNameNeeded) {
+      // First-time new user ONLY: show name setup view
+      showNameSetupView();
+      showAuthToast(`Account verified! Enter your name to complete setup.`);
+    } else {
+      // Existing user: NEVER show name setup view! Direct to dashboard!
+      closeAuthModal();
+      showAppToast(`Welcome back, ${customer.displayName}! 🎉`);
+      const resumed = checkAndResumePendingCheckout();
+      if (!resumed) {
+        if (window.location.pathname.includes('login') || window.location.pathname.endsWith('login.html')) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const ret = urlParams.get('returnUrl');
+          window.location.href = (ret && !ret.includes('login')) ? ret : 'user/index.html';
+        } else {
           showProfilePage();
         }
       }
+    }
   } catch (err) {
     console.error('Verify OTP Error:', err);
     showStatus(err.message || 'Verification failed. Please try again.', 'error');
@@ -1547,7 +1673,59 @@ function initAuthModalEvents() {
     });
   }
 
-  // OTP Digit Boxes behavior
+  // Master Segmented OTP Controller
+  const masterInput = document.getElementById('otpMasterInput');
+  const segmentBox = document.getElementById('otpSegmentBox');
+  const cluster = document.getElementById('otpCellsCluster');
+
+  if (segmentBox && masterInput) {
+    segmentBox.addEventListener('click', () => {
+      masterInput.focus();
+    });
+  }
+
+  if (masterInput) {
+    masterInput.addEventListener('input', () => {
+      const val = masterInput.value.replace(/\D/g, '').slice(0, 6);
+      masterInput.value = val;
+      syncOtpCellsUI(val);
+      if (val.length === 6) {
+        handleVerifyOtp();
+      }
+    });
+
+    masterInput.addEventListener('focus', () => {
+      syncOtpCellsUI(masterInput.value);
+      if (cluster) cluster.classList.add('is-focused');
+    });
+
+    masterInput.addEventListener('blur', () => {
+      if (cluster) cluster.classList.remove('is-focused');
+      const cells = document.querySelectorAll('.otp-cell-segment');
+      cells.forEach(c => c.classList.remove('active'));
+    });
+
+    masterInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleVerifyOtp();
+      }
+    });
+
+    masterInput.addEventListener('paste', e => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+      if (text) {
+        masterInput.value = text;
+        syncOtpCellsUI(text);
+        if (text.length === 6) {
+          handleVerifyOtp();
+        }
+      }
+    });
+  }
+
+  // OTP Digit Boxes behavior (legacy fallback)
   const otpBoxes = document.querySelectorAll('.otp-digit-box');
   otpBoxes.forEach((box, idx) => {
     box.addEventListener('input', e => {
@@ -1615,7 +1793,7 @@ function initAuthModalEvents() {
         showProfilePage();
       }
       if (val) {
-        showAppToast(`Welcome to LinkAdda, ${val}! 🎉`);
+        showAppToast(`Welcome to JaiGram, ${val}! 🎉`);
       }
     });
 
@@ -1724,7 +1902,7 @@ function initAuthModalEvents() {
 // ━━ 10. USER ORDERS CONTROLLER & REALTIME APPROVAL SYNC ━━
 export function getUserOrders() {
   try {
-    const raw = localStorage.getItem('linkadda_user_orders') || '[]';
+    const raw = localStorage.getItem('jaigram_user_orders') || localStorage.getItem('linkadda_user_orders') || '[]';
     return JSON.parse(raw);
   } catch (_) {
     return [];
@@ -1943,6 +2121,7 @@ export async function syncUserOrdersWithFirebase() {
     }
 
     if (hasUpdates) {
+      localStorage.setItem('jaigram_user_orders', JSON.stringify(orders));
       localStorage.setItem('linkadda_user_orders', JSON.stringify(orders));
       const listEl = document.getElementById('accountOrdersList');
       if (listEl) {
@@ -1976,10 +2155,11 @@ export function addOrderConfirmedNotification(ord) {
   try {
     const user = getCustomerSession();
     const uid = user ? user.uid : 'guest';
-    const notifsKey = `linkadda_notifs_${uid}`;
+    const notifsKey = `jaigram_notifs_${uid}`;
+    const legacyNotifsKey = `linkadda_notifs_${uid}`;
     let list = [];
     try {
-      const raw = localStorage.getItem(notifsKey);
+      const raw = localStorage.getItem(notifsKey) || localStorage.getItem(legacyNotifsKey);
       if (raw) list = JSON.parse(raw);
     } catch (_) {}
 
@@ -2000,7 +2180,7 @@ export function addOrderConfirmedNotification(ord) {
       orderId: rawId,
       productName: productName,
       title: `Order #${orderId} Approved! 🎉`,
-      desc: `Aapka order #${orderId} approve ho gaya hai! VIP Telegram Group / Channel access link unlock ho chuka hai. Tap karke join karein.`,
+      desc: `Your order #${orderId} is approved! VIP Telegram Group / Channel access link is unlocked. Tap to join.`,
       timestamp: eventTime,
       time: formatRelativeTime(eventTime),
       actionUrl: accessLink,
@@ -2012,7 +2192,9 @@ export function addOrderConfirmedNotification(ord) {
 
     list.unshift(notifItem);
     localStorage.setItem(notifsKey, JSON.stringify(list));
+    localStorage.setItem(legacyNotifsKey, JSON.stringify(list));
     localStorage.removeItem(NOTIFS_READ_KEY); // Re-trigger unread badge indicator
+    localStorage.removeItem(LEGACY_NOTIFS_READ_KEY);
 
     updateNotificationsUI();
     renderNotificationsPage();
@@ -2033,7 +2215,7 @@ export function checkAndResumePendingCheckout() {
       showAppToast('Resuming your checkout...');
       setTimeout(() => {
         window.location.href = pendingUrl;
-      }, 350);
+      }, 300);
       return true;
     }
 
@@ -2091,17 +2273,20 @@ export function closeUserOrdersModal() {
 
 // ━━ 11. FULL-PAGE NOTIFICATIONS SYSTEM CONTROLLER (NATIVE PAGE TYPE) ━━
 
-const NOTIFS_READ_KEY = 'linkadda_notifs_read_v1';
+const NOTIFS_READ_KEY = 'jaigram_notifs_read_v1';
+const LEGACY_NOTIFS_READ_KEY = 'linkadda_notifs_read_v1';
 let notifsPreviousScreen = 'profile';
 
 export function addUserWelcomeNotification(uid, name) {
   try {
     const cleanUid = uid || 'guest';
-    const welcomedKey = `linkadda_welcomed_${cleanUid}`;
-    const notifsKey = `linkadda_notifs_${cleanUid}`;
+    const welcomedKey = `jaigram_welcomed_${cleanUid}`;
+    const legacyWelcomedKey = `linkadda_welcomed_${cleanUid}`;
+    const notifsKey = `jaigram_notifs_${cleanUid}`;
+    const legacyNotifsKey = `linkadda_notifs_${cleanUid}`;
     let list = [];
     try {
-      const raw = localStorage.getItem(notifsKey);
+      const raw = localStorage.getItem(notifsKey) || localStorage.getItem(legacyNotifsKey);
       if (raw) list = JSON.parse(raw);
     } catch (_) {}
 
@@ -2109,7 +2294,7 @@ export function addUserWelcomeNotification(uid, name) {
     const welcomeItem = {
       id: `welcome_${cleanUid}`,
       type: 'welcome',
-      title: `Welcome to LinkAdda, ${cleanName}! 🎉`,
+      title: `Welcome to JaiGram, ${cleanName}! 🎉`,
       desc: `Your verified customer account has been created successfully. All purchases, discrete receipts, and 24/7 Telegram download links are now active.`,
       time: 'Just now',
       unread: true,
@@ -2120,7 +2305,9 @@ export function addUserWelcomeNotification(uid, name) {
     list = list.filter(n => n.type !== 'welcome');
     list.unshift(welcomeItem);
     localStorage.setItem(notifsKey, JSON.stringify(list));
+    localStorage.setItem(legacyNotifsKey, JSON.stringify(list));
     localStorage.setItem(welcomedKey, 'true');
+    localStorage.setItem(legacyWelcomedKey, 'true');
     updateNotificationsUI();
     renderNotificationsPage();
   } catch (err) {
@@ -2155,11 +2342,12 @@ export function formatRelativeTime(ts) {
 export function getUserNotifications() {
   const user = getCustomerSession();
   const uid = user ? user.uid : 'guest';
-  const key = `linkadda_notifs_${uid}`;
+  const key = `jaigram_notifs_${uid}`;
+  const legacyKey = `linkadda_notifs_${uid}`;
   
   let list = [];
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(key) || localStorage.getItem(legacyKey);
     if (raw) list = JSON.parse(raw);
   } catch (_) {}
 
@@ -2172,7 +2360,7 @@ export function getUserNotifications() {
     }
     if (item.desc && (item.desc.includes('download') || item.desc.includes('Download'))) {
       item.desc = item.desc
-        .replace(/VIP content aur download link ke liye Telegram par message karein\.?/gi, 'VIP Telegram Channel / Group access unlock ho chuka hai. Tap karke message padhein aur join karein.')
+        .replace(/VIP content aur download link ke liye Telegram par message karein\.?/gi, 'VIP Telegram Channel / Group access link is unlocked. Tap to view message and join.')
         .replace(/download link/gi, 'Telegram VIP link')
         .replace(/download/gi, 'access');
       listModified = true;
@@ -2184,19 +2372,23 @@ export function getUserNotifications() {
     return item;
   });
   if (listModified) {
-    try { localStorage.setItem(key, JSON.stringify(list)); } catch (_) {}
+    try {
+      localStorage.setItem(key, JSON.stringify(list));
+      localStorage.setItem(legacyKey, JSON.stringify(list));
+    } catch (_) {}
   }
 
   // If user is logged in, ensure Welcome Notification exists
   if (user) {
-    const welcomedKey = `linkadda_welcomed_${user.uid}`;
-    const hasWelcomed = localStorage.getItem(welcomedKey);
+    const welcomedKey = `jaigram_welcomed_${user.uid}`;
+    const legacyWelcomedKey = `linkadda_welcomed_${user.uid}`;
+    const hasWelcomed = localStorage.getItem(welcomedKey) || localStorage.getItem(legacyWelcomedKey);
     const hasWelcomeInList = list.some(n => n.type === 'welcome');
     if (!hasWelcomed || !hasWelcomeInList) {
       const welcomeItem = {
         id: `welcome_${user.uid}`,
         type: 'welcome',
-        title: `Welcome to LinkAdda, ${user.displayName || 'Customer'}! 🎉`,
+        title: `Welcome to JaiGram, ${user.displayName || 'Customer'}! 🎉`,
         desc: `Your verified customer account has been created. Instant Telegram delivery and discrete order receipts are active 24/7.`,
         timestamp: Date.now(),
         time: 'Just now',
@@ -2334,7 +2526,8 @@ export function handleNotificationCardClick(notifId, event) {
   if (event) event.stopPropagation();
   const user = getCustomerSession();
   const uid = user ? user.uid : 'guest';
-  const key = `linkadda_notifs_${uid}`;
+  const key = `jaigram_notifs_${uid}`;
+  const legacyKey = `linkadda_notifs_${uid}`;
   
   let list = getUserNotifications();
   const target = list.find(n => n.id === notifId);
@@ -2345,6 +2538,7 @@ export function handleNotificationCardClick(notifId, event) {
     target.unread = false;
     try {
       localStorage.setItem(key, JSON.stringify(list));
+      localStorage.setItem(legacyKey, JSON.stringify(list));
     } catch (_) {}
     updateNotificationsUI();
     const cardEl = document.getElementById(`notif-item-${notifId}`);
@@ -2682,12 +2876,15 @@ export async function refreshUserOrders() {
 export function markNotificationsAsRead() {
   const user = getCustomerSession();
   const uid = user ? user.uid : 'guest';
-  const key = `linkadda_notifs_${uid}`;
+  const key = `jaigram_notifs_${uid}`;
+  const legacyKey = `linkadda_notifs_${uid}`;
   
   const list = getUserNotifications().map(n => ({ ...n, unread: false }));
   try {
     localStorage.setItem(key, JSON.stringify(list));
+    localStorage.setItem(legacyKey, JSON.stringify(list));
     localStorage.setItem(NOTIFS_READ_KEY, 'true');
+    localStorage.setItem(LEGACY_NOTIFS_READ_KEY, 'true');
   } catch (_) {}
   
   updateNotificationsUI();

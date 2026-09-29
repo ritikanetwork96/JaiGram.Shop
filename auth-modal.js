@@ -1488,10 +1488,10 @@ async function handleVerifyOtp() {
       showAppToast(`Welcome back, ${customer.displayName}! 🎉`);
       const resumed = checkAndResumePendingCheckout();
       if (!resumed) {
+        sessionStorage.removeItem('jaigram_pending_destination');
+        sessionStorage.removeItem('linkadda_pending_destination');
         if (window.location.pathname.includes('login') || window.location.pathname.endsWith('login.html')) {
-          const urlParams = new URLSearchParams(window.location.search);
-          const ret = urlParams.get('returnUrl');
-          window.location.href = (ret && !ret.includes('login')) ? ret : 'user/index.html';
+          window.location.href = 'user/index.html';
         } else {
           showProfilePage();
         }

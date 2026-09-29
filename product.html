@@ -22,21 +22,21 @@
         } else if (query) {
           userTarget += '?tab=marketplace&q=' + encodeURIComponent(query);
         } else {
-          userTarget += '?tab=marketplace';
+          userTarget = 'user/index.html';
         }
 
         if (!sess || typeof sess !== 'object' || (!sess.email && !sess.uid)) {
           document.documentElement.style.display = 'none';
           sessionStorage.setItem('jaigram_pending_destination', userTarget);
           sessionStorage.setItem('linkadda_pending_destination', userTarget);
-          window.location.replace('login.html?returnUrl=' + encodeURIComponent(userTarget));
+          window.location.replace('login.html');
         } else {
           document.documentElement.style.display = 'none';
           window.location.replace(userTarget);
         }
       } catch (_) {
         document.documentElement.style.display = 'none';
-        window.location.replace('login.html?returnUrl=user/index.html?tab=marketplace');
+        window.location.replace('login.html');
       }
     })();
   </script>

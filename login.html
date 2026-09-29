@@ -11,10 +11,9 @@
         var sess = raw ? JSON.parse(raw) : null;
         if (sess && typeof sess === 'object' && (sess.email || sess.uid)) {
           document.documentElement.style.display = 'none';
-          var params = new URLSearchParams(window.location.search);
-          var dest = params.get('returnUrl') || sessionStorage.getItem('linkadda_pending_destination') || sessionStorage.getItem('jaigram_pending_destination') || 'user/index.html';
-          if (dest.includes('login.html')) dest = 'user/index.html';
-          window.location.replace(dest);
+          sessionStorage.removeItem('linkadda_pending_destination');
+          sessionStorage.removeItem('jaigram_pending_destination');
+          window.location.replace('user/index.html');
         }
       } catch (_) {}
     })();
@@ -1560,16 +1559,9 @@
     } from './auth-modal.js?v=20260925_segmented_lux_v3';
 
     // ROUTING TO USER DASHBOARD ('user/index.html') UPON LOGIN
-    const urlParams = new URLSearchParams(window.location.search);
-    const returnParam = urlParams.get('returnUrl') || sessionStorage.getItem('jaigram_pending_destination') || sessionStorage.getItem('linkadda_pending_destination');
-    
-    let safeTarget = 'user/index.html';
-    if (returnParam && returnParam.trim() !== '' && returnParam !== '/' && returnParam !== 'index.html' && returnParam !== './index.html') {
-      safeTarget = returnParam;
-    }
-    if (safeTarget.includes('login.html')) {
-      safeTarget = 'user/index.html';
-    }
+    sessionStorage.removeItem('jaigram_pending_destination');
+    sessionStorage.removeItem('linkadda_pending_destination');
+    const safeTarget = 'user/index.html';
 
     function triggerSuccessAndRedirect(user, isInstant = false) {
       document.getElementById('authInputView').style.display = 'none';
@@ -1591,10 +1583,10 @@
         document.getElementById('successTitle').textContent = `Welcome, ${user.displayName || 'Member'}! 🎉`;
         document.getElementById('successEmail').textContent = user.email || '';
 
-        const targetLabel = safeTarget.includes('user') ? 'User Dashboard' : (safeTarget.includes('openCart=true') ? 'Cart' : 'Products');
+        const targetLabel = 'User Dashboard';
         document.getElementById('redirectStatusText').innerHTML = `
           <i class="fa-solid fa-arrow-right" style="margin-right: 6px; color: #10b981;"></i>
-          Opening ${targetLabel}...
+          Opening User Dashboard...
         `;
 
         setTimeout(() => {

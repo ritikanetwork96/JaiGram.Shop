@@ -9,17 +9,6 @@ directory = "."
 binding = "ASSETS"
 run_worker_first = ["/api/*"]
 
-[vars]
-FIREBASE_API_KEY = "AIzaSyCD_cZXyfYd01FNg-DmRpyKKBIGR3NqeT4"
-admin = "ritikanetwork96@gmail.com"
-R2_ENDPOINT = "https://e251083d3d3878442daf244a17d304e5.r2.cloudflarestorage.com"
-R2_ACCESS_KEY_ID = "d296eace59751e50b03caad7be7c9e29"
-R2_BUCKET = "linkadda-media"
-R2_REGION = "auto"
-R2_PUBLIC_URL = "https://media.jaigram.shop"
-BREVO_SENDER_EMAIL = "ritikanetwork96@gmail.com"
-BREVO_SENDER_NAME = "JaiGram Shop"
-
 [observability]
 enabled = false
 

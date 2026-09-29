@@ -2040,7 +2040,6 @@
           </div>
           <h4 class="store-name" onclick="openStoreShowcaseModal('${escapeHtml(store.storeName)}')" style="cursor: pointer;">
             <span>${escapeHtml(store.storeName)}</span>
-            <i class="fa-solid fa-circle-check store-verified-pill" title="Verified Creator Partner"></i>
           </h4>
           <span class="store-category">${escapeHtml(store.category || 'Digital Assets')}</span>
           <div class="store-stats-row">

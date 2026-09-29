@@ -609,10 +609,12 @@
 
     // PayPal
     if (!disabled.includes('paypal')) {
+      const inrVal = currentOrder ? (Number(currentOrder.inr || currentOrder.price) || 399) : 399;
+      const usdVal = currentOrder && currentOrder.usd ? Number(currentOrder.usd) : Number((inrVal / 90).toFixed(2));
       methodEntries.push({
         id: 'paypal',
         name: gatewayConfig.paypalTitle || 'PayPal',
-        sub: gatewayConfig.paypalSub || 'Global Cards & USD',
+        sub: gatewayConfig.paypalSub || `₹${Math.round(inrVal)} / $${usdVal} USD • Cards`,
         logos: `<i class="fa-brands fa-paypal" style="color:#003087; font-size:15px;"></i>`
       });
     }
@@ -769,13 +771,17 @@
           </div>
 
           <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; text-align:center; margin-bottom:12px;">
-            <div style="font-size:13px; font-weight:800; color:#0f172a;">Payable: $${usdVal} USD</div>
+            <div style="font-size:14px; font-weight:800; color:#0f172a; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;">
+              <span>Amount: <b>₹${cleanAmt}</b></span>
+              <span style="color:#94a3b8; font-weight:400;">/</span>
+              <span style="color:#003087; background:#eff6ff; padding:2px 8px; border-radius:6px; border:1px solid #bfdbfe;"><b>$${usdVal} USD</b></span>
+            </div>
             <div style="font-size:11px; color:#64748b; margin-top:3px;">Zero international conversion fee on USD payment</div>
           </div>
 
           <div style="margin-bottom:12px;">
             <a href="${pLink}" target="_blank" rel="noopener noreferrer" class="lgw-btn-continue-solid" style="display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:12px; font-size:13px; background:linear-gradient(135deg, #003087, #0079c1);">
-              <i class="fa-brands fa-paypal"></i> Pay $${usdVal} with PayPal
+              <i class="fa-brands fa-paypal"></i> Pay $${usdVal} USD (₹${cleanAmt}) with PayPal
             </a>
           </div>
 
@@ -785,7 +791,7 @@
           </div>
 
           <div style="font-size:11px; color:#64748b; line-height:1.4;">
-            <i class="fa-solid fa-circle-info" style="color:#2563eb;"></i> Complete payment via PayPal &rarr; Click <b>Continue</b> below to submit confirmation.
+            <i class="fa-solid fa-circle-info" style="color:#2563eb;"></i> Complete payment via PayPal (<b>$${usdVal} USD / ₹${cleanAmt}</b>) &rarr; Click <b>Continue</b> below to submit confirmation.
           </div>
         </div>
         ${continueBtnHtml}

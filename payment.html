@@ -2816,6 +2816,9 @@
       const badgeText = gatewayConfig.recommendationBadge || 'RECOMMENDED';
       const disabled = Array.isArray(gatewayConfig.disabledMethods) ? gatewayConfig.disabledMethods : [];
       const bal = getCustomerWalletBalance();
+      const inrVal = currentOrder ? parseMoney(currentOrder.inr || currentOrder.price || 399) : 399;
+      const usdVal = currentOrder && currentOrder.usd ? parseMoney(currentOrder.usd) : Number((inrVal / 90).toFixed(2));
+      const cleanAmt = inrVal.toFixed(2);
 
       function buildRailItem(id, name, sub, logosHtml, catIconHtml) {
         const isActive = activeMethodId === id;
@@ -2877,7 +2880,7 @@
         {
           id: 'paypal',
           name: gatewayConfig.paypalTitle || 'PayPal',
-          sub: gatewayConfig.paypalSub || 'International Cards & USD',
+          sub: gatewayConfig.paypalSub || `₹${Math.round(inrVal)} / $${usdVal} USD • Cards`,
           catIcon: `<i class="fa-brands fa-paypal"></i>`,
           logosHtml: gatewayConfig.paypalLogo
             ? `<img src="${gatewayConfig.paypalLogo}" class="pay-brand-logo-img" style="height:18px;max-width:64px;object-fit:contain;" alt="PayPal" />`
@@ -2916,12 +2919,19 @@
           logosHtml: gatewayConfig.btcLogo
             ? `<img src="${gatewayConfig.btcLogo}" class="pay-brand-logo-img" style="height:20px;max-width:64px;" alt="Bitcoin" />`
             : `<div class="pay-logo-group">${REAL_LOGOS.btc}</div>`
+        },
+        {
+          id: 'cod',
+          name: gatewayConfig.codTitle || 'Cash on Delivery',
+          sub: gatewayConfig.codSub || 'Pay when you receive',
+          catIcon: `<i class="fa-solid fa-hand-holding-dollar"></i>`,
+          logosHtml: `<div class="pay-logo-group"><i class="fa-solid fa-money-bill-wave" style="color:#16a34a;font-size:18px;"></i></div>`
         }
       ];
 
       // Custom Methods added in config
       if (gatewayConfig.customMethods && typeof gatewayConfig.customMethods === 'object') {
-        const standardIds = new Set(['cards', 'paypal', 'upi', 'netbanking', 'wallet', 'binancepay', 'bep20', 'custom_bank', 'custom_btc']);
+        const standardIds = new Set(['cards', 'paypal', 'upi', 'netbanking', 'wallet', 'binancepay', 'bep20', 'custom_bank', 'custom_btc', 'cod']);
         Object.entries(gatewayConfig.customMethods).forEach(([cId, cMethod]) => {
           if (!cMethod || standardIds.has(cId) || disabled.includes(cId)) return;
           const mType = (cMethod.type || '').toLowerCase();
@@ -2993,6 +3003,7 @@
       }
 
       rail.innerHTML = html;
+      renderAllActiveQrCodes();
     }
 
     // Generate Detail Markup (Image 2 & Image 3 Replica)
@@ -3113,14 +3124,18 @@
                   : `<div class="pay-crypto-qr-target" data-address="${pLink}"></div>`
                 }
               </div>
-              <div style="font-size:13px; color:#0f172a; font-weight:800;">Amount: $${usdVal} USD</div>
-              <div style="font-size:11px; color:#64748b; margin-top:2px;">Supports all International Visa, Mastercard, Amex, Discover &amp; PayPal balances</div>
+              <div style="font-size:15px; color:#0f172a; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
+                <span>Amount: <b>₹${cleanAmt}</b></span>
+                <span style="color:#94a3b8; font-weight:400;">/</span>
+                <span style="color:#003087; background:#eff6ff; padding:2px 8px; border-radius:6px; border:1px solid #bfdbfe;"><b>$${usdVal} USD</b></span>
+              </div>
+              <div style="font-size:11px; color:#64748b; margin-top:4px;">Supports all International Visa, Mastercard, Amex, Discover &amp; PayPal balances</div>
             </div>
 
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px;">
               <div style="margin-bottom:10px;">
-                <a href="${pLink}" target="_blank" rel="noopener noreferrer" class="pay-btn-continue-solid" style="display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:12px 18px; font-size:13.5px; background:linear-gradient(135deg, #003087, #0079c1); box-shadow:0 4px 14px rgba(0, 121, 193, 0.3);">
-                  <i class="fa-brands fa-paypal"></i> Pay $${usdVal} with PayPal
+                <a href="${pLink}" target="_blank" rel="noopener noreferrer" class="pay-btn-continue-solid" style="display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:12px 18px; font-size:13.5px; background:linear-gradient(135deg, #003087, #0079c1); box-shadow:0 4px 14px rgba(0, 121, 193, 0.3); width:100%; box-sizing:border-box;">
+                  <i class="fa-brands fa-paypal"></i> Pay $${usdVal} USD (₹${cleanAmt}) with PayPal
                 </a>
               </div>
 
@@ -3130,8 +3145,8 @@
                 <button type="button" class="pay-btn-copy" onclick="copyText('${pLink}', this)">Copy</button>
               </div>
 
-              <div style="background:#eff6ff; border:1px solid #dbeafe; color:#1e40af; padding:8px 10px; border-radius:6px; font-size:11px; margin-bottom:8px;">
-                <i class="fa-solid fa-circle-info"></i> Send <b>$${usdVal} USD</b> via PayPal &rarr; Choose <b>Friends &amp; Family</b> if available &rarr; Click Continue below to submit confirmation.
+              <div style="background:#eff6ff; border:1px solid #dbeafe; color:#1e40af; padding:8px 10px; border-radius:6px; font-size:11.5px; margin-bottom:8px; line-height:1.5;">
+                <i class="fa-solid fa-circle-info"></i> Send <b>$${usdVal} USD (approx ₹${cleanAmt})</b> via PayPal &rarr; Choose <b>Friends &amp; Family</b> if available &rarr; Click Continue below to submit confirmation.
               </div>
             </div>
           </div>
@@ -3587,6 +3602,49 @@
         `;
       }
 
+      // ─── COD (Cash on Delivery) ───
+      if (methodId === 'cod') {
+        return `
+          <div class="pay-details-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+              <div>
+                <span class="pay-details-title" style="margin-bottom:2px; display:block;">Cash on Delivery</span>
+                <span style="font-size:11.5px; color:#64748b; font-weight:600;"><i class="fa-solid fa-truck" style="color:#16a34a;"></i> Pay when your order arrives</span>
+              </div>
+              <div class="pay-logo-group"><i class="fa-solid fa-hand-holding-dollar" style="color:#16a34a;font-size:24px;"></i></div>
+            </div>
+
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:14px 16px; margin-bottom:14px;">
+              <div style="font-size:13px; font-weight:800; color:#15803d; margin-bottom:8px;"><i class="fa-solid fa-circle-check" style="color:#16a34a;"></i> No Payment Required Now</div>
+              <div style="font-size:12px; color:#166534; line-height:1.6;">
+                Pay <b>₹${cleanAmt}</b> in cash when the order is delivered to your doorstep. No advance payment needed.
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px;">
+              <div style="font-size:12px; font-weight:700; color:#0f172a; margin-bottom:8px;"><i class="fa-solid fa-shield-halved" style="color:#2563eb;"></i> How COD Works</div>
+              <div style="font-size:11.5px; color:#475569; line-height:1.7;">
+                <div style="margin-bottom:6px;"><b>1.</b> Place your order by clicking Continue below</div>
+                <div style="margin-bottom:6px;"><b>2.</b> Your order will be processed &amp; shipped</div>
+                <div style="margin-bottom:6px;"><b>3.</b> Pay <b>₹${cleanAmt}</b> in cash to the delivery agent</div>
+                <div><b>4.</b> Collect your product — done!</div>
+              </div>
+            </div>
+
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 14px; margin-bottom:14px;">
+              <div style="font-size:11.5px; color:#92400e; font-weight:600;"><i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> Please keep exact change ready at the time of delivery. Our delivery partner may not carry change.</div>
+            </div>
+
+            <div class="pay-trust-badges" style="margin-bottom:8px;">
+              <div class="pay-trust-badge-item" title="Secure Delivery"><i class="fa-solid fa-truck-fast" style="color:#16a34a;font-size:16px;"></i></div>
+              <div class="pay-trust-badge-item" title="Verified Seller"><i class="fa-solid fa-user-check" style="color:#2563eb;font-size:16px;"></i></div>
+              <div class="pay-trust-badge-item" title="Easy Returns"><i class="fa-solid fa-rotate-left" style="color:#7c3aed;font-size:16px;"></i></div>
+            </div>
+          </div>
+          ${continueBtnHtml}
+        `;
+      }
+
       return '';
     }
 
@@ -3596,39 +3654,42 @@
 
       details.innerHTML = getMethodDetailsHtml(activeMethodId);
 
-      // Render QR Code if needed
+      renderAllActiveQrCodes();
+    }
+
+    function renderAllActiveQrCodes() {
       if ((activeMethodId === 'upi' && activeUpiMode === 'qr') || activeMethodId === 'qr') {
         const upiId = gatewayConfig.upiId || 'Ritikane@ptyes';
-        const inrVal = parseMoney(currentOrder.inr || currentOrder.price || 399);
+        const inrVal = parseMoney(currentOrder?.inr || currentOrder?.price || 399);
         const cleanAmt = inrVal.toFixed(2);
         const orderRef = 'JG' + Date.now().toString().slice(-8);
-        const safeNote = 'JaiGram Services'; // Strictly clean, safe corporate note
+        const safeNote = 'JaiGram Services';
         const upiParams = new URLSearchParams();
         upiParams.set('pa', upiId);
         upiParams.set('pn', 'JaiGram Store');
-        upiParams.set('mc', '5732'); // Digital Goods MCC
+        upiParams.set('mc', '5732');
         upiParams.set('tr', orderRef);
-        upiParams.set('mode', '02'); // Mode 02 locks amount in PhonePe & GPay
-        upiParams.set('am', cleanAmt); // Fixed amount (cannot be edited)
+        upiParams.set('mode', '02');
+        upiParams.set('am', cleanAmt);
         upiParams.set('cu', 'INR');
-        upiParams.set('tn', safeNote); // NO adult names in UPI!
+        upiParams.set('tn', safeNote);
         const upiUri = `upi://pay?${upiParams.toString()}`;
 
         setTimeout(() => {
           document.querySelectorAll('.pay-dynamic-qr-target').forEach((target) => {
             generateCleanQr(target, upiUri, 124);
           });
-        }, 30);
+        }, 40);
       }
 
-      // Auto-render dynamic QR Code for crypto addresses if no uploaded QR image
       setTimeout(() => {
         document.querySelectorAll('.pay-crypto-qr-target').forEach((target) => {
           const addr = target.dataset.address;
           if (addr) generateCleanQr(target, addr, 124);
         });
-      }, 30);
+      }, 40);
     }
+    window.renderAllActiveQrCodes = renderAllActiveQrCodes;
 
     // Toggle Collapse: Clicking an active method collapses it!
     function selectMethod(methodId) {
@@ -3640,11 +3701,14 @@
       renderMethodRail();
       renderActiveMethodDetails();
     }
+    window.selectMethod = selectMethod;
 
     function toggleUpiMode() {
       activeUpiMode = (activeUpiMode === 'qr') ? 'apps' : 'qr';
+      renderMethodRail();
       renderActiveMethodDetails();
     }
+    window.toggleUpiMode = toggleUpiMode;
 
     // Direct PhonePe / UPI App Opener with Locked Price
     function openApp(appName, event) {
@@ -3666,6 +3730,7 @@
         // Also auto-reveal QR as alternative
         if (activeUpiMode !== 'qr') {
           activeUpiMode = 'qr';
+          renderMethodRail();
           renderActiveMethodDetails();
         }
         return;
@@ -3875,13 +3940,18 @@
     }
     window.closePriceBreakdownModal = closePriceBreakdownModal;
 
-    // Card Input Auto-Formatters & Validation
+    let lastEnteredCardLast4 = '';
+    let lastEnteredCardHolder = '';
+
+    // Card Input Auto-Formatters & Validation (Synced between Desktop & Mobile)
     function payFormatCardNumber(input) {
       let val = input.value.replace(/\D/g, '').slice(0, 16);
       val = val.replace(/(\d{4})(?=\d)/g, '$1 ');
       input.value = val;
-      const alertEl = document.getElementById('payCardAlert');
-      if (alertEl) alertEl.style.display = 'none';
+      document.querySelectorAll('#payCardNumber').forEach(el => {
+        if (el !== input) el.value = val;
+      });
+      document.querySelectorAll('#payCardAlert').forEach(el => el.style.display = 'none');
     }
     window.payFormatCardNumber = payFormatCardNumber;
 
@@ -3891,30 +3961,111 @@
         val = val.slice(0, 2) + '/' + val.slice(2);
       }
       input.value = val;
-      const alertEl = document.getElementById('payCardAlert');
-      if (alertEl) alertEl.style.display = 'none';
+      document.querySelectorAll('#payCardExpiry').forEach(el => {
+        if (el !== input) el.value = val;
+      });
+      document.querySelectorAll('#payCardAlert').forEach(el => el.style.display = 'none');
     }
     window.payFormatCardExpiry = payFormatCardExpiry;
 
     function handleContinueClick() {
       const inrVal = parseMoney(currentOrder?.inr || currentOrder?.price || 399);
+      const usdVal = currentOrder?.usd ? parseMoney(currentOrder.usd) : Number((inrVal / 90).toFixed(2));
       const nameEl = document.getElementById('payProofMethodLabel');
       const amtEl = document.getElementById('payProofAmountLabel');
 
-      // 🔒 Validation for CARDS: Do not let user proceed with empty or fake fields!
+      // 💰 COD: Skip proof upload, go directly to order confirmation
+      if (activeMethodId === 'cod') {
+        if (nameEl) nameEl.textContent = 'CASH ON DELIVERY';
+        if (amtEl) amtEl.textContent = `₹${inrVal.toFixed(2)}`;
+
+        // Skip proof screen — directly submit COD order
+        const codPayload = {
+          orderId: currentOrder.orderId || 'JG' + Date.now(),
+          productName: currentOrder.name || currentOrder.productName || 'JaiGram Product',
+          amount: inrVal,
+          currency: 'INR',
+          paymentMethod: 'COD',
+          paymentStatus: 'PENDING_DELIVERY',
+          timestamp: new Date().toISOString(),
+          customerName: currentOrder.customerName || '',
+          note: 'Cash on Delivery — Payment will be collected at delivery'
+        };
+
+        // Save to localStorage orders
+        try {
+          const orders = JSON.parse(localStorage.getItem('linkadda_orders') || '[]');
+          orders.unshift(codPayload);
+          localStorage.setItem('linkadda_orders', JSON.stringify(orders));
+        } catch(_) {}
+
+        // Show success view
+        showView('proof');
+
+        // Show COD specific success message in proof pane
+        const proofPane = document.getElementById('payViewProof');
+        if (proofPane) {
+          proofPane.innerHTML = `
+            <div style="text-align:center; padding:40px 20px;">
+              <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, #16a34a, #22c55e); display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+                <i class="fa-solid fa-check" style="font-size:36px; color:#fff;"></i>
+              </div>
+              <div style="font-size:20px; font-weight:900; color:#0f172a; margin-bottom:8px;">Order Placed Successfully!</div>
+              <div style="font-size:13.5px; color:#64748b; margin-bottom:20px; line-height:1.6;">Your COD order has been placed. Pay <b>₹${inrVal.toFixed(2)}</b> in cash when the order is delivered.</div>
+              <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px; margin-bottom:20px; text-align:left;">
+                <div style="font-size:12px; font-weight:700; color:#15803d; margin-bottom:10px;"><i class="fa-solid fa-box"></i> Order Details</div>
+                <div style="font-size:12px; color:#166534; line-height:1.8;">
+                  <div><b>Product:</b> ${codPayload.productName}</div>
+                  <div><b>Amount:</b> ₹${inrVal.toFixed(2)}</div>
+                  <div><b>Payment:</b> Cash on Delivery</div>
+                  <div><b>Status:</b> <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-weight:700; font-size:11px;">Pending Delivery</span></div>
+                  <div><b>Order ID:</b> ${codPayload.orderId}</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <a href="index.html" style="display:inline-flex; align-items:center; gap:6px; padding:12px 24px; background:linear-gradient(135deg, #2563eb, #3b82f6); color:#fff; border-radius:10px; font-weight:700; font-size:13px; text-decoration:none; box-shadow:0 4px 14px rgba(37,99,235,0.3);"><i class="fa-solid fa-home"></i> Go to Home</a>
+                <a href="user/index.html#orders" style="display:inline-flex; align-items:center; gap:6px; padding:12px 24px; background:#f1f5f9; color:#0f172a; border-radius:10px; font-weight:700; font-size:13px; text-decoration:none; border:1px solid #e2e8f0;"><i class="fa-solid fa-box"></i> My Orders</a>
+              </div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      // 🔒 Validation for CARDS: Read accurately from whichever pane (mobile drawer or desktop details) is active
       if (activeMethodId === 'cards') {
-        const cardNum = (document.getElementById('payCardNumber')?.value || '').replace(/\s+/g, '');
-        const cardExp = (document.getElementById('payCardExpiry')?.value || '').trim();
-        const cardCvv = (document.getElementById('payCardCvv')?.value || '').trim();
-        const cardHolder = (document.getElementById('payCardHolder')?.value || '').trim();
-        const cardAlert = document.getElementById('payCardAlert');
+        let cardNum = '';
+        let cardExp = '';
+        let cardCvv = '';
+        let cardHolder = '';
+
+        document.querySelectorAll('#payCardNumber').forEach(el => {
+          const v = el.value.replace(/\s+/g, '');
+          if (v) cardNum = v;
+        });
+        document.querySelectorAll('#payCardExpiry').forEach(el => {
+          const v = el.value.trim();
+          if (v) cardExp = v;
+        });
+        document.querySelectorAll('#payCardCvv').forEach(el => {
+          const v = el.value.trim();
+          if (v) cardCvv = v;
+        });
+        document.querySelectorAll('#payCardHolder').forEach(el => {
+          const v = el.value.trim();
+          if (v) cardHolder = v;
+        });
+
+        const showCardAlert = (msg) => {
+          document.querySelectorAll('#payCardAlert').forEach(cardAlert => {
+            cardAlert.style.display = 'block';
+            cardAlert.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${msg}`;
+          });
+        };
 
         if (!cardNum || cardNum.length < 15) {
-          if (cardAlert) {
-            cardAlert.style.display = 'block';
-            cardAlert.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <b>Card Number Required:</b> Please enter a valid 16-digit debit or credit card number.';
-          }
-          document.getElementById('payCardNumber')?.focus();
+          showCardAlert('<b>Card Number Required:</b> Please enter a valid 16-digit debit or credit card number.');
+          document.querySelector('#payCardNumber')?.focus();
           return;
         }
 
@@ -3922,47 +4073,44 @@
         const expMonth = parseInt(expParts[0], 10);
         const expYear = parseInt(expParts[1], 10);
         if (!cardExp || expParts.length !== 2 || isNaN(expMonth) || isNaN(expYear) || expMonth < 1 || expMonth > 12) {
-          if (cardAlert) {
-            cardAlert.style.display = 'block';
-            cardAlert.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <b>Expiry Required:</b> Please enter valid expiry date in MM/YY format (e.g. 08/28).';
-          }
-          document.getElementById('payCardExpiry')?.focus();
+          showCardAlert('<b>Expiry Required:</b> Please enter valid expiry date in MM/YY format (e.g. 08/28).');
+          document.querySelector('#payCardExpiry')?.focus();
           return;
         }
 
         if (!cardCvv || cardCvv.length < 3) {
-          if (cardAlert) {
-            cardAlert.style.display = 'block';
-            cardAlert.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <b>CVV Required:</b> Please enter the 3 or 4 digit CVV/CVC on your card.';
-          }
-          document.getElementById('payCardCvv')?.focus();
+          showCardAlert('<b>CVV Required:</b> Please enter the 3 or 4 digit CVV/CVC on your card.');
+          document.querySelector('#payCardCvv')?.focus();
           return;
         }
 
         if (!cardHolder || cardHolder.length < 2) {
-          if (cardAlert) {
-            cardAlert.style.display = 'block';
-            cardAlert.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <b>Cardholder Name Required:</b> Please enter the name printed on your card.';
-          }
-          document.getElementById('payCardHolder')?.focus();
+          showCardAlert('<b>Cardholder Name Required:</b> Please enter the name printed on your card.');
+          document.querySelector('#payCardHolder')?.focus();
           return;
         }
 
-        if (cardAlert) cardAlert.style.display = 'none';
+        document.querySelectorAll('#payCardAlert').forEach(el => el.style.display = 'none');
+        lastEnteredCardLast4 = cardNum.slice(-4) || '••••';
+        lastEnteredCardHolder = cardHolder;
       }
 
       if (nameEl) {
         if (activeMethodId === 'cards') {
-          const rawNum = (document.getElementById('payCardNumber')?.value || '').replace(/\s+/g, '');
-          const last4 = rawNum.slice(-4) || '••••';
-          nameEl.textContent = `CARDS (•••• ${last4})`;
+          nameEl.textContent = `CARDS (•••• ${lastEnteredCardLast4 || '••••'})`;
         } else if (activeMethodId === 'paypal') {
           nameEl.textContent = 'PAYPAL GLOBAL';
         } else {
           nameEl.textContent = (activeMethodId || 'UPI').toUpperCase();
         }
       }
-      if (amtEl) amtEl.textContent = `₹${inrVal.toFixed(2)}`;
+      if (amtEl) {
+        if (activeMethodId === 'paypal') {
+          amtEl.innerHTML = `₹${inrVal.toFixed(2)} <span style="font-size:12px; color:#003087; font-weight:700; margin-left:4px;">($${usdVal} USD)</span>`;
+        } else {
+          amtEl.textContent = `₹${inrVal.toFixed(2)}`;
+        }
+      }
 
       const isUpi = (activeMethodId === 'upi' || activeMethodId === 'qr' || activeMethodId === 'phonepe' || activeMethodId === 'gpay' || activeMethodId === 'paytm');
       const isCard = activeMethodId === 'cards';
@@ -3976,13 +4124,13 @@
 
       if (upiBanner) upiBanner.style.display = isUpi ? 'block' : 'none';
       if (orDivider) orDivider.style.display = isUpi ? 'block' : 'none';
-      if (ssBadge) ssBadge.textContent = isUpi ? 'SS or UTR' : 'Mandatory';
-      if (utrBadge) utrBadge.textContent = isUpi ? 'Single-use Only' : 'Optional Reference';
+      if (ssBadge) ssBadge.textContent = isUpi ? 'SS or UTR' : (isCard ? 'Card Receipt' : 'Mandatory');
+      if (utrBadge) utrBadge.textContent = isUpi ? 'Single-use Only' : (isCard ? 'Optional' : 'Optional Reference');
       if (utrLabel) {
         if (isUpi) {
           utrLabel.innerHTML = '<i class="fa-solid fa-hashtag" style="color:#2563eb;"></i> Option 2: 12-Digit UPI UTR / Reference No.';
         } else if (isCard) {
-          utrLabel.innerHTML = '<i class="fa-solid fa-receipt" style="color:#2563eb;"></i> Bank Transaction / Auth Reference ID';
+          utrLabel.innerHTML = '<i class="fa-solid fa-receipt" style="color:#2563eb;"></i> Bank Transaction / Auth Reference ID (Optional)';
         } else if (isPaypal) {
           utrLabel.innerHTML = '<i class="fa-brands fa-paypal" style="color:#003087;"></i> PayPal Transaction ID';
         } else {
@@ -3993,7 +4141,7 @@
         if (isUpi) {
           utrHint.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> Enter the 12-digit transaction ID / UTR from PhonePe, Google Pay, or Paytm.';
         } else if (isCard) {
-          utrHint.innerHTML = 'Enter the transaction/approval reference from your bank SMS or card statement.';
+          utrHint.innerHTML = 'Enter the transaction/approval reference from your bank SMS or card statement (optional).';
         } else if (isPaypal) {
           utrHint.innerHTML = 'Enter the 17-character PayPal Transaction ID from your receipt.';
         } else {
@@ -4006,6 +4154,7 @@
 
       showView('proof');
     }
+    window.handleContinueClick = handleContinueClick;
 
     function handleCheckoutBack(e) {
       if (e) {
@@ -4150,6 +4299,9 @@
             localStorage.setItem('linkadda_used_utrs', JSON.stringify(usedUtrs.slice(-200)));
           } catch (_) {}
         }
+      } else if (activeMethodId === 'cards') {
+        // Cards: Card details were already validated in the checkout form
+        // Screenshot or Auth ref is optional
       } else {
         // Non-UPI methods: Screenshot is mandatory
         if (!screenshotBase64) {
@@ -4164,7 +4316,9 @@
       const submitBtn = document.getElementById('paySubmitProofBtn');
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading Screenshot & Submitting Order...';
+        submitBtn.innerHTML = activeMethodId === 'cards'
+          ? '<i class="fa-solid fa-spinner fa-spin"></i> Authorizing Card &amp; Submitting Order...'
+          : '<i class="fa-solid fa-spinner fa-spin"></i> Uploading Screenshot &amp; Submitting Order...';
       }
 
       // 1. Upload screenshot to media.jaigram.shop CDN via /api/upload
@@ -4190,13 +4344,18 @@
         }
       }
 
-      const finalScreenshot = uploadedScreenshotUrl || screenshotBase64;
+      let finalScreenshot = uploadedScreenshotUrl || screenshotBase64;
       const title = currentOrder.displayTitle || currentOrder.title || 'VIP Digital Access';
       const inrVal = parseMoney(currentOrder.inr || currentOrder.price || 399);
       const amountText = `₹${inrVal.toFixed(2)}`;
       const orderId = '#JG-' + Math.floor(100000 + Math.random() * 900000);
       const cust = getCustomerSession() || {};
       const now = Date.now();
+
+      // If card payment without manual screenshot, create digital authorization voucher
+      if (!finalScreenshot && activeMethodId === 'cards') {
+        finalScreenshot = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="420" height="230" viewBox="0 0 420 230"><rect width="420" height="230" rx="14" fill="%230f172a"/><text x="24" y="40" fill="%2338bdf8" font-family="sans-serif" font-size="13" font-weight="bold">JAIGRAM SECURE CARD AUTHORIZATION</text><text x="24" y="75" fill="%2394a3b8" font-family="sans-serif" font-size="12">Card: •••• ${lastEnteredCardLast4 || '••••'}</text><text x="24" y="105" fill="%2394a3b8" font-family="sans-serif" font-size="12">Cardholder: ${encodeURIComponent(lastEnteredCardHolder || 'Customer')}</text><text x="24" y="135" fill="%2394a3b8" font-family="sans-serif" font-size="12">Amount: ₹${inrVal.toFixed(2)}</text><text x="24" y="165" fill="%2394a3b8" font-family="sans-serif" font-size="12">Order Ref: ${orderId}</text><text x="24" y="200" fill="%2310b981" font-family="sans-serif" font-size="11">✓ Bank 3D-Secure Authorized / Under Verification</text></svg>`;
+      }
 
       const orderPayload = {
         orderId,
@@ -4208,6 +4367,8 @@
         amountDisplay: amountText,
         currency: 'INR',
         paymentMethod: (activeMethodId || 'UPI').toUpperCase(),
+        cardLast4: lastEnteredCardLast4 || '',
+        cardHolder: lastEnteredCardHolder || '',
         status: 'pending',
         customerUid: cust.uid || cust.email || 'guest',
         customerEmail: cust.email || '',

@@ -1830,7 +1830,6 @@
           </button>
           <div class="store-topbar-title-wrap">
             <span class="store-topbar-title" id="modalStoreTopName">Creator Store</span>
-            <span class="store-verified-tag mini"><i class="fa-solid fa-circle-check"></i> Verified</span>
           </div>
         </div>
         <div class="store-topbar-actions">
@@ -1856,12 +1855,11 @@
           <div class="store-hero-creator-row">
             <div class="store-hero-avatar-wrap">
               <div class="store-hero-avatar-disc" id="modalStoreAvatar">S</div>
-              <span class="store-hero-online-dot" title="Active Verified Store"></span>
+              <span class="store-hero-online-dot" title="Active Store"></span>
             </div>
             <div class="store-hero-meta">
               <div class="store-hero-name-row">
                 <h1 class="store-hero-title" id="modalStoreName">Creator Store</h1>
-                <span class="store-verified-pill"><i class="fa-solid fa-circle-check"></i> Verified Creator Partner</span>
               </div>
               <div class="store-hero-badges-row">
                 <span class="store-hero-category-badge" id="modalStoreCategory">Digital Creator</span>
@@ -2131,10 +2129,10 @@
                     <strong class="fk-seller-name" id="pdmCreatorName" onclick="handlePdmCreatorClick()">JaiGram Official</strong>
                     <span class="fk-seller-rating">4.9 <i class="fa-solid fa-star"></i></span>
                   </div>
-                  <span class="fk-seller-hint" onclick="handlePdmCreatorClick()">View seller profile &amp; verified drops &rarr;</span>
+                  <span class="fk-seller-hint" onclick="handlePdmCreatorClick()">View seller profile &amp; drops &rarr;</span>
                 </div>
               </div>
-              <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+              <div class="fk-seller-actions" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                 <button type="button" class="fk-follow-btn" id="pdmCreatorFollowBtn" onclick="toggleFollowCreatorFromModal()">
                   <i class="fa-solid fa-plus"></i> <span>Follow</span>
                 </button>
@@ -2194,22 +2192,22 @@
           </div>
 
           <!-- Buyer Protection & Trust Report Banner -->
-          <div class="fk-report-banner" style="margin-top: 24px; padding: 16px 18px; border-radius: 16px; background: rgba(239, 68, 68, 0.04); border: 1px dashed rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(239, 68, 68, 0.12); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
+          <div class="fk-report-banner">
+            <div class="fk-report-banner-left">
+              <div class="fk-report-shield-icon">
                 <i class="fa-solid fa-shield-halved"></i>
               </div>
-              <div>
-                <div style="font-size: 13px; font-weight: 700; color: var(--text-main, #0f172a);">Safe &amp; Protected Marketplace</div>
-                <div style="font-size: 11px; color: var(--text-muted, #64748b);">Issue with this pack or seller? Report directly to JaiGram Trust &amp; Safety.</div>
+              <div class="fk-report-text-col">
+                <div class="fk-report-title">Safe &amp; Protected Marketplace</div>
+                <div class="fk-report-desc">Issue with this pack or seller? Report directly to JaiGram Trust &amp; Safety.</div>
               </div>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <button type="button" class="btn-report-outline-prod" onclick="openReportItemModal('product')" style="padding: 7px 14px; font-size: 11.5px; font-weight: 700; border-radius: 10px; border: 1px solid rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); color: #ef4444; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-                <i class="fa-regular fa-flag"></i> Report Product
+            <div class="fk-report-banner-actions">
+              <button type="button" class="btn-report-outline-prod" onclick="openReportItemModal('product')">
+                <i class="fa-regular fa-flag"></i> <span>Report Product</span>
               </button>
-              <button type="button" class="btn-report-outline-seller" onclick="openReportItemModal('seller')" style="padding: 7px 14px; font-size: 11.5px; font-weight: 700; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.3); background: rgba(148, 163, 184, 0.08); color: var(--text-muted, #94a3b8); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-                <i class="fa-regular fa-flag"></i> Report Seller
+              <button type="button" class="btn-report-outline-seller" onclick="openReportItemModal('seller')">
+                <i class="fa-regular fa-flag"></i> <span>Report Seller</span>
               </button>
             </div>
           </div>

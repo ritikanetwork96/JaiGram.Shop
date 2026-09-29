@@ -193,7 +193,7 @@ export default async function handler(req, res) {
       const totalParts = Number(body.totalParts);
       const folder = String(body.folder || 'products').replace(/[^a-zA-Z0-9_-]/g, '') || 'products';
       const filename = String(body.filename || `${Date.now()}_asset.png`).replace(/[^a-zA-Z0-9_.-]/g, '_');
-      const contentType = String(body.contentType || 'application/octet-stream');
+      let contentType = String(body.contentType || 'application/octet-stream');
 
       if (!uploadId || !totalParts || totalParts < 1) {
         return res.status(400).json({ error: 'Missing uploadId or totalParts for assembly.' });

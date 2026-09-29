@@ -46,18 +46,14 @@ function normalizeOrder(id, raw) {
   const timestamp = Number(raw.createdAt || raw.timestamp || Date.now());
 
   return {
-    id: orderId,
-    orderId,
     productId: raw.productId || '',
     productTitle: title,
     productName: title,
     title,
     sellerName: raw.sellerName || raw.seller || 'LinkAdda Verified',
     seller: raw.sellerName || raw.seller || 'LinkAdda Verified',
-    customerEmail: email,
     buyerEmail: email,
     email,
-    customerUid: uid,
     customerName: buyerName,
     buyer: buyerName,
     amount,

@@ -92,7 +92,7 @@
         : (Date.now().toString(36) + Math.random().toString(36).substring(2, 8)));
       currentCustomer = {
         uid: 'cust_guest_' + guestRand,
-        email: 'guest_' + guestRand + '@linkadda.shop',
+        email: 'guest_' + guestRand + '@jaigram.shop',
         displayName: 'Guest Member',
         name: 'Guest Member',
         role: 'customer'
@@ -397,7 +397,7 @@
     if (hubName) hubName.textContent = displayName;
 
     const hubEmail = document.getElementById('hubUserEmail');
-    if (hubEmail) hubEmail.textContent = email || 'member@linkadda.shop';
+    if (hubEmail) hubEmail.textContent = email || 'member@jaigram.shop';
 
     const profileHeroUid = document.getElementById('profileHeroUid');
     if (profileHeroUid) profileHeroUid.textContent = uidFormatted;

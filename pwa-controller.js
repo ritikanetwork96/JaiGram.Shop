@@ -105,54 +105,39 @@
     }
   };
 
-  // 8. Inject & Show First-Visit Install Popup (NON-BLOCKING: Zero backdrop overlay)
+  // 8. Inject & Show First-Visit Install Popup (Ultra-sleek native floating banner)
   function injectInstallPopup() {
     if (document.getElementById('jaigramPwaPopupCard')) return;
 
-    // Card (Floats at bottom without full-screen click interception)
+    // Compact floating app install pill / bar
     const card = document.createElement('div');
     card.id = 'jaigramPwaPopupCard';
     card.className = 'jaigram-pwa-card';
     card.setAttribute('role', 'dialog');
     card.setAttribute('aria-modal', 'false');
+    card.setAttribute('aria-label', 'Install JaiGram App');
     card.innerHTML = `
-      <div class="pwa-card-header">
+      <div class="pwa-card-main-row">
         <div class="pwa-card-brand">
-          <img src="/images/pwa-icon.svg" alt="JaiGram App" class="pwa-card-icon" onerror="this.src='/images/pwa-icon-192.jpg'" />
+          <div class="pwa-card-icon-wrap">
+            <img src="/images/pwa-icon.svg" alt="JaiGram App" class="pwa-card-icon" onerror="this.src='/images/pwa-icon-192.jpg'" />
+          </div>
           <div class="pwa-card-meta">
             <div class="pwa-card-title">
-              JaiGram Shop <span class="pwa-badge-verified">OFFICIAL</span>
+              <span>JaiGram App</span>
+              <span class="pwa-badge-verified"><i class="fa-solid fa-circle-check"></i> Free</span>
             </div>
-            <div class="pwa-card-sub">Fast, Secure & Discrete Digital Vault</div>
+            <div class="pwa-card-sub">Instant Vault &bull; 1-Tap Downloads &bull; 2 MB</div>
           </div>
         </div>
-        <button type="button" class="pwa-close-btn" id="pwaCloseCardBtn" aria-label="Cancel">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="pwa-card-features">
-        <div class="pwa-feature-item">
-          <i class="fa-solid fa-bolt"></i> 1-Tap Cloud Downloads
+        <div class="pwa-card-actions">
+          <button type="button" class="pwa-btn-install" id="pwaCardInstallBtn">
+            <i class="fa-solid fa-download"></i> Install
+          </button>
+          <button type="button" class="pwa-close-btn" id="pwaCloseCardBtn" aria-label="Dismiss">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
-        <div class="pwa-feature-item">
-          <i class="fa-solid fa-shield-halved"></i> 100% Discrete Vault
-        </div>
-        <div class="pwa-feature-item">
-          <i class="fa-solid fa-bell"></i> VIP Drop Notifications
-        </div>
-        <div class="pwa-feature-item">
-          <i class="fa-solid fa-lock"></i> Permanent Saved Login
-        </div>
-      </div>
-
-      <div class="pwa-card-actions">
-        <button type="button" class="pwa-btn-install" id="pwaCardInstallBtn">
-          <i class="fa-solid fa-download"></i> Install App
-        </button>
-        <button type="button" class="pwa-btn-cancel" id="pwaCardCancelBtn">
-          Not Now
-        </button>
       </div>
     `;
 
@@ -169,7 +154,6 @@
     };
 
     document.getElementById('pwaCloseCardBtn')?.addEventListener('click', closeHandler);
-    document.getElementById('pwaCardCancelBtn')?.addEventListener('click', closeHandler);
   }
 
   function showInstallPopup() {

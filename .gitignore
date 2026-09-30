@@ -87,4 +87,15 @@ migration-report.md
 *.bak
 *.bak*
 check_rtdb_*.mjs
+test-*.js
+test-*.mjs
+test_*.mjs
+temp-*.js
+temp-*.mjs
+*.ps1
+
+# Agent & IDE scratch
+.agents/
+.gemini/
+
 

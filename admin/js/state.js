@@ -22,6 +22,7 @@ function loadCachedStore() {
     customers: {},
     sellers: {},
     seller_applications: {},
+    public_sellers: {},
   };
 
   try {
@@ -197,7 +198,7 @@ export const ROUTE_NODE_REQUIREMENTS = {
   orders: ['orders'],
   screenshots: ['orders'],
   users: ['customers'],
-  sellers: ['sellers', 'seller_applications'],
+  sellers: ['sellers', 'seller_applications', 'public_sellers', 'products', 'events'],
   analytics: ['analytics', 'visitors', 'orders', 'events'],
 };
 
@@ -205,7 +206,7 @@ export const ROUTE_NODE_REQUIREMENTS = {
 const ALL_RTDB_NODES = [
   'settings', 'orders', 'visitors', 'products', 'categories', 'events',
   'media', 'reviews', 'faq', 'testimonials', 'hero', 'banner',
-  'payment', 'customers', 'sellers', 'seller_applications', 'analytics'
+  'payment', 'customers', 'sellers', 'seller_applications', 'public_sellers', 'analytics'
 ];
 
 export function ensureNodesForRoute(route = 'dashboard') {
@@ -341,12 +342,25 @@ export async function updateRecordsBatch(node, batchMap) {
   const nodeName = RTDB_NODES[node];
   if (!nodeName) throw new Error(`Unknown node: ${node}`);
   if (!STORE[node]) STORE[node] = {};
-  for (const [id, item] of Object.entries(batchMap)) {
-    STORE[node][id] = { ...(STORE[node][id] || {}), ...(item || {}) };
+  for (const [key, val] of Object.entries(batchMap)) {
+    if (key.includes('/')) {
+      const parts = key.split('/');
+      const itemId = parts[0];
+      const prop = parts[1];
+      if (STORE[node][itemId]) {
+        STORE[node][itemId][prop] = val;
+      }
+    } else {
+      STORE[node][key] = { ...(STORE[node][key] || {}), ...(val || {}) };
+    }
   }
   emit();
   syncWebsiteCache();
-  await update(ref(db, nodeName), batchMap);
+  try {
+    await update(ref(db, nodeName), batchMap);
+  } catch (err) {
+    console.warn(`Direct client SDK update failed for ${nodeName}, fallback handled by caller:`, err);
+  }
 }
 
 export async function deleteRecord(node, id) {

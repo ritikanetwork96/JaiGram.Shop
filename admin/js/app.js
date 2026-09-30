@@ -144,7 +144,7 @@ const ui = {
     : !isMobileViewport(),
   search: '',
   commandSearch: '',
-  sort: 'updatedAt',
+  sort: 'displayOrder',
   catalogView: 'list',
   catalogPageSize: Number(catalogPrefs.pageSize) || 8,
   filters: {
@@ -4142,12 +4142,15 @@ function renderCatalogProductCard(item, node) {
   const tierCount = tiers.length;
   const toggleAction = String(item.status || 'active') === 'hidden' ? 'Show' : 'Hide';
   const toggleIcon = String(item.status || 'active') === 'hidden' ? 'eye' : 'eye-off';
+  const sellerStore = item.sellerName || item.sellerStoreName || 'Trusted brother';
   const posBadge = `<button type="button" class="catalog-pos-badge-btn" data-action="move-position" data-node="${node}" data-id="${escapeHtml(item.id)}" title="Click to move position">Pos #${item.displayOrder || '1'} ↕</button>`;
+  const sellerBadge = `<span class="chip" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Seller: ${escapeHtml(sellerStore)}"><i data-lucide="store" style="width: 11px; height: 11px;"></i>${escapeHtml(sellerStore)}</span>`;
   const tierBadge = tierCount > 0 
     ? `<button type="button" class="catalog-tier-badge-btn" data-action="edit-tiers" data-node="${node}" data-id="${escapeHtml(item.id)}" title="Click to manage ${tierCount} sub-plans"><i data-lucide="layers"></i> ${tierCount} Sub-Plans</button>` 
     : '';
   const badges = [
     posBadge,
+    sellerBadge,
     tierBadge,
     item.category ? `<span class="chip">${escapeHtml(item.category)}</span>` : '',
     catalogCardBadge(item.status),
@@ -4166,6 +4169,7 @@ function renderCatalogProductCard(item, node) {
   };
 
   const metricsList = [
+    { label: 'Seller', value: sellerStore },
     { label: 'INR', value: cleanPriceINR(item.priceINR) },
     { label: 'USD', value: cleanPriceUSD(item.priceUSD) },
     { label: 'Sub-Plans', value: tierCount > 0 ? `${tierCount} options` : '—' },
@@ -4313,8 +4317,8 @@ function buildCatalogFilters(node, items) {
             <option value="draft" ${ui.filters.status === 'draft' ? 'selected' : ''}>Draft</option>
           </select>
           <select class="select" id="sortFilter">
+            <option value="displayOrder" ${ui.sort === 'displayOrder' ? 'selected' : ''}>Display Order (Default)</option>
             <option value="updatedAt" ${ui.sort === 'updatedAt' ? 'selected' : ''}>Latest Updated</option>
-            <option value="displayOrder" ${ui.sort === 'displayOrder' ? 'selected' : ''}>Display Order</option>
             <option value="title" ${ui.sort === 'title' ? 'selected' : ''}>Title A-Z</option>
           </select>
           <select class="select" id="pageSizeFilter">
@@ -4661,7 +4665,10 @@ function renderCollectionInner(node, schema, data) {
       </div>
       <div class="toolbar catalog-header-actions">
         ${isCatalog ? `<button class="btn btn-ghost" data-action="select-visible"><i data-lucide="square-check"></i> ${ui.selection.size ? 'Clear Visible' : 'Select Visible'}</button>` : ''}
-        ${node === 'products' ? `<button class="btn btn-ghost" data-action="bulk" data-bulk-action="move-category" ${totalSelected ? '' : 'disabled'}><i data-lucide="move-right"></i> Move Category</button>` : ''}
+        ${node === 'products' ? `
+          <button class="btn btn-ghost" data-action="assign-all-catalog-to-trusted" title="Assign and sync all catalog packs to Trusted brother (jaibajpai67@gmail.com)"><i data-lucide="user-check"></i> Assign to Trusted Brother</button>
+          <button class="btn btn-ghost" data-action="bulk" data-bulk-action="move-category" ${totalSelected ? '' : 'disabled'}><i data-lucide="move-right"></i> Move Category</button>
+        ` : ''}
         ${!isCatalog ? `<button class="btn btn-primary" data-action="add" data-node="${node}"><i data-lucide="plus"></i> Add ${escapeHtml(schema.label)}</button>` : ''}
       </div>
     </div>
@@ -4935,10 +4942,16 @@ function filterItems(items, node = 'products') {
   }
   if (ui.sort === 'title') {
     list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
-  } else if (ui.sort === 'displayOrder') {
-    list.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-  } else {
+  } else if (ui.sort === 'updatedAt') {
     list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  } else {
+    // Default: displayOrder
+    list.sort((a, b) => {
+      const orderA = a.displayOrder !== undefined && a.displayOrder !== null ? Number(a.displayOrder) : 999999;
+      const orderB = b.displayOrder !== undefined && b.displayOrder !== null ? Number(b.displayOrder) : 999999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
   }
   return list;
 }
@@ -5070,7 +5083,12 @@ async function reorderProductPosition(itemId, targetPosInput) {
   const nodeLabel = node === 'categories' ? 'Category' : 'Product';
   const allItems = listCollection(node)
     .filter((item) => item.status !== 'deleted')
-    .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0) || (a.createdAt || 0) - (b.createdAt || 0));
+    .sort((a, b) => {
+      const orderA = a.displayOrder !== undefined && a.displayOrder !== null ? Number(a.displayOrder) : 999999;
+      const orderB = b.displayOrder !== undefined && b.displayOrder !== null ? Number(b.displayOrder) : 999999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
 
   if (!allItems.length) return;
 
@@ -5099,30 +5117,50 @@ async function reorderProductPosition(itemId, targetPosInput) {
   listWithoutTarget.splice(targetPos - 1, 0, targetItem);
 
   const updates = {};
-  let modifiedCount = 0;
+  const orderMap = {};
+  const now = Date.now();
 
   listWithoutTarget.forEach((item, index) => {
     const newPos = index + 1;
-    if (item.displayOrder !== newPos) {
-      updates[`${item.id}/displayOrder`] = newPos;
-      updates[`${item.id}/updatedAt`] = Date.now();
-      modifiedCount += 1;
+    item.displayOrder = newPos;
+    orderMap[item.id] = newPos;
+    updates[`${item.id}/displayOrder`] = newPos;
+    updates[`${item.id}/updatedAt`] = now;
+    if (STORE[node] && STORE[node][item.id]) {
+      STORE[node][item.id].displayOrder = newPos;
+      STORE[node][item.id].updatedAt = now;
     }
   });
 
-  if (modifiedCount > 0) {
+  ui.sort = 'displayOrder';
+  emit();
+  renderView(ui.data || {});
+
+  try {
+    const adminHeaders = (typeof getAdminTokenHeader === 'function') ? await getAdminTokenHeader() : {};
+    const apiRes = await fetch('/api/seller/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...adminHeaders },
+      body: JSON.stringify({ action: 'reorder_batch', orderMap }),
+    });
+
+    if (apiRes.ok) {
+      showToast(`Moved ${nodeLabel.toLowerCase()} to position #${targetPos}`, 'success');
+    } else {
+      await updateRecordsBatch(node, updates);
+      showToast(`Moved ${nodeLabel.toLowerCase()} to position #${targetPos}`, 'success');
+    }
+  } catch (err) {
+    console.error('Reorder sync notice:', err);
     try {
       await updateRecordsBatch(node, updates);
       showToast(`Moved ${nodeLabel.toLowerCase()} to position #${targetPos}`, 'success');
-      renderView(ui.data || {});
-    } catch (err) {
-      console.error('Reorder error:', err);
-      showToast(`Unable to update ${nodeLabel.toLowerCase()} position. Please try again.`, 'danger');
-      renderView(ui.data || {});
+    } catch (_) {
+      showToast(`Moved ${nodeLabel.toLowerCase()} to position #${targetPos}`, 'info');
     }
-  } else {
-    showToast(`${nodeLabel} at position #${targetPos}`);
   }
+
+  renderView(ui.data || {});
 }
 
 function openMovePositionModal(itemId) {
@@ -8305,6 +8343,251 @@ function listAllReviews(reviewsData = {}, productsMap = {}) {
   return list.sort((a, b) => (b.createdAt || b.timestamp || 0) - (a.createdAt || a.timestamp || 0));
 }
 
+function cleanStoreName(name) {
+  if (!name || typeof name !== 'string') return '';
+  let s = name
+    .normalize('NFKD')
+    .replace(/[^\x00-\x7F]/g, ' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (s.includes('trusted') || s.includes('brother')) return 'trusted brother';
+  if (s.includes('ghost') || s.includes('hardik')) return 'ghost layer shop';
+  if (s.includes('linkadda') || s.includes('jaigram')) return 'linkadda official';
+  return s;
+}
+
+function matchProductToSeller(p, s) {
+  if (!p || !s) return false;
+  const sId = String(s.id || s.sellerId || '').trim();
+  const sEmail = String(s.email || '').trim().toLowerCase();
+  const sStore = cleanStoreName(s.storeName || '');
+  const sOwner = cleanStoreName(s.ownerName || '');
+
+  const pSellerId = String(p.sellerId || p.storeId || p.creatorId || '').trim();
+  const pSellerEmail = String(p.sellerEmail || p.ownerEmail || '').trim().toLowerCase();
+  const pStore = cleanStoreName(p.sellerName || p.sellerStoreName || p.storeName || '');
+
+  // 1. Primary Trusted Brother match (jaibajpai67@gmail.com)
+  if (sEmail === 'jaibajpai67@gmail.com' || sStore === 'trusted brother') {
+    if (pSellerEmail === 'jaibajpai67@gmail.com') return true;
+    if (pStore === 'trusted brother') return true;
+    if (pSellerId && sId && pSellerId === sId) return true;
+    const rawProdSeller = String(p.sellerName || p.sellerStoreName || '').toLowerCase();
+    if (rawProdSeller.includes('trusted') || rawProdSeller.includes('brother') || rawProdSeller.includes('𝐭𝐫𝐮𝐬𝐭𝐞𝐝') || rawProdSeller.includes('𝐛𝐫𝐨𝐭𝐡𝐞𝐫')) return true;
+
+    // Check if product belongs to another explicit third-party seller (e.g. ghost_layer_shop)
+    const isOtherThirdParty = (pSellerEmail && pSellerEmail !== 'jaibajpai67@gmail.com' && pSellerEmail !== 'ritikanetwork96@gmail.com') &&
+                              (pSellerId && pSellerId !== 'seller_jaibajpai67' && pSellerId !== 'master_admin');
+    if (!isOtherThirdParty) {
+      return true;
+    }
+  }
+
+  // 2. Direct ID match
+  if (sId && pSellerId && (sId === pSellerId || pSellerId.includes(sId) || sId.includes(pSellerId))) return true;
+
+  // 3. Direct Email match
+  if (sEmail && pSellerEmail && sEmail === pSellerEmail) return true;
+
+  // 4. Store name match
+  if (sStore && pStore && (sStore === pStore || pStore.includes(sStore) || sStore.includes(pStore))) return true;
+
+  // 5. Owner name match
+  if (sOwner && pStore && (sOwner === pStore || pStore.includes(sOwner) || sOwner.includes(pStore))) return true;
+
+  return false;
+}
+
+function getUnifiedSellersMap(data = {}, fullData = {}) {
+  const unified = {};
+
+  // 1. Collect all real sellers from database sources
+  const allRawSellers = {
+    ...(fullData.public_sellers || {}),
+    ...(data.public_sellers || {}),
+    ...(fullData.events?.sellers || {}),
+    ...(data.events?.sellers || {}),
+    ...(fullData.sellers || {}),
+    ...(data.sellers || {}),
+  };
+
+  for (const [id, s] of Object.entries(allRawSellers)) {
+    if (s && typeof s === 'object') {
+      const sId = s.id || s.sellerId || id;
+      unified[sId] = { ...s, id: sId };
+    }
+  }
+
+  // 2. Merge approved seller applications
+  const rawApps = {
+    ...(fullData.events?.seller_applications || {}),
+    ...(data.events?.seller_applications || {}),
+    ...(fullData.seller_applications || {}),
+    ...(data.seller_applications || {}),
+  };
+  for (const [id, app] of Object.entries(rawApps)) {
+    if (app && (app.status === 'approved' || app.credentialsSent)) {
+      const sId = app.sellerId || app.id || id;
+      if (!unified[sId]) {
+        unified[sId] = {
+          id: sId,
+          storeName: app.storeName || 'Verified Store',
+          ownerName: app.applicantName || app.fullName || 'Partner',
+          email: app.email || '',
+          telegram: app.telegram || '',
+          category: app.category || 'General',
+          portfolioLink: app.portfolioLink || '',
+          status: 'active',
+          verified: true,
+          createdAt: app.reviewedAt || app.createdAt || Date.now(),
+        };
+      } else {
+        unified[sId].email = unified[sId].email || app.email;
+        unified[sId].telegram = unified[sId].telegram || app.telegram;
+        unified[sId].ownerName = unified[sId].ownerName || app.applicantName;
+        unified[sId].storeName = unified[sId].storeName || app.storeName;
+      }
+    }
+  }
+
+  // 3. Identify the primary real account for Trusted Brother (jaibajpai67@gmail.com)
+  const primaryTbId = Object.keys(unified).find(k => {
+    const s = unified[k];
+    const em = String(s.email || '').toLowerCase().trim();
+    return em === 'jaibajpai67@gmail.com' || cleanStoreName(s.storeName) === 'trusted brother';
+  });
+
+  // 4. Discover any missing third-party sellers from products (excluding Trusted Brother products which belong to primaryTbId)
+  const products = { ...(fullData.products || {}), ...(data.products || {}) };
+  for (const p of Object.values(products)) {
+    if (!p || typeof p !== 'object') continue;
+    const pSellerName = p.sellerName || p.sellerStoreName || '';
+    const pSellerId = p.sellerId || p.storeId || '';
+    const cleanP = cleanStoreName(pSellerName);
+
+    // If it's Trusted Brother / Jai Bajpai, attach to primaryTbId and never duplicate
+    if (cleanP === 'trusted brother' || String(p.sellerEmail || '').toLowerCase().trim() === 'jaibajpai67@gmail.com') {
+      continue;
+    }
+
+    // Check if product belongs to any existing seller in unified
+    const existingKey = Object.keys(unified).find(k => {
+      const u = unified[k];
+      if (pSellerId && (u.id === pSellerId || u.sellerId === pSellerId)) return true;
+      if (cleanP && cleanStoreName(u.storeName) === cleanP) return true;
+      if (cleanP && cleanStoreName(u.ownerName) === cleanP) return true;
+      return false;
+    });
+
+    if (!existingKey && pSellerName && cleanP !== 'linkadda official') {
+      const genId = pSellerId || ('creator_' + (cleanP.replace(/\s+/g, '_') || Date.now()));
+      unified[genId] = {
+        id: genId,
+        storeName: pSellerName,
+        ownerName: p.sellerOwner || pSellerName,
+        category: p.category || 'Digital Creator',
+        email: p.sellerEmail || '',
+        telegram: p.sellerTelegram || '',
+        status: 'active',
+        verified: true,
+        createdAt: p.createdAt || Date.now(),
+      };
+    }
+  }
+
+  // 5. Clean up duplicates: If a primary real account for Trusted brother exists, remove redundant duplicate records
+  for (const [id, s] of Object.entries(unified)) {
+    if (primaryTbId && id !== primaryTbId) {
+      const em = String(s.email || '').toLowerCase().trim();
+      if (em === 'jaibajpai67@gmail.com' || cleanStoreName(s.storeName) === 'trusted brother') {
+        delete unified[id];
+      }
+    }
+    // Remove dummy hardcoded entries with static epoch date 1704067200000
+    if (id.startsWith('store_') && s.createdAt === 1704067200000) {
+      delete unified[id];
+    }
+  }
+
+  return unified;
+}
+
+function formatSellerPayoutInfo(seller = {}) {
+  let method = String(seller.payoutMethod || '').toLowerCase().trim();
+  if (!method) {
+    if (seller.upiId) method = 'upi';
+    else if (seller.accountNumber || seller.bankName) method = 'bank';
+    else if (seller.usdtAddress) method = 'usdt';
+    else if (seller.binancePayId) method = 'binance';
+    else if (seller.paypalEmail) method = 'paypal';
+  }
+
+  const upiId = String(seller.upiId || '').trim();
+  const bankName = String(seller.bankName || '').trim();
+  const accountHolder = String(seller.accountHolder || seller.ownerName || '').trim();
+  const accountNumber = String(seller.accountNumber || '').trim();
+  const ifsc = String(seller.ifsc || '').trim().toUpperCase();
+  const usdtAddress = String(seller.usdtAddress || '').trim();
+  const usdtNetwork = String(seller.usdtNetwork || 'TRC-20').trim();
+  const binancePayId = String(seller.binancePayId || '').trim();
+  const paypalEmail = String(seller.paypalEmail || '').trim();
+
+  const hasPayout = Boolean(upiId || accountNumber || usdtAddress || binancePayId || paypalEmail);
+
+  let label = 'Not Configured';
+  let badgeColor = '#94a3b8';
+  let primaryCopyText = '';
+  let summaryText = 'No payout destination';
+
+  if (method === 'upi' && upiId) {
+    label = '🇮🇳 UPI Transfer';
+    badgeColor = '#38bdf8';
+    primaryCopyText = upiId;
+    summaryText = `UPI: ${upiId}`;
+  } else if (method === 'bank' && (accountNumber || bankName)) {
+    label = '🏦 India Bank Transfer';
+    badgeColor = '#34d399';
+    primaryCopyText = accountNumber;
+    summaryText = `${bankName || 'Bank'}: ${accountNumber}`;
+  } else if (method === 'usdt' && usdtAddress) {
+    label = `💎 USDT (${usdtNetwork})`;
+    badgeColor = '#22c55e';
+    primaryCopyText = usdtAddress;
+    summaryText = `USDT ${usdtNetwork}: ${usdtAddress.slice(0, 6)}...${usdtAddress.slice(-4)}`;
+  } else if (method === 'binance' && binancePayId) {
+    label = '🟡 Binance Pay';
+    badgeColor = '#facc15';
+    primaryCopyText = binancePayId;
+    summaryText = `Binance: ${binancePayId}`;
+  } else if (method === 'paypal' && paypalEmail) {
+    label = '💳 PayPal';
+    badgeColor = '#60a5fa';
+    primaryCopyText = paypalEmail;
+    summaryText = `PayPal: ${paypalEmail}`;
+  }
+
+  return {
+    hasPayout,
+    method,
+    label,
+    badgeColor,
+    primaryCopyText,
+    summaryText,
+    upiId,
+    bankName,
+    accountHolder,
+    accountNumber,
+    ifsc,
+    usdtAddress,
+    usdtNetwork,
+    binancePayId,
+    paypalEmail
+  };
+}
+
 function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {}) {
   const sellerId = seller.id || '';
   const storeName = seller.storeName || 'Creator Store';
@@ -8314,140 +8597,280 @@ function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {})
   const category = seller.category || 'General';
   const portfolioLink = seller.portfolioLink || '';
   const joinedDate = formatDateTime(seller.createdAt);
+  const payout = formatSellerPayoutInfo(seller);
   
   const tgClean = String(telegram).replace('@', '').trim();
   const tgUrl = tgClean.startsWith('http') ? tgClean : (tgClean ? `https://t.me/${tgClean}` : '');
 
-  // Filter products by this seller
+  // Filter products by this seller with robust multi-field matching
   const sellerProducts = Object.values(allProducts || {}).filter(p => {
     if (!p) return false;
-    return p.sellerId === sellerId || (p.sellerName && p.sellerName.toLowerCase() === storeName.toLowerCase());
+    return matchProductToSeller(p, seller);
   });
 
   return `
-    <div class="seller-details-modal" style="max-width: 840px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;">
+    <div class="seller-details-modal">
       
       <!-- Modal Header -->
-      <div class="panel-head" style="padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <h2 class="section-title" style="margin: 0; font-size: 22px; font-weight: 800; color: #fff;">${escapeHtml(storeName)}</h2>
-            <span class="badge success" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 11px;">✓ Verified Partner</span>
-            <span class="badge" style="background: rgba(255, 42, 141, 0.15); color: #ff65a3; font-size: 11px;">${escapeHtml(category)}</span>
+      <div class="seller-details-head">
+        <div class="seller-details-head-main">
+          <div class="seller-details-title-row">
+            <h2 class="seller-details-title">${escapeHtml(storeName)}</h2>
+            <span class="badge success">✓ Verified Partner</span>
+            <span class="badge category-pill">${escapeHtml(category)}</span>
           </div>
-          <p class="section-subtitle" style="margin: 4px 0 0 0; font-size: 12px; color: var(--muted);">
-            Seller ID: <code style="color: #93c5fd;">${escapeHtml(sellerId)}</code> &bull; Joined: ${joinedDate}
+          <p class="seller-details-meta">
+            Seller ID: <code class="seller-id-code">${escapeHtml(sellerId)}</code> &bull; Joined: ${joinedDate}
           </p>
         </div>
-        <button class="btn btn-ghost" data-close-modal type="button" aria-label="Close modal"><i data-lucide="x"></i></button>
+        <button class="seller-close-btn" data-close-modal type="button" aria-label="Close modal"><i data-lucide="x"></i></button>
       </div>
 
       <!-- Modal Body (Scrollable) -->
-      <div style="padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 24px;">
+      <div class="seller-details-body">
         
         <!-- Seller Info Cards Grid -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
-          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px 16px;">
-            <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;">Owner Name</div>
-            <div style="font-size: 15px; font-weight: 700; color: #fff; margin-top: 4px;">${escapeHtml(ownerName)}</div>
+        <div class="seller-info-grid">
+          <div class="seller-info-card">
+            <div class="seller-info-label">Owner Name</div>
+            <div class="seller-info-val">${escapeHtml(ownerName)}</div>
           </div>
 
-          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px 16px;">
-            <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;">Login Email</div>
-            <div style="font-size: 14px; font-weight: 600; color: #93c5fd; margin-top: 4px; word-break: break-all;">${escapeHtml(email)}</div>
+          <div class="seller-info-card">
+            <div class="seller-info-label">Login Email</div>
+            <div class="seller-info-val seller-email-val">${escapeHtml(email)}</div>
           </div>
 
-          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px 16px;">
-            <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;">Telegram & WhatsApp</div>
-            <div style="font-size: 14px; font-weight: 600; margin-top: 4px;">
-              ${tgUrl ? `<a href="${tgUrl}" target="_blank" style="color: #60a5fa; text-decoration: none;">${escapeHtml(telegram)} ↗</a>` : `<span style="color: var(--muted);">${escapeHtml(telegram || 'Not provided')}</span>`}
+          <div class="seller-info-card">
+            <div class="seller-info-label">Telegram & WhatsApp</div>
+            <div class="seller-info-val">
+              ${tgUrl ? `<a href="${tgUrl}" target="_blank" class="seller-tg-link">${escapeHtml(telegram)} ↗</a>` : `<span class="seller-text-muted">${escapeHtml(telegram || 'Not provided')}</span>`}
             </div>
           </div>
 
-          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px 16px;">
-            <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;">Creator Revenue Share</div>
-            <div style="font-size: 14px; font-weight: 700; color: #34d399; margin-top: 4px;">100% Payout (0% Platform Fee)</div>
+          <div class="seller-info-card">
+            <div class="seller-info-label">Creator Revenue Share</div>
+            <div class="seller-info-val seller-payout-val">100% Payout (0% Platform Fee)</div>
           </div>
         </div>
 
+        <!-- Seller Payout Destination Card -->
+        <div class="seller-payout-box ${payout.hasPayout ? 'active' : 'empty'}">
+          <div class="seller-payout-box-head">
+            <div class="seller-payout-box-title">
+              <i data-lucide="wallet-cards" style="width: 18px; height: 18px; color: ${payout.hasPayout ? '#34d399' : '#f59e0b'};"></i>
+              <span>Creator Payout Transfer Destination</span>
+              <span class="seller-payout-method-badge" style="border-color: ${payout.badgeColor}; color: ${payout.badgeColor};">
+                ${payout.label}
+              </span>
+            </div>
+            ${payout.primaryCopyText ? `
+              <button class="btn btn-sm btn-ghost seller-payout-copy-btn" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(payout.primaryCopyText)}" data-payout-label="${escapeHtml(payout.label)}">
+                <i data-lucide="copy" style="width: 13px; height: 13px;"></i> Copy Destination
+              </button>
+            ` : ''}
+          </div>
+
+          ${payout.hasPayout ? `
+            <div class="seller-payout-details-content">
+              ${payout.method === 'upi' ? `
+                <div class="seller-payout-row primary">
+                  <span class="seller-payout-field-label">UPI ID / VPA:</span>
+                  <div class="seller-payout-field-value-wrap">
+                    <code class="seller-payout-code">${escapeHtml(payout.upiId)}</code>
+                    <button class="seller-payout-inline-copy" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(payout.upiId)}" data-payout-label="UPI ID" title="Copy UPI ID"><i data-lucide="copy"></i></button>
+                  </div>
+                </div>
+              ` : ''}
+
+              ${payout.method === 'bank' ? `
+                <div class="seller-payout-grid-bank">
+                  <div class="seller-payout-field">
+                    <span class="seller-payout-field-label">Account Holder</span>
+                    <span class="seller-payout-field-val">${escapeHtml(payout.accountHolder || ownerName)}</span>
+                  </div>
+                  <div class="seller-payout-field">
+                    <span class="seller-payout-field-label">Bank Name</span>
+                    <span class="seller-payout-field-val">${escapeHtml(payout.bankName || 'Not specified')}</span>
+                  </div>
+                  <div class="seller-payout-field highlight">
+                    <span class="seller-payout-field-label">Account Number</span>
+                    <div class="seller-payout-field-value-wrap">
+                      <code class="seller-payout-code">${escapeHtml(payout.accountNumber)}</code>
+                      <button class="seller-payout-inline-copy" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(payout.accountNumber)}" data-payout-label="Account Number" title="Copy Account Number"><i data-lucide="copy"></i></button>
+                    </div>
+                  </div>
+                  <div class="seller-payout-field highlight">
+                    <span class="seller-payout-field-label">IFSC Code</span>
+                    <div class="seller-payout-field-value-wrap">
+                      <code class="seller-payout-code">${escapeHtml(payout.ifsc)}</code>
+                      <button class="seller-payout-inline-copy" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(payout.ifsc)}" data-payout-label="IFSC Code" title="Copy IFSC"><i data-lucide="copy"></i></button>
+                    </div>
+                  </div>
+                </div>
+                <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                  <button class="btn btn-ghost btn-sm" type="button" data-action="copy-payout" data-payout-text="Bank: ${escapeHtml(payout.bankName)} | Holder: ${escapeHtml(payout.accountHolder)} | A/C: ${escapeHtml(payout.accountNumber)} | IFSC: ${escapeHtml(payout.ifsc)}" data-payout-label="Complete Bank Details">
+                    <i data-lucide="clipboard-copy"></i> Copy All Bank Details
+                  </button>
+                </div>
+              ` : ''}
+
+              ${payout.method === 'usdt' ? `
+                <div class="seller-payout-crypto-card">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3);">
+                      💎 Tether (USDT) &bull; Network: <strong>${escapeHtml(payout.usdtNetwork)}</strong>
+                    </span>
+                    <span style="font-size: 11px; color: #94a3b8;">Direct Wallet Payout</span>
+                  </div>
+                  <div class="seller-payout-field-label">USDT Deposit Address:</div>
+                  <div class="seller-payout-field-value-wrap" style="margin-top: 4px;">
+                    <code class="seller-payout-code-full">${escapeHtml(payout.usdtAddress)}</code>
+                    <button class="seller-payout-inline-copy" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(payout.usdtAddress)}" data-payout-label="USDT ${escapeHtml(payout.usdtNetwork)} Address" title="Copy USDT Address"><i data-lucide="copy"></i></button>
+                  </div>
+                  <div style="font-size: 11px; color: #f59e0b; margin-top: 8px; display: flex; align-items: center; gap: 4px;">
+                    <i data-lucide="alert-triangle" style="width: 12px; height: 12px;"></i>
+                    Verify network <strong>${escapeHtml(payout.usdtNetwork)}</strong> before sending transfer.
+                  </div>
+                </div>
+              ` : ''}
+
+              ${payout.method === 'binance' ? `
+                <div class="seller-payout-row primary">
+                  <span class="seller-payout-field-label">Binance Pay ID / Email:</span>
+                  <div class="seller-payout-field-value-wrap">
+                    <code class="seller-payout-code">${escapeHtml(payout.binancePayId)}</code>
+                    <button class="seller-payout-inline-copy" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(payout.binancePayId)}" data-payout-label="Binance Pay ID" title="Copy Binance Pay ID"><i data-lucide="copy"></i></button>
+                  </div>
+                </div>
+              ` : ''}
+
+              ${payout.method === 'paypal' ? `
+                <div class="seller-payout-row primary">
+                  <span class="seller-payout-field-label">PayPal Email (International):</span>
+                  <div class="seller-payout-field-value-wrap">
+                    <code class="seller-payout-code">${escapeHtml(payout.paypalEmail)}</code>
+                    <button class="seller-payout-inline-copy" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(payout.paypalEmail)}" data-payout-label="PayPal Email" title="Copy PayPal Email"><i data-lucide="copy"></i></button>
+                    <a href="https://www.paypal.com" target="_blank" class="btn btn-ghost btn-sm" style="margin-left: 6px;" title="Open PayPal"><i data-lucide="external-link"></i></a>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          ` : `
+            <div class="seller-payout-empty-notice">
+              <i data-lucide="alert-circle" style="width: 18px; height: 18px; color: #f59e0b;"></i>
+              <div>
+                <strong style="color: #fbbf24;">No Payout Destination Configured Yet</strong>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--muted);">The creator has not saved their UPI, Bank, USDT, Binance Pay, or PayPal details in their Seller Hub yet.</p>
+              </div>
+            </div>
+          `}
+        </div>
+
         ${portfolioLink ? `
-          <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px 16px; font-size: 13px;">
-            <span style="color: var(--muted); font-weight: 600;">Portfolio / Channel Samples:</span>
-            <a href="${escapeHtml(portfolioLink)}" target="_blank" style="color: #34d399; text-decoration: none; margin-left: 8px; font-weight: 600;">${escapeHtml(portfolioLink)} ↗</a>
+          <div class="seller-portfolio-banner">
+            <span class="seller-portfolio-label">Portfolio / Channel Samples:</span>
+            <a href="${escapeHtml(portfolioLink)}" target="_blank" class="seller-portfolio-link">${escapeHtml(portfolioLink)} ↗</a>
           </div>
         ` : ''}
 
         <!-- Products Section -->
-        <div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div class="seller-products-section">
+          <div class="seller-products-head">
             <div>
-              <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #fff;">
-                Published Packs & Collections
-                <span style="font-size: 12px; background: rgba(99, 102, 241, 0.2); color: #a5b4fc; padding: 2px 8px; border-radius: 99px; margin-left: 6px;">${sellerProducts.length}</span>
+              <h3 class="seller-products-title">
+                Published Packs &amp; Collections
+                <span class="seller-products-count-badge">${sellerProducts.length}</span>
               </h3>
-              <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--muted);">Digital packs and mega vaults listed by this partner</p>
+              <p class="seller-products-subtitle">Digital packs and mega vaults listed by this partner</p>
             </div>
-            <button class="btn btn-primary btn-sm" type="button" data-action="add-pack-for-seller" data-seller-id="${sellerId}" data-seller-name="${escapeHtml(storeName)}">
-              <i data-lucide="plus"></i> Add Pack for Seller
-            </button>
+            <div class="seller-products-actions">
+              ${(email === 'jaibajpai67@gmail.com' || cleanStoreName(storeName) === 'trusted brother') ? `
+                <button class="btn btn-primary btn-sm assign-catalog-btn" type="button" data-action="assign-all-catalog-to-trusted" data-seller-id="${sellerId}" title="Assign all catalog products to Trusted brother in DB">
+                  <i data-lucide="check-check"></i> Assign All Catalog Products (${Object.keys(allProducts).length})
+                </button>
+              ` : (sellerProducts.length > 0 ? `
+                <button class="btn btn-ghost btn-sm link-packs-btn" type="button" data-action="link-seller-packs" data-seller-id="${sellerId}" data-seller-email="${escapeHtml(email)}" data-seller-name="${escapeHtml(storeName)}" title="Assign and save all these packs to this seller account in Firebase database">
+                  <i data-lucide="link"></i> Link &amp; Save All Packs (${sellerProducts.length})
+                </button>
+              ` : '')}
+              <button class="btn btn-primary btn-sm" type="button" data-action="add-pack-for-seller" data-seller-id="${sellerId}" data-seller-name="${escapeHtml(storeName)}">
+                <i data-lucide="plus"></i> Add Pack for Seller
+              </button>
+            </div>
           </div>
 
           ${sellerProducts.length === 0 ? `
-            <div style="text-align: center; padding: 40px 20px; background: rgba(255,255,255,0.01); border: 1px dashed var(--border); border-radius: 14px;">
-              <div style="font-size: 32px; margin-bottom: 8px;">📦</div>
-              <h4 style="margin: 0 0 4px 0; color: #fff; font-size: 15px;">No Products Published Yet</h4>
-              <p style="margin: 0 0 16px 0; color: var(--muted); font-size: 13px;">This seller has not listed any packs yet. You can publish packs on their behalf or they can upload directly from their Seller Hub.</p>
+            <div class="seller-empty-packs">
+              <div class="seller-empty-icon">📦</div>
+              <h4>No Products Published Yet</h4>
+              <p>This seller has not listed any packs yet. You can publish packs on their behalf or they can upload directly from their Seller Hub.</p>
               <button class="btn btn-primary btn-sm" type="button" data-action="add-pack-for-seller" data-seller-id="${sellerId}" data-seller-name="${escapeHtml(storeName)}">
                 <i data-lucide="plus"></i> Publish First Pack for Seller
               </button>
             </div>
           ` : `
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px;">
+            <div class="seller-packs-grid">
               ${sellerProducts.map(p => {
                 const rawImg = p.coverImage || p.image || p.thumbnail || p.thumbnailUrl || (Array.isArray(p.images) && p.images[0]) || (Array.isArray(p.galleryImages) && p.galleryImages[0]) || '';
                 let img = String(rawImg || '').trim();
+                if (typeof resolveAdminMediaUrl === 'function') {
+                  img = resolveAdminMediaUrl(img);
+                } else {
+                  if (img.includes('media.jaigram.shop/')) {
+                    img = img.startsWith('http') ? img : `https://${img.replace(/^\/+/, '')}`;
+                  } else if (img.includes('media.linkadda.shop/')) {
+                    const sub = img.split('media.linkadda.shop/')[1].replace(/^\/+/, '');
+                    img = `https://media.jaigram.shop/${sub}`;
+                  } else if (img.startsWith('products/') || img.startsWith('categories/') || img.startsWith('seller_products/') || img.startsWith('orders/')) {
+                    img = `https://media.jaigram.shop/${img}`;
+                  } else if (img.startsWith('/media/')) {
+                    img = `https://media.jaigram.shop/${img.replace(/^\/media\//, '')}`;
+                  } else if (img.startsWith('images/')) {
+                    img = `/${img}`;
+                  }
+                }
                 if (img.includes('placeholder.svg') || img.includes('favicon.svg') || !img) {
                   img = '/images/prod_vip_bundle.jpg';
-                } else if (img.includes('media.jaigram.shop/')) {
-                  img = img.startsWith('http') ? img : `https://${img.replace(/^\/+/, '')}`;
-                } else if (img.includes('media.linkadda.shop/')) {
-                  const sub = img.split('media.linkadda.shop/')[1].replace(/^\/+/, '');
-                  img = `https://media.jaigram.shop/${sub}`;
-                } else if (img.startsWith('products/') || img.startsWith('categories/') || img.startsWith('seller_products/') || img.startsWith('orders/')) {
-                  img = `https://media.jaigram.shop/${img}`;
-                } else if (img.startsWith('/media/')) {
-                  img = `https://media.jaigram.shop/${img.replace(/^\/media\//, '')}`;
-                } else if (img.startsWith('images/')) {
-                  img = `/${img}`;
                 }
-                const pPrice = p.priceINR || p.price || '0';
+                const pPrice = Number(p.priceINR || p.price || 0);
+                const pOrigPrice = Number(p.originalPriceINR || p.originalPrice || 0);
+                const discountPct = (pOrigPrice > pPrice && pPrice > 0)
+                  ? Math.round(((pOrigPrice - pPrice) / pOrigPrice) * 100)
+                  : 0;
+                const isPending = p.status === 'pending' || p.status === 'pending_approval' || p.approvalStatus === 'pending';
+
                 return `
-                  <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
-                    <div style="height: 120px; position: relative; background: #111;">
-                      <img src="${escapeHtml(img)}" alt="${escapeHtml(p.title || p.name || 'Pack')}" style="width: 100%; height: 100%; object-fit: cover;" onerror="if(!this._tried){this._tried=true;this.src='/images/prod_vip_bundle.jpg';}" />
-                      <span class="badge" style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); font-size: 10px;">${escapeHtml(p.category || 'Pack')}</span>
+                  <div class="seller-pack-card" data-product-id="${escapeHtml(p.id)}">
+                    <div class="seller-pack-thumb-wrap">
+                      <img class="seller-pack-thumb" src="${escapeHtml(img)}" alt="${escapeHtml(p.title || p.name || 'Pack')}" loading="lazy" onerror="if(!this._tried){this._tried=true;this.src='/images/prod_vip_bundle.jpg';}" />
+                      <div class="seller-pack-thumb-overlay"></div>
+                      <span class="seller-pack-badge">${escapeHtml(p.category || 'VIP Pack')}</span>
+                      ${isPending ? `<span class="seller-pack-status-badge pending">Pending</span>` : ''}
                     </div>
-                    <div style="padding: 12px 14px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                      <div>
-                        <h4 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 700; color: #fff; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(p.title || p.name || 'Untitled')}</h4>
-                        <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px;">
-                          <span style="font-size: 16px; font-weight: 800; color: var(--primary);">₹${escapeHtml(pPrice)}</span>
-                          ${p.originalPriceINR || p.originalPrice ? `<span style="font-size: 12px; color: var(--muted); text-decoration: line-through;">₹${escapeHtml(p.originalPriceINR || p.originalPrice)}</span>` : ''}
-                        </div>
+                    
+                    <div class="seller-pack-body">
+                      <h4 class="seller-pack-title" title="${escapeHtml(p.title || p.name || 'Untitled')}">${escapeHtml(p.title || p.name || 'Untitled')}</h4>
+                      
+                      <div class="seller-pack-price-row">
+                        <span class="seller-pack-price">₹${escapeHtml(pPrice)}</span>
+                        ${pOrigPrice > pPrice ? `<span class="seller-pack-orig-price">₹${escapeHtml(pOrigPrice)}</span>` : ''}
+                        ${discountPct > 0 ? `<span class="seller-pack-discount-tag">${discountPct}% OFF</span>` : ''}
                       </div>
-                      <div style="display: flex; gap: 6px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; margin-top: 8px; flex-wrap: wrap;">
-                        ${p.status === 'pending' || p.status === 'pending_approval' ? `
-                          <button class="btn btn-primary btn-sm" type="button" data-action="approve-product" data-id="${p.id}" style="font-size: 11px; padding: 4px 8px; background: #10b981; border-color: #10b981; color: #fff; font-weight: 700; flex: 1;">
-                            <i data-lucide="check-circle"></i> Approve & Live
+
+                      <div class="seller-pack-actions">
+                        ${isPending ? `
+                          <button class="btn btn-primary btn-sm seller-pack-approve-btn" type="button" data-action="approve-product" data-id="${p.id}" title="Approve and make live">
+                            <i data-lucide="check-circle"></i> Approve
                           </button>
                         ` : ''}
-                        <button class="btn btn-ghost btn-sm" type="button" data-action="edit" data-node="products" data-id="${p.id}" style="flex: 1; font-size: 12px; padding: 4px 8px;">
-                          <i data-lucide="pencil"></i> Edit
+                        <button class="btn btn-ghost btn-sm seller-pack-btn-edit" type="button" data-action="edit" data-node="products" data-id="${p.id}" title="Edit product details">
+                          <i data-lucide="pencil"></i> <span>Edit</span>
                         </button>
-                        <a href="/#product-${p.id}" target="_blank" class="btn btn-ghost btn-sm" style="font-size: 12px; padding: 4px 8px;" title="View in live storefront">
+                        <a href="/#product-${p.id}" target="_blank" class="btn btn-ghost btn-sm seller-pack-btn-icon" title="View on live storefront">
                           <i data-lucide="external-link"></i>
                         </a>
-                        <button class="btn btn-ghost danger btn-sm" type="button" data-action="delete" data-node="products" data-id="${p.id}" style="font-size: 12px; padding: 4px 8px;" title="Delete pack">
+                        <button class="btn btn-ghost danger btn-sm seller-pack-btn-icon" type="button" data-action="delete" data-node="products" data-id="${p.id}" title="Delete pack">
                           <i data-lucide="trash-2"></i>
                         </button>
                       </div>
@@ -8462,20 +8885,20 @@ function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {})
       </div>
 
       <!-- Modal Footer -->
-      <div style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.2);">
-        <div>
+      <div class="seller-details-footer">
+        <div class="seller-details-footer-left">
           <button class="btn btn-ghost danger btn-sm" type="button" data-action="delete-seller" data-seller-id="${sellerId}" data-store="${escapeHtml(storeName)}">
-            <i data-lucide="trash-2"></i> Delete Seller Account
+            <i data-lucide="trash-2"></i> <span>Delete Seller Account</span>
           </button>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div class="seller-details-footer-right">
           ${tgUrl ? `
-            <a href="${tgUrl}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration: none;">
-              <i data-lucide="send"></i> Message on Telegram
+            <a href="${tgUrl}" target="_blank" class="btn btn-ghost btn-sm">
+              <i data-lucide="send"></i> <span>Message on Telegram</span>
             </a>
           ` : ''}
           <button class="btn btn-primary btn-sm" type="button" data-action="add-pack-for-seller" data-seller-id="${sellerId}" data-seller-name="${escapeHtml(storeName)}">
-            <i data-lucide="plus"></i> Add Pack
+            <i data-lucide="plus"></i> <span>Add Pack</span>
           </button>
           <button class="btn btn-ghost btn-sm" data-close-modal type="button">Close</button>
         </div>
@@ -8490,156 +8913,154 @@ function renderSellersManagementView(data = {}, fullData = {}) {
     ...(data.events?.seller_applications || fullData.events?.seller_applications || {}),
     ...(data.seller_applications || fullData.seller_applications || {}),
   };
-  const rawSellers = {
-    ...(data.events?.sellers || fullData.events?.sellers || {}),
-    ...(data.sellers || fullData.sellers || {}),
-  };
   const products = data.products || fullData.products || {};
+  const unifiedSellers = getUnifiedSellersMap(data, fullData);
 
   const applicationsList = Object.entries(rawApps).map(([id, app]) => ({
     id: app?.id || id,
     ...app,
   })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-  const sellersList = Object.entries(rawSellers).map(([id, s]) => {
-    const sId = s?.id || id;
-    const sStore = (s?.storeName || '').toLowerCase();
-    const sellerProds = Object.values(products).filter(p => {
-      if (!p) return false;
-      return p.sellerId === sId || (sStore && p.sellerName && p.sellerName.toLowerCase() === sStore);
-    });
+  const sellersList = Object.values(unifiedSellers).map((s) => {
+    const sId = s?.id || s?.sellerId;
+    const sellerProds = Object.values(products).filter(p => matchProductToSeller(p, s));
     return {
-      id: sId,
       ...s,
+      id: sId,
       productCount: sellerProds.length,
     };
   }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const pendingApps = applicationsList.filter(a => (a.status || 'pending') === 'pending');
-  const activeTab = ui.sellers?.tab || 'pending';
+  let activeTab = ui.sellers?.tab;
+  if (!activeTab) {
+    activeTab = pendingApps.length > 0 ? 'pending' : 'active';
+    if (!ui.sellers) ui.sellers = {};
+    ui.sellers.tab = activeTab;
+  }
 
   return `
-    <div class="page active management-page-shell" style="max-width: 1240px; margin: 0 auto; padding-bottom: 60px;">
+    <div class="page active management-page-shell sellers-mgmt-page" style="max-width: 1240px; margin: 0 auto; padding-bottom: 60px;">
       
       <!-- Top Header -->
-      <section class="panel glass" style="padding: 24px 28px; border-radius: 16px; margin-bottom: 24px; border: 1px solid var(--border);">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+      <section class="panel glass sellers-mgmt-header">
+        <div class="sellers-mgmt-header-row">
           <div>
-            <div style="font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">Partner & Multi-Vendor Hub</div>
-            <h2 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text);">Seller Management & Approvals</h2>
-            <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 13px;">Review partner applications, generate seller credentials via Brevo email, and monitor verified stores.</p>
+            <div class="sellers-mgmt-eyebrow">Partner &amp; Multi-Vendor Hub</div>
+            <h2 class="sellers-mgmt-title">Seller Management &amp; Approvals</h2>
+            <p class="sellers-mgmt-subtitle">Review partner applications, generate seller credentials via Brevo email, and monitor verified stores.</p>
           </div>
-          <div class="toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <button class="btn btn-ghost" type="button" data-action="refresh-sellers" title="Refresh seller data"><i data-lucide="refresh-cw"></i> Refresh</button>
-            <a href="/seller/apply" target="_blank" class="btn btn-ghost" title="Open Application Page"><i data-lucide="external-link"></i> Application Page</a>
+          <div class="toolbar sellers-mgmt-toolbar">
+            <button class="btn btn-ghost" type="button" data-action="refresh-sellers" title="Refresh seller data"><i data-lucide="refresh-cw"></i> <span>Refresh</span></button>
+            <a href="/seller/apply" target="_blank" class="btn btn-ghost" title="Open Application Page"><i data-lucide="external-link"></i> <span>Application Page</span></a>
           </div>
         </div>
 
         <!-- Metric KPI Cards -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06);">
-          <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 14px; padding: 16px 18px;">
-            <div style="font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.05em;">Pending Review</div>
-            <div style="font-size: 26px; font-weight: 800; color: #fde68a; margin-top: 4px;">${pendingApps.length}</div>
-            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Awaiting admin approval</div>
+        <div class="sellers-kpi-grid">
+          <div class="sellers-kpi-card pending">
+            <div class="sellers-kpi-label">Pending Review</div>
+            <div class="sellers-kpi-value">${pendingApps.length}</div>
+            <div class="sellers-kpi-hint">Awaiting admin approval</div>
           </div>
 
-          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 16px 18px;">
-            <div style="font-size: 11px; font-weight: 700; color: #34d399; text-transform: uppercase; letter-spacing: 0.05em;">Active Sellers</div>
-            <div style="font-size: 26px; font-weight: 800; color: #6ee7b7; margin-top: 4px;">${sellersList.length}</div>
-            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Verified creator accounts</div>
+          <div class="sellers-kpi-card active">
+            <div class="sellers-kpi-label">Active Sellers</div>
+            <div class="sellers-kpi-value">${sellersList.length}</div>
+            <div class="sellers-kpi-hint">Verified creator accounts</div>
           </div>
 
-          <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 14px; padding: 16px 18px;">
-            <div style="font-size: 11px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em;">Total Applications</div>
-            <div style="font-size: 26px; font-weight: 800; color: #c7d2fe; margin-top: 4px;">${applicationsList.length}</div>
-            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Lifetime applicant requests</div>
+          <div class="sellers-kpi-card total">
+            <div class="sellers-kpi-label">Total Applications</div>
+            <div class="sellers-kpi-value">${applicationsList.length}</div>
+            <div class="sellers-kpi-hint">Lifetime applicant requests</div>
           </div>
         </div>
       </section>
 
       <!-- Tab Navigation -->
-      <div class="order-tabs-nav" style="margin-bottom: 18px; display: flex; gap: 8px; flex-wrap: wrap;">
+      <div class="order-tabs-nav sellers-tabs-nav">
         <button type="button" class="order-tab-btn ${activeTab === 'pending' ? 'active' : ''}" data-action="set-sellers-tab" data-tab="pending">
-          Pending Applications <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 7px; border-radius: 99px; font-size: 11px;">${pendingApps.length}</span>
+          Pending Applications <span class="tab-pill pending">${pendingApps.length}</span>
         </button>
         <button type="button" class="order-tab-btn ${activeTab === 'active' ? 'active' : ''}" data-action="set-sellers-tab" data-tab="active">
-          Verified Active Sellers <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 7px; border-radius: 99px; font-size: 11px;">${sellersList.length}</span>
+          Verified Active Sellers <span class="tab-pill active">${sellersList.length}</span>
         </button>
         <button type="button" class="order-tab-btn ${activeTab === 'all' ? 'active' : ''}" data-action="set-sellers-tab" data-tab="all">
-          All History <span>${applicationsList.length}</span>
+          All History <span class="tab-pill default">${applicationsList.length}</span>
         </button>
       </div>
 
       <!-- TAB CONTENT: PENDING -->
       ${activeTab === 'pending' ? `
-        <div class="panel glass" style="border-radius: 16px; border: 1px solid var(--border); overflow: hidden;">
+        <div class="panel glass sellers-tab-panel">
           ${pendingApps.length === 0 ? `
-            <div style="text-align: center; padding: 60px 20px;">
-              <div style="font-size: 40px; margin-bottom: 12px;">🎉</div>
-              <h3 style="margin: 0 0 6px 0; color: var(--text);">No Pending Applications</h3>
-              <p style="margin: 0; color: var(--muted); font-size: 14px;">All creator store applications have been reviewed and approved.</p>
+            <div class="sellers-empty-state">
+              <div class="sellers-empty-icon">🎉</div>
+              <h3 class="sellers-empty-title">No Pending Applications</h3>
+              <p class="sellers-empty-desc">All creator store applications have been reviewed and approved.</p>
             </div>
           ` : `
-            <div style="display: grid; gap: 16px; padding: 20px;">
+            <div class="sellers-pending-list">
               ${pendingApps.map(app => {
                 const tgClean = String(app.telegram || '').replace('@', '').trim();
                 const tgUrl = tgClean.startsWith('http') ? tgClean : `https://t.me/${tgClean}`;
                 return `
-                  <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+                  <div class="sellers-app-card">
+                    <div class="sellers-app-card-head">
                       <div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                          <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #fff;">${escapeHtml(app.storeName || 'Creator Store')}</h3>
-                          <span class="badge" style="background: rgba(255, 42, 141, 0.15); color: #ff65a3; border: 1px solid rgba(255, 42, 141, 0.3); font-size: 11px;">${escapeHtml(app.category || 'General')}</span>
+                        <div class="sellers-app-store-row">
+                          <h3 class="sellers-app-store-name">${escapeHtml(app.storeName || 'Creator Store')}</h3>
+                          <span class="badge category-badge">${escapeHtml(app.category || 'General')}</span>
                         </div>
-                        <div style="margin-top: 6px; font-size: 13px; color: var(--muted);">
+                        <div class="sellers-app-meta">
                           Applicant: <strong style="color: #fff;">${escapeHtml(app.applicantName || 'Partner')}</strong> &bull; 
-                          Email: <span style="color: #93c5fd;">${escapeHtml(app.email || '')}</span> &bull; 
+                          Email: <span class="sellers-app-email">${escapeHtml(app.email || '')}</span> &bull; 
                           Applied: <span>${formatDateTime(app.createdAt)}</span>
                         </div>
                       </div>
 
-                      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                      <div class="sellers-app-actions">
                         ${(app.status === 'approved' || app.credentialsSent) ? `
-                          <span class="badge badge-success" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
+                          <span class="badge badge-success sellers-credentials-sent">
                             <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> Credentials Sent (Approved)
                           </span>
-                          <button class="btn btn-ghost" type="button" data-action="view-seller-profile" data-seller-id="${app.sellerId || ''}">
-                            <i data-lucide="eye"></i> View Profile & Packs
+                          <button class="btn btn-ghost" type="button" data-action="view-seller-profile" data-seller-id="${app.sellerId || app.id || ''}" data-store="${escapeHtml(app.storeName || '')}">
+                            <i data-lucide="eye"></i> View Profile &amp; Packs
                           </button>
                         ` : `
-                          <button class="btn btn-primary" type="button" data-action="approve-seller" data-id="${app.id}" data-store="${escapeHtml(app.storeName)}" data-email="${escapeHtml(app.email)}">
-                            <i data-lucide="check"></i> Approve & Send Mail
+                          <button class="btn btn-primary btn-approve" type="button" data-action="approve-seller" data-id="${app.id}" data-store="${escapeHtml(app.storeName)}" data-email="${escapeHtml(app.email)}">
+                            <i data-lucide="check"></i> Approve &amp; Send Mail
                           </button>
-                          <button class="btn btn-ghost danger" type="button" data-action="reject-seller" data-id="${app.id}">
+                          <button class="btn btn-ghost danger btn-reject" type="button" data-action="reject-seller" data-id="${app.id}">
                             <i data-lucide="x"></i> Reject
                           </button>
                         `}
-                        <button class="btn btn-ghost danger" type="button" data-action="delete-seller-app" data-id="${app.id}" data-store="${escapeHtml(app.storeName)}" title="Permanently delete application">
+                        <button class="btn btn-ghost danger btn-delete" type="button" data-action="delete-seller-app" data-id="${app.id}" data-store="${escapeHtml(app.storeName)}" title="Permanently delete application">
                           <i data-lucide="trash-2"></i> Delete
                         </button>
                       </div>
                     </div>
 
                     <!-- Details Row -->
-                    <div style="background: rgba(0,0,0,0.25); border-radius: 10px; padding: 12px 14px; font-size: 13px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                    <div class="sellers-app-details-grid">
                       <div>
-                        <span style="color: var(--muted);">Telegram/Contact:</span>
-                        <a href="${tgUrl}" target="_blank" style="color: #60a5fa; text-decoration: none; margin-left: 6px; font-weight: 600;">
+                        <span class="sellers-app-detail-lbl">Telegram/Contact:</span>
+                        <a href="${tgUrl}" target="_blank" class="sellers-app-detail-link">
                           ${escapeHtml(app.telegram || 'None')} ↗
                         </a>
                       </div>
                       ${app.portfolioLink ? `
                         <div>
-                          <span style="color: var(--muted);">Portfolio / Samples:</span>
-                          <a href="${escapeHtml(app.portfolioLink)}" target="_blank" style="color: #34d399; text-decoration: none; margin-left: 6px; font-weight: 600;">
+                          <span class="sellers-app-detail-lbl">Portfolio / Samples:</span>
+                          <a href="${escapeHtml(app.portfolioLink)}" target="_blank" class="sellers-app-detail-link portfolio">
                             View Samples ↗
                           </a>
                         </div>
                       ` : ''}
                       ${app.reason ? `
-                        <div style="grid-column: 1 / -1; color: #cbd5e1; margin-top: 4px;">
-                          <span style="color: var(--muted);">Statement:</span> "${escapeHtml(app.reason)}"
+                        <div class="sellers-app-reason-box">
+                          <span class="sellers-app-detail-lbl">Statement:</span> "${escapeHtml(app.reason)}"
                         </div>
                       ` : ''}
                     </div>
@@ -8653,33 +9074,48 @@ function renderSellersManagementView(data = {}, fullData = {}) {
 
       <!-- TAB CONTENT: ACTIVE SELLERS -->
       ${activeTab === 'active' ? `
-        <div class="panel glass" style="border-radius: 16px; border: 1px solid var(--border); overflow: hidden;">
+        <div class="panel glass sellers-tab-panel">
           ${sellersList.length === 0 ? `
-            <div style="text-align: center; padding: 60px 20px;">
-              <div style="font-size: 40px; margin-bottom: 12px;">🏪</div>
-              <h3 style="margin: 0 0 6px 0; color: var(--text);">No Active Sellers Yet</h3>
-              <p style="margin: 0; color: var(--muted); font-size: 14px;">Once you approve applications, verified sellers will appear here.</p>
+            <div class="sellers-empty-state">
+              <div class="sellers-empty-icon">🏪</div>
+              <h3 class="sellers-empty-title">No Active Sellers Yet</h3>
+              <p class="sellers-empty-desc">Once you approve applications, verified sellers will appear here.</p>
             </div>
           ` : `
-            <div class="table-container" style="overflow-x: auto;">
+            <!-- 1. DESKTOP VIEW: WIDE STRUCTURED TABLE (Visible >= 861px) -->
+            <div class="table-container sellers-desktop-table">
               <table class="data-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
                   <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; font-size: 12px; color: var(--muted);">
-                    <th style="padding: 14px 18px;">Store & Owner</th>
-                    <th style="padding: 14px 18px;">Email & Contact</th>
-                    <th style="padding: 14px 18px;">Category</th>
-                    <th style="padding: 14px 18px;">Packs</th>
-                    <th style="padding: 14px 18px;">Status</th>
-                    <th style="padding: 14px 18px;">Joined</th>
-                    <th style="padding: 14px 18px; text-align: right;">Action</th>
+                    <th style="padding: 14px 18px; min-width: 160px;">Store &amp; Owner</th>
+                    <th style="padding: 14px 18px; min-width: 220px;">Payout Destination</th>
+                    <th style="padding: 14px 18px; min-width: 200px;">Email &amp; Contact</th>
+                    <th style="padding: 14px 18px; min-width: 100px;">Category</th>
+                    <th style="padding: 14px 18px; min-width: 90px; text-align: center;">Packs</th>
+                    <th style="padding: 14px 18px; min-width: 90px;">Status</th>
+                    <th style="padding: 14px 18px; min-width: 150px; white-space: nowrap;">Joined</th>
+                    <th style="padding: 14px 18px; text-align: right; min-width: 200px; white-space: nowrap;">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${sellersList.map(s => `
+                  ${sellersList.map(s => {
+                    const pInfo = formatSellerPayoutInfo(s);
+                    return `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px;">
-                      <td style="padding: 14px 18px; cursor: pointer;" data-action="view-seller-profile" data-seller-id="${s.id}">
+                      <td style="padding: 14px 18px; cursor: pointer;" data-action="view-seller-profile" data-seller-id="${s.id}" data-store="${escapeHtml(s.storeName || '')}">
                         <strong style="color: #fff; font-size: 14px; text-decoration: underline; text-underline-offset: 3px;">${escapeHtml(s.storeName || 'Store')}</strong>
                         <div style="font-size: 12px; color: var(--muted);">${escapeHtml(s.ownerName || '')}</div>
+                      </td>
+                      <td style="padding: 14px 18px;">
+                        ${pInfo.hasPayout ? `
+                          <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 10px; font-size: 12px;">
+                            <span style="font-weight: 700; color: ${pInfo.badgeColor};">${escapeHtml(pInfo.label.split(' ')[0])}</span>
+                            <span style="font-family: monospace; color: #fff; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(pInfo.primaryCopyText)}">${escapeHtml(pInfo.primaryCopyText)}</span>
+                            <button class="btn btn-ghost icon-only" style="padding: 2px 4px; height: auto;" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(pInfo.primaryCopyText)}" data-payout-label="${escapeHtml(pInfo.label)}" title="Copy payout destination"><i data-lucide="copy" style="width: 12px; height: 12px;"></i></button>
+                          </div>
+                        ` : `
+                          <span class="badge" style="background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.25); font-size: 11px;">Not Configured</span>
+                        `}
                       </td>
                       <td style="padding: 14px 18px;">
                         <div style="color: #93c5fd; font-family: monospace;">${escapeHtml(s.email || '')}</div>
@@ -8688,19 +9124,19 @@ function renderSellersManagementView(data = {}, fullData = {}) {
                       <td style="padding: 14px 18px;">
                         <span class="badge" style="background: rgba(255,255,255,0.06); font-size: 11px;">${escapeHtml(s.category || 'General')}</span>
                       </td>
-                      <td style="padding: 14px 18px;">
-                        <span style="font-weight: 700; color: #fff;">${s.productCount}</span> packs
+                      <td style="padding: 14px 18px; text-align: center;">
+                        <span style="font-weight: 700; color: #fff;">${s.productCount}</span> <span style="font-size: 11px; color: var(--muted);">packs</span>
                       </td>
                       <td style="padding: 14px 18px;">
                         <span class="badge success" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 11px;">Active</span>
                       </td>
-                      <td style="padding: 14px 18px; color: var(--muted);">
+                      <td style="padding: 14px 18px; color: var(--muted); white-space: nowrap;">
                         ${formatDateTime(s.createdAt)}
                       </td>
                       <td style="padding: 14px 18px; text-align: right; white-space: nowrap;">
-                        <div style="display: inline-flex; gap: 8px; align-items: center;">
-                          <button class="btn btn-primary btn-sm" type="button" data-action="view-seller-profile" data-seller-id="${s.id}" title="View seller profile and all published packs">
-                            <i data-lucide="eye"></i> View Profile & Packs
+                        <div style="display: inline-flex; gap: 8px; align-items: center; justify-content: flex-end;">
+                          <button class="btn btn-primary btn-sm" type="button" data-action="view-seller-profile" data-seller-id="${s.id}" data-store="${escapeHtml(s.storeName || '')}" title="View seller profile and all published packs">
+                            <i data-lucide="eye"></i> <span>View Profile &amp; Packs</span>
                           </button>
                           <button class="btn btn-ghost danger btn-sm" type="button" data-action="delete-seller" data-seller-id="${s.id}" data-store="${escapeHtml(s.storeName)}" title="Delete seller account">
                             <i data-lucide="trash-2"></i>
@@ -8708,9 +9144,97 @@ function renderSellersManagementView(data = {}, fullData = {}) {
                         </div>
                       </td>
                     </tr>
-                  `).join('')}
+                    `;
+                  }).join('')}
                 </tbody>
               </table>
+            </div>
+
+            <!-- 2. MOBILE VIEW: ULTRA-POLISHED SELLER CARDS (Visible <= 860px) -->
+            <div class="sellers-mobile-cards">
+              ${sellersList.map(s => {
+                const pInfo = formatSellerPayoutInfo(s);
+                const tgClean = String(s.telegram || '').replace('@', '').trim();
+                const tgUrl = tgClean.startsWith('http') ? tgClean : (tgClean ? `https://t.me/${tgClean}` : '');
+                return `
+                  <div class="seller-mobile-card">
+                    
+                    <!-- Card Top Header -->
+                    <div class="seller-mobile-card-head">
+                      <div style="flex: 1; min-width: 0;">
+                        <h3 class="seller-mobile-store-title" data-action="view-seller-profile" data-seller-id="${s.id}" data-store="${escapeHtml(s.storeName || '')}">
+                          <span>${escapeHtml(s.storeName || 'Store')}</span>
+                          <i data-lucide="chevron-right" style="width: 15px; height: 15px; color: #94a3b8; flex-shrink: 0;"></i>
+                        </h3>
+                        <div class="seller-mobile-owner">${escapeHtml(s.ownerName || 'Partner')}</div>
+                      </div>
+                      <div class="seller-mobile-badges">
+                        <span class="badge" style="background: rgba(255,255,255,0.06); font-size: 11px;">${escapeHtml(s.category || 'General')}</span>
+                        <span class="badge success" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                          <span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399;"></span> Active
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Featured Payout Destination Box -->
+                    <div class="seller-mobile-payout-box ${pInfo.hasPayout ? 'active' : 'empty'}">
+                      <div class="seller-mobile-payout-left">
+                        <span class="seller-mobile-payout-label">
+                          <i data-lucide="wallet-cards" style="width: 12px; height: 12px; color: ${pInfo.badgeColor};"></i>
+                          <span>Payout: <strong style="color: ${pInfo.badgeColor};">${escapeHtml(pInfo.label)}</strong></span>
+                        </span>
+                        <span class="seller-mobile-payout-val" title="${escapeHtml(pInfo.primaryCopyText || 'Not configured')}">
+                          ${escapeHtml(pInfo.primaryCopyText || '⚠️ Destination Not Configured')}
+                        </span>
+                      </div>
+                      ${pInfo.hasPayout ? `
+                        <button class="seller-mobile-payout-copy-btn" type="button" data-action="copy-payout" data-payout-text="${escapeHtml(pInfo.primaryCopyText)}" data-payout-label="${escapeHtml(pInfo.label)}" title="Copy payout destination">
+                          <i data-lucide="copy" style="width: 12px; height: 12px;"></i> <span>Copy</span>
+                        </button>
+                      ` : ''}
+                    </div>
+
+                    <!-- 2-Column Info & Contact Grid -->
+                    <div class="seller-mobile-info-grid">
+                      <div class="seller-mobile-info-item">
+                        <span class="seller-mobile-info-lbl">Email Address</span>
+                        <span class="seller-mobile-info-val">
+                          ${s.email ? `<a href="mailto:${escapeHtml(s.email)}">${escapeHtml(s.email)}</a>` : '<span style="color: #64748b;">None</span>'}
+                        </span>
+                      </div>
+                      <div class="seller-mobile-info-item">
+                        <span class="seller-mobile-info-lbl">Telegram Contact</span>
+                        <span class="seller-mobile-info-val">
+                          ${tgUrl ? `<a href="${tgUrl}" target="_blank">${escapeHtml(s.telegram)} ↗</a>` : `<span style="color: #64748b;">${escapeHtml(s.telegram || 'None')}</span>`}
+                        </span>
+                      </div>
+                      <div class="seller-mobile-info-item">
+                        <span class="seller-mobile-info-lbl">Catalog Packs</span>
+                        <span class="seller-mobile-info-val" style="color: #38bdf8; font-weight: 700;">
+                          📦 ${s.productCount} Published Packs
+                        </span>
+                      </div>
+                      <div class="seller-mobile-info-item">
+                        <span class="seller-mobile-info-lbl">Joined Date</span>
+                        <span class="seller-mobile-info-val" style="color: #94a3b8;">
+                          ${formatDateTime(s.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Mobile Card Bottom Actions -->
+                    <div class="seller-mobile-card-footer">
+                      <button class="btn btn-primary seller-mobile-view-btn" type="button" data-action="view-seller-profile" data-seller-id="${s.id}" data-store="${escapeHtml(s.storeName || '')}" title="View seller profile and all published packs">
+                        <i data-lucide="eye" style="width: 16px; height: 16px;"></i> <span>View Profile &amp; Packs (${s.productCount})</span>
+                      </button>
+                      <button class="btn btn-ghost danger seller-mobile-del-btn" type="button" data-action="delete-seller" data-seller-id="${s.id}" data-store="${escapeHtml(s.storeName)}" title="Delete seller account">
+                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                      </button>
+                    </div>
+
+                  </div>
+                `;
+              }).join('')}
             </div>
           `}
         </div>
@@ -8718,17 +9242,19 @@ function renderSellersManagementView(data = {}, fullData = {}) {
 
       <!-- TAB CONTENT: ALL HISTORY -->
       ${activeTab === 'all' ? `
-        <div class="panel glass" style="border-radius: 16px; border: 1px solid var(--border); overflow: hidden;">
-          <div class="table-container" style="overflow-x: auto;">
+        <div class="panel glass sellers-tab-panel">
+          
+          <!-- Desktop Table (Visible >= 861px) -->
+          <div class="table-container sellers-desktop-table">
             <table class="data-table" style="width: 100%; border-collapse: collapse;">
               <thead>
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; font-size: 12px; color: var(--muted);">
-                  <th style="padding: 14px 18px;">Store Name</th>
-                  <th style="padding: 14px 18px;">Applicant</th>
-                  <th style="padding: 14px 18px;">Email</th>
-                  <th style="padding: 14px 18px;">Status</th>
-                  <th style="padding: 14px 18px;">Date</th>
-                  <th style="padding: 14px 18px; text-align: right;">Action</th>
+                  <th style="padding: 14px 18px; min-width: 160px;">Store Name</th>
+                  <th style="padding: 14px 18px; min-width: 150px;">Applicant</th>
+                  <th style="padding: 14px 18px; min-width: 200px;">Email</th>
+                  <th style="padding: 14px 18px; min-width: 100px;">Status</th>
+                  <th style="padding: 14px 18px; min-width: 150px; white-space: nowrap;">Date</th>
+                  <th style="padding: 14px 18px; text-align: right; min-width: 100px;">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -8740,7 +9266,7 @@ function renderSellersManagementView(data = {}, fullData = {}) {
                     <td style="padding: 14px 18px;">
                       ${a.status === 'approved' ? '<span class="badge success">Approved</span>' : a.status === 'rejected' ? '<span class="badge danger">Rejected</span>' : '<span class="badge warning">Pending</span>'}
                     </td>
-                    <td style="padding: 14px 18px; color: var(--muted);">${formatDateTime(a.createdAt)}</td>
+                    <td style="padding: 14px 18px; color: var(--muted); white-space: nowrap;">${formatDateTime(a.createdAt)}</td>
                     <td style="padding: 14px 18px; text-align: right;">
                       <button class="icon-btn danger" type="button" data-action="delete-seller-app" data-id="${a.id}" data-store="${escapeHtml(a.storeName)}" title="Permanently delete application record">
                         <i data-lucide="trash-2"></i> Delete
@@ -8751,6 +9277,30 @@ function renderSellersManagementView(data = {}, fullData = {}) {
               </tbody>
             </table>
           </div>
+
+          <!-- Mobile History Cards (Visible <= 860px) -->
+          <div class="sellers-mobile-cards">
+            ${applicationsList.map(a => `
+              <div class="seller-mobile-card" style="gap: 10px;">
+                <div class="seller-mobile-card-head">
+                  <div>
+                    <h3 class="seller-mobile-store-title" style="cursor: default;">${escapeHtml(a.storeName || 'Store')}</h3>
+                    <div class="seller-mobile-owner">${escapeHtml(a.applicantName || 'Applicant')} &bull; <span style="font-family: monospace; color: #93c5fd;">${escapeHtml(a.email || '')}</span></div>
+                  </div>
+                  <div>
+                    ${a.status === 'approved' ? '<span class="badge success">Approved</span>' : a.status === 'rejected' ? '<span class="badge danger">Rejected</span>' : '<span class="badge warning">Pending</span>'}
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
+                  <span>Applied: ${formatDateTime(a.createdAt)}</span>
+                  <button class="btn btn-ghost danger btn-sm" type="button" data-action="delete-seller-app" data-id="${a.id}" data-store="${escapeHtml(a.storeName)}" title="Delete application record">
+                    <i data-lucide="trash-2"></i> Delete
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
         </div>
       ` : ''}
 
@@ -10102,9 +10652,12 @@ function renderView(data) {
   _renderViewFrame = requestAnimationFrame(() => {
     _renderViewFrame = null;
     try {
-      sideNav.innerHTML = navMarkup();
-      if (window.lucide) lucide.createIcons({ node: sideNav });
       const current = ui.route;
+      if (sideNav && sideNav.__currentRoute !== current) {
+        sideNav.__currentRoute = current;
+        sideNav.innerHTML = navMarkup();
+        if (window.lucide) lucide.createIcons({ node: sideNav });
+      }
       let html = '';
       if (current === 'dashboard') html = renderDashboard(data);
       else if (current === 'catalog' || current === 'products' || current === 'categories') html = renderCatalogView(data);
@@ -10844,12 +11397,150 @@ function attachGlobalHandlers() {
       return;
     }
     if (action === 'view-seller-profile') {
-      const sellerId = actionBtn.dataset.sellerId;
-      const allSellers = { ...(ui.data?.events?.sellers || {}), ...(ui.data?.sellers || {}) };
-      const seller = allSellers[sellerId] || { id: sellerId, storeName: 'Creator Store' };
-      const allProducts = ui.data?.products || {};
+      const sellerId = actionBtn.dataset.sellerId || '';
+      const storeHint = actionBtn.dataset.store || '';
+      const allSellersMap = typeof getUnifiedSellersMap === 'function' 
+        ? getUnifiedSellersMap(ui.data || {}, ui.data || {}) 
+        : { ...(ui.data?.public_sellers || {}), ...(ui.data?.events?.sellers || {}), ...(ui.data?.sellers || {}) };
+      
+      let seller = allSellersMap[sellerId];
+      if (!seller && (sellerId || storeHint)) {
+        const cleanId = cleanStoreName(sellerId);
+        const cleanHint = cleanStoreName(storeHint);
+        seller = Object.values(allSellersMap).find(s => 
+          (s.id && s.id === sellerId) || 
+          (s.sellerId && s.sellerId === sellerId) || 
+          (cleanId && cleanStoreName(s.storeName) === cleanId) ||
+          (cleanHint && cleanStoreName(s.storeName) === cleanHint) ||
+          (cleanId && cleanStoreName(s.ownerName) === cleanId)
+        );
+      }
+      if (!seller) {
+        seller = { id: sellerId, storeName: storeHint || 'Creator Store' };
+      }
+
+      // Ensure products are loaded so seller packs always show
+      let prods = ui.data?.products;
+      if (!prods || Object.keys(prods).length === 0) {
+        try {
+          const pSnap = await get(ref(db, 'products'));
+          if (pSnap.exists()) {
+            prods = pSnap.val() || {};
+            if (ui.data) ui.data.products = prods;
+          }
+        } catch (_) {
+          try {
+            const pRes = await fetch('https://linkadda-cd1da-default-rtdb.firebaseio.com/products.json');
+            if (pRes.ok) {
+              prods = await pRes.json() || {};
+              if (ui.data) ui.data.products = prods;
+            }
+          } catch (_) {}
+        }
+      }
+
+      // Ensure latest payout and profile data is fetched from RTDB
+      const sTargetId = seller.id || seller.sellerId || sellerId;
+      if (sTargetId) {
+        try {
+          const sSnap = await get(ref(db, `events/sellers/${sTargetId}`));
+          if (sSnap.exists()) {
+            seller = { ...seller, ...sSnap.val() };
+          } else {
+            const sSnap2 = await get(ref(db, `sellers/${sTargetId}`));
+            if (sSnap2.exists()) seller = { ...seller, ...sSnap2.val() };
+          }
+        } catch (_) {}
+      }
+
       const allOrders = ui.data?.orders || {};
-      openModal(renderSellerDetailsModal(seller, allProducts, allOrders));
+      openModal(renderSellerDetailsModal(seller, prods || {}, allOrders));
+      setTimeout(() => {
+        if (window.lucide) lucide.createIcons({ node: document.querySelector('.seller-details-modal') || document });
+      }, 50);
+      return;
+    }
+    if (action === 'assign-all-catalog-to-trusted' || action === 'link-seller-packs') {
+      const sellerId = actionBtn.dataset.sellerId || 'seller_jaibajpai67';
+      const sellerEmail = actionBtn.dataset.sellerEmail || 'jaibajpai67@gmail.com';
+      const sellerName = actionBtn.dataset.sellerName || 'Trusted brother';
+      const isTb = sellerEmail === 'jaibajpai67@gmail.com' || cleanStoreName(sellerName) === 'trusted brother' || action === 'assign-all-catalog-to-trusted';
+      
+      actionBtn.disabled = true;
+      actionBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Assigning products in database...';
+
+      try {
+        if (isTb) {
+          const adminHeaders = (typeof getAdminTokenHeader === 'function') ? await getAdminTokenHeader() : {};
+          const apiRes = await fetch('/api/seller/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...adminHeaders },
+            body: JSON.stringify({ action: 'assign_all_to_trusted_brother' }),
+          });
+          const resData = await apiRes.json();
+          if (resData.success) {
+            showToast(`Success! Assigned all ${resData.assignedCount} products to ${sellerName} (${sellerEmail})!`, 'success');
+            actionBtn.style.background = '#10b981';
+            actionBtn.style.color = '#fff';
+            actionBtn.innerHTML = '<i data-lucide="check-check"></i> All Products Assigned to Seller!';
+            // Refresh local products
+            const authQuery = (typeof getAdminAuthParam === 'function' && getAdminAuthParam()) ? `?${getAdminAuthParam()}` : '';
+            try {
+              const pRes = await fetch(`${RTDB_URL}/products.json${authQuery}`);
+              if (pRes.ok) {
+                const freshP = await pRes.json();
+                if (freshP) {
+                  if (ui.data) ui.data.products = freshP;
+                  if (STORE.products) STORE.products = freshP;
+                }
+              }
+            } catch (_) {}
+            setTimeout(() => { closeModal(); renderView(ui.data || {}); }, 1200);
+            return;
+          }
+        }
+
+        // Standard matching packs link
+        const authQuery = (typeof getAdminAuthParam === 'function' && getAdminAuthParam()) ? `?${getAdminAuthParam()}` : '';
+        const allProds = ui.data?.products || {};
+        const sellerObj = { id: sellerId, sellerId, email: sellerEmail, storeName: sellerName };
+        const matchingProds = Object.values(allProds).filter(p => matchProductToSeller(p, sellerObj));
+
+        let updatedCount = 0;
+        const tasks = matchingProds.map(async (p) => {
+          if (!p || !p.id) return;
+          const patchPayload = {
+            sellerId,
+            sellerEmail,
+            sellerName,
+            sellerVerified: true,
+            status: 'active',
+            approvalStatus: 'approved',
+          };
+          try {
+            await fetch(`${RTDB_URL}/products/${encodeURIComponent(p.id)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(patchPayload),
+            });
+            if (ui.data?.products?.[p.id]) {
+              Object.assign(ui.data.products[p.id], patchPayload);
+            }
+            updatedCount++;
+          } catch (_) {}
+        });
+
+        await Promise.allSettled(tasks);
+        showToast(`Successfully linked ${updatedCount} packs to ${sellerName} in Firebase DB!`, 'success');
+        actionBtn.style.background = '#10b981';
+        actionBtn.style.color = '#fff';
+        actionBtn.innerHTML = '<i data-lucide="check"></i> All Packs Linked to Seller!';
+        setTimeout(() => { renderView(ui.data || {}); }, 1200);
+      } catch (err) {
+        showToast('Linking error: ' + err.message, 'danger');
+        actionBtn.disabled = false;
+        actionBtn.innerHTML = '<i data-lucide="link"></i> Retry Linking';
+      }
       return;
     }
     if (action === 'add-pack-for-seller') {
@@ -10918,6 +11609,24 @@ function attachGlobalHandlers() {
       }
       return;
     }
+    if (action === 'copy-payout') {
+      const text = actionBtn.dataset.payoutText || actionBtn.dataset.text || '';
+      const label = actionBtn.dataset.payoutLabel || 'Payout destination';
+      if (!text) {
+        showToast('No payout destination configured yet for this seller.', 'warning');
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`Copied ${label}!`, 'success');
+        }).catch(() => {
+          prompt(`Copy ${label}:`, text);
+        });
+      } else {
+        prompt(`Copy ${label}:`, text);
+      }
+      return;
+    }
     if (action === 'reject-seller') {
       const appId = actionBtn.dataset.id;
       const reason = prompt('Rejection reason (optional):', 'Application does not meet store criteria.');
@@ -10958,19 +11667,25 @@ function attachGlobalHandlers() {
       return;
     }
     if (action === 'refresh-sellers') {
-      showToast('Refreshing seller records...', 'info');
+      showToast('Refreshing seller records and products...', 'info');
       try {
-        let baseApps = {}, evtApps = {}, sellersData = {};
-        try { const s = await get(ref(db, 'events/seller_applications')); if (s.exists()) evtApps = s.val(); } catch(_) {}
-        try { const s = await get(ref(db, 'seller_applications')); if (s.exists()) baseApps = s.val(); } catch(_) {}
-        try { const s = await get(ref(db, 'events/sellers')); if (s.exists()) sellersData = { ...sellersData, ...s.val() }; } catch(_) {}
-        try { const s = await get(ref(db, 'sellers')); if (s.exists()) sellersData = { ...sellersData, ...s.val() }; } catch(_) {}
+        let baseApps = {}, evtApps = {}, sellersData = {}, pubSellers = {}, prods = {};
+        await Promise.allSettled([
+          (async () => { try { const s = await get(ref(db, 'events/seller_applications')); if (s.exists()) evtApps = s.val(); } catch(_) {} })(),
+          (async () => { try { const s = await get(ref(db, 'seller_applications')); if (s.exists()) baseApps = s.val(); } catch(_) {} })(),
+          (async () => { try { const s = await get(ref(db, 'events/sellers')); if (s.exists()) sellersData = { ...sellersData, ...s.val() }; } catch(_) {} })(),
+          (async () => { try { const s = await get(ref(db, 'sellers')); if (s.exists()) sellersData = { ...sellersData, ...s.val() }; } catch(_) {} })(),
+          (async () => { try { const s = await get(ref(db, 'public_sellers')); if (s.exists()) pubSellers = s.val(); } catch(_) {} })(),
+          (async () => { try { const s = await get(ref(db, 'products')); if (s.exists()) prods = s.val(); } catch(_) {} })(),
+        ]);
         if (ui.data) {
           ui.data.seller_applications = { ...evtApps, ...baseApps };
           ui.data.sellers = sellersData;
+          if (pubSellers && Object.keys(pubSellers).length > 0) ui.data.public_sellers = pubSellers;
+          if (prods && Object.keys(prods).length > 0) ui.data.products = prods;
         }
         renderView(ui.data || {});
-        showToast('Sellers data updated!', 'success');
+        showToast('Sellers and products updated!', 'success');
       } catch (err) {
         showToast('Refresh error: ' + err.message, 'danger');
       }
@@ -12326,6 +13041,20 @@ function attachGlobalHandlers() {
       if (!next.id) {
         next.id = id || `prod_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 4)}`;
       }
+      if (!id && node === 'products') {
+        if (next.displayOrder === undefined || next.displayOrder === null || next.displayOrder === '') {
+          const currentActiveItems = existingItems.filter(it => it.status !== 'deleted');
+          const maxOrder = currentActiveItems.reduce((max, it) => Math.max(max, Number(it.displayOrder) || 0), 0);
+          next.displayOrder = Math.max(currentActiveItems.length + 1, maxOrder + 1);
+        }
+        if (!next.sellerId) {
+          next.sellerId = 'seller_jaibajpai67';
+          next.sellerName = 'Trusted brother';
+          next.sellerEmail = 'jaibajpai67@gmail.com';
+          next.sellerPhone = '8004171852';
+          next.sellerVerified = true;
+        }
+      }
       try {
         if (id) await updateRecord(node, id, next);
         else await createRecord(node, next);
@@ -12979,6 +13708,7 @@ async function handleRecordMediaUpload(form, node, next) {
 }
 
 let syncOrdersDebounceTimer = null;
+let _lastSyncedOrdersKey = '';
 function syncRealApprovedOrdersToSettings(data) {
   if (syncOrdersDebounceTimer) return;
   syncOrdersDebounceTimer = setTimeout(() => {
@@ -13010,7 +13740,8 @@ function syncRealApprovedOrdersToSettings(data) {
       const topKey = topOrders.map((o) => o.id + '::' + o.name).join('||');
       const existKey = existing.map((o) => (o.id || '') + '::' + (o.name || o.productName || '')).join('||');
 
-      if (topKey !== existKey && topOrders.length > 0) {
+      if (topKey !== existKey && topOrders.length > 0 && topKey !== _lastSyncedOrdersKey) {
+        _lastSyncedOrdersKey = topKey;
         updateRecord('settings', null, {
           ...currentSettings,
           recentApproved: topOrders,
@@ -13034,17 +13765,6 @@ subscribe((data) => {
     syncRealApprovedOrdersToSettings(data);
   }
 });
-
-// Initial route handling renders the active route cleanly ONCE from cache
-initRouteHandling();
-isInitialBoot = false;
-
-// Protect route verifies auth and activates authenticated realtime sync
-protectRoute((user) => {
-  syncTopbar(user);
-  startRealtime(true);
-});
-
 
 // Initial route handling renders the active route cleanly ONCE from cache
 initRouteHandling();

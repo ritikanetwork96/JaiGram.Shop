@@ -52,6 +52,7 @@ export const RTDB_NODES = {
   customers: 'customers',
   sellers: 'events/sellers',
   seller_applications: 'events/seller_applications',
+  public_sellers: 'public_sellers',
   reports: 'reports',
 };
 

@@ -279,6 +279,131 @@ export function switchToTab(tabName) {
 }
 
 function populateProfileForm() {
+  renderSellerProfileUI();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PAYOUT DESTINATION UI SYNC (INDIA & INTERNATIONAL)
+// ══════════════════════════════════════════════════════════════════
+export function syncSellerPayoutUI(seller = currentSeller || {}) {
+  if (!seller) return;
+  const method = seller.payoutMethod || (seller.upiId ? 'upi' : (seller.usdtAddress ? 'crypto' : (seller.accountNumber ? 'bank' : 'upi')));
+  
+  // Set tab buttons active state
+  document.querySelectorAll('.btn-payout-tab').forEach(btn => {
+    const type = btn.dataset.payoutType;
+    if (type === method) {
+      btn.classList.add('active');
+      btn.style.background = 'rgba(16, 185, 129, 0.15)';
+      btn.style.color = '#34d399';
+      btn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+    } else {
+      btn.classList.remove('active');
+      btn.style.background = 'rgba(255, 255, 255, 0.04)';
+      btn.style.color = 'var(--sd-text-muted)';
+      btn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+    }
+  });
+
+  // Toggle field groups
+  const groups = ['upi', 'bank', 'crypto', 'binance', 'paypal'];
+  groups.forEach(g => {
+    const el = document.getElementById(`payout-group-${g}`);
+    if (el) el.style.display = (g === method) ? 'block' : 'none';
+  });
+
+  const hiddenMethod = document.getElementById('selected-payout-method');
+  if (hiddenMethod) hiddenMethod.value = method;
+
+  // Populate inputs
+  const upiInput = document.getElementById('seller-upi-input');
+  const profUpi = document.getElementById('prof-upi');
+  const savedUpi = seller.upiId || localStorage.getItem(`linkadda_seller_upi_${seller.id}`) || '';
+  if (upiInput) upiInput.value = savedUpi;
+  if (profUpi) profUpi.value = savedUpi;
+
+  const bankHolder = document.getElementById('seller-bank-holder');
+  if (bankHolder) bankHolder.value = seller.accountHolder || '';
+  const bankName = document.getElementById('seller-bank-name');
+  if (bankName) bankName.value = seller.bankName || '';
+  const bankAcc = document.getElementById('seller-bank-acc');
+  if (bankAcc) bankAcc.value = seller.accountNumber || '';
+  const bankIfsc = document.getElementById('seller-bank-ifsc');
+  if (bankIfsc) bankIfsc.value = seller.ifsc || '';
+
+  const usdtNet = document.getElementById('seller-usdt-network');
+  if (usdtNet) usdtNet.value = seller.usdtNetwork || 'TRC-20';
+  const usdtAddr = document.getElementById('seller-usdt-address');
+  if (usdtAddr) usdtAddr.value = seller.usdtAddress || '';
+
+  const binanceId = document.getElementById('seller-binance-id');
+  if (binanceId) binanceId.value = seller.binancePayId || '';
+
+  const paypalEmail = document.getElementById('seller-paypal-email');
+  if (paypalEmail) paypalEmail.value = seller.paypalEmail || '';
+
+  // Update Active Payout Destination Banner (so seller sees it clearly!)
+  const displayEl = document.getElementById('payout-active-destination-display');
+  const iconEl = document.getElementById('payout-status-icon');
+  const pillEl = document.getElementById('payout-status-pill');
+
+  let desc = '';
+  let iconClass = 'fa-money-bill-transfer';
+  let isConfigured = false;
+
+  if (method === 'upi' && savedUpi) {
+    desc = `⚡ UPI ID: ${savedUpi}`;
+    iconClass = 'fa-qrcode';
+    isConfigured = true;
+  } else if (method === 'bank' && seller.accountNumber) {
+    desc = `🏦 Bank A/C: ••••${seller.accountNumber.slice(-4)} (${seller.bankName || 'Bank'}) · IFSC: ${seller.ifsc || 'Set'}`;
+    iconClass = 'fa-building-columns';
+    isConfigured = true;
+  } else if (method === 'crypto' && seller.usdtAddress) {
+    desc = `💎 USDT (${seller.usdtNetwork || 'TRC-20'}): ${seller.usdtAddress.slice(0, 8)}...${seller.usdtAddress.slice(-6)}`;
+    iconClass = 'fa-coins';
+    isConfigured = true;
+  } else if (method === 'binance' && seller.binancePayId) {
+    desc = `🟡 Binance Pay ID: ${seller.binancePayId}`;
+    iconClass = 'fa-wallet';
+    isConfigured = true;
+  } else if (method === 'paypal' && seller.paypalEmail) {
+    desc = `💳 PayPal: ${seller.paypalEmail}`;
+    iconClass = 'fa-credit-card';
+    isConfigured = true;
+  }
+
+  if (displayEl) {
+    if (isConfigured) {
+      displayEl.innerHTML = `<span style="color: #34d399;">${escapeHtml(desc)}</span>`;
+      if (pillEl) {
+        pillEl.textContent = '✓ Ready for Payouts';
+        pillEl.style.background = 'rgba(16, 185, 129, 0.2)';
+        pillEl.style.color = '#34d399';
+        pillEl.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+      }
+    } else {
+      displayEl.innerHTML = `<span style="color: #fbbf24; font-size: 0.95rem;">⚠️ No Payout Destination Configured. Please enter your UPI or Bank/Crypto below.</span>`;
+      if (pillEl) {
+        pillEl.textContent = 'Action Required';
+        pillEl.style.background = 'rgba(245, 158, 11, 0.2)';
+        pillEl.style.color = '#fbbf24';
+        pillEl.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      }
+    }
+  }
+
+  if (iconEl) {
+    iconEl.className = `fa-solid ${iconClass}`;
+  }
+
+  const profHeroUpi = document.getElementById('prof-hero-upi');
+  if (profHeroUpi) {
+    profHeroUpi.textContent = isConfigured ? desc : 'Not Configured';
+  }
+}
+
+function renderSellerProfileUI() {
   if (!currentSeller) return;
 
   const storeInput = document.getElementById('prof-store-name');
@@ -296,16 +421,11 @@ function populateProfileForm() {
   const tgInput = document.getElementById('prof-telegram');
   if (tgInput) tgInput.value = currentSeller.telegram || '';
 
-  const savedUpi = currentSeller.upiId || localStorage.getItem(`linkadda_seller_upi_${currentSeller.id}`) || '';
-
-  const upiInput = document.getElementById('prof-upi');
-  if (upiInput) upiInput.value = savedUpi;
-
-  const payoutUpi = document.getElementById('seller-upi-input');
-  if (payoutUpi) payoutUpi.value = savedUpi;
-
   const profCat = document.getElementById('prof-category');
   if (profCat) profCat.value = currentSeller.category || '';
+
+  // Synchronize full payout destination UI
+  syncSellerPayoutUI(currentSeller);
 
   // Sync Creator Brand Showcase Banner in Profile tab
   syncSellerAvatarUI();
@@ -318,8 +438,6 @@ function populateProfileForm() {
   const profHeroFollowers = document.getElementById('prof-hero-followers');
   const followerCount = Number(currentSeller.followerCount || currentSeller.followers || 0);
   if (profHeroFollowers) profHeroFollowers.textContent = `${followerCount.toLocaleString('en-IN')} Followers`;
-  const profHeroUpi = document.getElementById('prof-hero-upi');
-  if (profHeroUpi) profHeroUpi.textContent = savedUpi || 'Not Set';
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -383,16 +501,36 @@ async function loadSellerProducts() {
     const data = await res.json();
 
     sellerProducts = [];
+    const sEmail = String(currentSeller?.email || '').toLowerCase().trim();
+    const sStore = String(currentSeller?.storeName || '').toLowerCase().trim();
+    const sId = String(currentSeller?.id || '').trim();
+    const isTb = sEmail === 'jaibajpai67@gmail.com' || sStore.includes('trusted');
+
     if (data && typeof data === 'object') {
       for (const [id, prod] of Object.entries(data)) {
-        if (prod && (prod.sellerId === currentSeller.id || (prod.sellerEmail && currentSeller.email && prod.sellerEmail.toLowerCase() === currentSeller.email.toLowerCase()))) {
+        if (!prod || typeof prod !== 'object') continue;
+        const pEmail = String(prod.sellerEmail || '').toLowerCase().trim();
+        const pStore = String(prod.sellerName || prod.sellerStoreName || '').toLowerCase().trim();
+        const pId = String(prod.sellerId || '').trim();
+
+        const isOtherVerifiedSeller = (pEmail && pEmail !== 'jaibajpai67@gmail.com' && pEmail !== 'ritikanetwork96@gmail.com') &&
+                                      (pId && pId !== 'seller_jaibajpai67' && pId !== 'seller_6e2c36f417' && pId !== 'master_admin');
+        const matchTb = isTb && !isOtherVerifiedSeller;
+        const matchDirect = (pId && sId && pId === sId) || (pEmail && sEmail && pEmail === sEmail);
+
+        if (matchTb || matchDirect) {
           sellerProducts.push({ ...prod, id });
         }
       }
     }
 
-    // Sort newest first by default
-    sellerProducts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    // Sort by displayOrder first, then newest
+    sellerProducts.sort((a, b) => {
+      const orderA = a.displayOrder !== undefined && a.displayOrder !== null ? Number(a.displayOrder) : 999999;
+      const orderB = b.displayOrder !== undefined && b.displayOrder !== null ? Number(b.displayOrder) : 999999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
 
     syncToolbarCategoryFilter();
     renderProducts();
@@ -889,8 +1027,69 @@ export function closeShareModal() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════
+// SHARE STOREFRONT MODAL (SELLERS SHARE THEIR STORE LINK / SELLER ID)
+// ══════════════════════════════════════════════════════════════════
+export function openShareStoreModal() {
+  const modal = document.getElementById('share-store-modal');
+  if (!modal) return;
+
+  const storeName = currentSeller?.storeName || currentSeller?.ownerName || 'Creator Store';
+  const sellerId = currentSeller?.id || currentSeller?.sellerId || '';
+  const shareUrl = `${window.location.origin}/?store=${encodeURIComponent(storeName)}`;
+
+  const nameEl = document.getElementById('share-store-title-text');
+  const idEl = document.getElementById('share-store-id-text');
+  const inputEl = document.getElementById('share-store-link-input');
+  const waBtn = document.getElementById('btn-share-store-whatsapp');
+  const tgBtn = document.getElementById('btn-share-store-telegram');
+  const nativeBtn = document.getElementById('btn-share-store-native');
+
+  if (nameEl) nameEl.textContent = storeName;
+  if (idEl) idEl.textContent = sellerId || storeName;
+  if (inputEl) inputEl.value = shareUrl;
+
+  const shareText = `Explore all exclusive digital packs and drops from "${storeName}" on JaiGram Shop:\n${shareUrl}`;
+
+  if (waBtn) {
+    waBtn.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+  }
+  if (tgBtn) {
+    tgBtn.href = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+  }
+
+  if (nativeBtn) {
+    if (navigator.share) {
+      nativeBtn.style.display = 'inline-flex';
+      nativeBtn.onclick = (e) => {
+        e.preventDefault();
+        navigator.share({
+          title: `${storeName} • JaiGram Shop`,
+          text: shareText,
+          url: shareUrl,
+        }).catch(() => {});
+      };
+    } else {
+      nativeBtn.style.display = 'none';
+    }
+  }
+
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+}
+
+export function closeShareStoreModal() {
+  const modal = document.getElementById('share-store-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
 window.openShareModal = openShareModal;
 window.closeShareModal = closeShareModal;
+window.openShareStoreModal = openShareStoreModal;
+window.closeShareStoreModal = closeShareStoreModal;
 
 // ══════════════════════════════════════════════════════════════════
 // DELETE CONFIRMATION MODAL
@@ -2111,6 +2310,7 @@ function setupEventListeners() {
           badgeStyle: badgeStyleVal,
           sellerId: currentSeller.id,
           sellerName: currentSeller.storeName,
+          sellerEmail: currentSeller.email || '',
           sellerTelegram: currentSeller.telegram || '',
           description: descVal,
           price: String(priceVal),
@@ -2216,33 +2416,114 @@ function setupEventListeners() {
     });
   }
 
-  // Setup UPI Save Form in Payouts tab
-  const upiForm = document.getElementById('payout-upi-form');
-  if (upiForm) {
-    upiForm.addEventListener('submit', async (e) => {
+  // Setup Payout Method Tab Switching
+  document.querySelectorAll('.btn-payout-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.payoutType;
+      document.querySelectorAll('.btn-payout-tab').forEach(b => {
+        const isSelected = (b === btn);
+        b.classList.toggle('active', isSelected);
+        if (isSelected) {
+          b.style.background = 'rgba(16, 185, 129, 0.15)';
+          b.style.color = '#34d399';
+          b.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        } else {
+          b.style.background = 'rgba(255, 255, 255, 0.04)';
+          b.style.color = 'var(--sd-text-muted)';
+          b.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        }
+      });
+      const groups = ['upi', 'bank', 'crypto', 'binance', 'paypal'];
+      groups.forEach(g => {
+        const el = document.getElementById(`payout-group-${g}`);
+        if (el) el.style.display = (g === type) ? 'block' : 'none';
+      });
+      const hiddenMethod = document.getElementById('selected-payout-method');
+      if (hiddenMethod) hiddenMethod.value = type;
+    });
+  });
+
+  // Setup Payout Destination Save Form in Payouts tab
+  const payoutDetailsForm = document.getElementById('payout-details-form') || document.getElementById('payout-upi-form');
+  if (payoutDetailsForm) {
+    payoutDetailsForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const val = document.getElementById('seller-upi-input')?.value?.trim();
-      const saveUpiBtn = document.getElementById('btn-save-upi');
-      if (!val) {
-        showToast('Please enter a valid UPI ID (e.g. name@okhdfcbank).', 'error');
+      const method = document.getElementById('selected-payout-method')?.value || 'upi';
+      const upiId = document.getElementById('seller-upi-input')?.value?.trim() || '';
+      const bankHolder = document.getElementById('seller-bank-holder')?.value?.trim() || '';
+      const bankName = document.getElementById('seller-bank-name')?.value?.trim() || '';
+      const bankAcc = document.getElementById('seller-bank-acc')?.value?.trim() || '';
+      const bankIfsc = document.getElementById('seller-bank-ifsc')?.value?.trim().toUpperCase() || '';
+      const usdtNetwork = document.getElementById('seller-usdt-network')?.value?.trim() || 'TRC-20';
+      const usdtAddress = document.getElementById('seller-usdt-address')?.value?.trim() || '';
+      const binancePayId = document.getElementById('seller-binance-id')?.value?.trim() || '';
+      const paypalEmail = document.getElementById('seller-paypal-email')?.value?.trim() || '';
+
+      // Validation depending on active method
+      if (method === 'upi' && !upiId) {
+        showToast('Please enter your receiving UPI ID (e.g. name@oksbi).', 'error');
+        return;
+      }
+      if (method === 'bank' && (!bankAcc || !bankIfsc)) {
+        showToast('Please enter both Bank Account Number and IFSC code.', 'error');
+        return;
+      }
+      if (method === 'crypto' && !usdtAddress) {
+        showToast('Please enter your USDT deposit address.', 'error');
+        return;
+      }
+      if (method === 'binance' && !binancePayId) {
+        showToast('Please enter your Binance Pay ID or registered email.', 'error');
+        return;
+      }
+      if (method === 'paypal' && !paypalEmail) {
+        showToast('Please enter your PayPal email address.', 'error');
         return;
       }
 
-      if (saveUpiBtn) saveUpiBtn.disabled = true;
+      const saveBtn = document.getElementById('btn-save-payout-details') || document.getElementById('btn-save-upi');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Saving...</span>';
+      }
 
       try {
-        await updateSellerProfile({ upiId: val });
-        currentSeller.upiId = val;
-        localStorage.setItem(`linkadda_seller_upi_${currentSeller.id}`, val);
+        const payload = {
+          payoutMethod: method,
+          payoutCountry: (method === 'crypto' || method === 'binance' || method === 'paypal') ? 'INTL' : 'IN',
+          upiId,
+          bankName,
+          accountHolder: bankHolder,
+          accountNumber: bankAcc,
+          ifsc: bankIfsc,
+          usdtAddress,
+          usdtNetwork,
+          binancePayId,
+          paypalEmail,
+        };
 
-        const profUpi = document.getElementById('prof-upi');
-        if (profUpi) profUpi.value = val;
+        const res = await updateSellerProfile(payload);
+        if (res && res.seller) {
+          currentSeller = { ...currentSeller, ...res.seller };
+        } else {
+          Object.assign(currentSeller, payload);
+        }
 
-        showToast('✅ Receiving UPI address saved & updated in database for 7-day payouts!', 'success');
+        if (upiId) {
+          localStorage.setItem(`linkadda_seller_upi_${currentSeller.id}`, upiId);
+        }
+
+        // Re-sync UI with new data
+        syncSellerPayoutUI(currentSeller);
+
+        showToast('✅ Receiving payout destination saved & updated in database for 7-day payouts!', 'success');
       } catch (err) {
-        showToast('Failed to save UPI in database: ' + err.message, 'error');
+        showToast('Failed to save payout details: ' + (err?.message || err), 'error');
       } finally {
-        if (saveUpiBtn) saveUpiBtn.disabled = false;
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Save Payout Destination</span>';
+        }
       }
     });
   }
@@ -2345,7 +2626,17 @@ function setupEventListeners() {
           category,
           phone,
           telegram,
-          upiId,
+          upiId: upiId || currentSeller.upiId || '',
+          payoutMethod: currentSeller.payoutMethod || (upiId ? 'upi' : 'upi'),
+          payoutCountry: currentSeller.payoutCountry || 'IN',
+          bankName: currentSeller.bankName || '',
+          accountHolder: currentSeller.accountHolder || '',
+          accountNumber: currentSeller.accountNumber || '',
+          ifsc: currentSeller.ifsc || '',
+          usdtAddress: currentSeller.usdtAddress || '',
+          usdtNetwork: currentSeller.usdtNetwork || 'TRC-20',
+          binancePayId: currentSeller.binancePayId || '',
+          paypalEmail: currentSeller.paypalEmail || '',
           avatar: currentSeller.avatar || '',
         };
 
@@ -2356,22 +2647,16 @@ function setupEventListeners() {
 
         const res = await updateSellerProfile(payload);
         if (res && res.seller) {
-          currentSeller = res.seller;
+          currentSeller = { ...currentSeller, ...res.seller };
         } else {
-          currentSeller.storeName = storeName;
-          currentSeller.ownerName = ownerName;
-          currentSeller.email = email;
-          currentSeller.category = category;
-          currentSeller.phone = phone;
-          currentSeller.telegram = telegram;
-          currentSeller.upiId = upiId;
+          Object.assign(currentSeller, payload);
         }
 
         if (upiId) {
           localStorage.setItem(`linkadda_seller_upi_${currentSeller.id}`, upiId);
-          const payoutUpi = document.getElementById('seller-upi-input');
-          if (payoutUpi) payoutUpi.value = upiId;
         }
+
+        syncSellerPayoutUI(currentSeller);
 
         // Update brand displays across the dashboard
         const storeNameEl = document.getElementById('seller-store-name');
@@ -2504,12 +2789,71 @@ function setupEventListeners() {
     });
   });
 
+  // ━━ SHARE STOREFRONT MODAL CONTROLS ━━
+  const btnCloseStoreShare = document.getElementById('btn-close-share-store-modal');
+  if (btnCloseStoreShare) btnCloseStoreShare.addEventListener('click', closeShareStoreModal);
+
+  // Trigger buttons across dashboard
+  ['btn-header-share-store', 'btn-hero-share-store', 'btn-prof-share-store', 'btn-sidebar-share-store'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openShareStoreModal();
+      });
+    }
+  });
+
+  // Copy Storefront Link button
+  const btnCopyStoreLink = document.getElementById('btn-copy-store-link');
+  if (btnCopyStoreLink) {
+    btnCopyStoreLink.addEventListener('click', async () => {
+      const inputEl = document.getElementById('share-store-link-input');
+      if (inputEl && inputEl.value) {
+        try {
+          await navigator.clipboard.writeText(inputEl.value);
+          btnCopyStoreLink.innerHTML = '<i class="fa-solid fa-check" style="color: #10b981;"></i> <span>Copied!</span>';
+          showToast('Storefront link copied to clipboard!', 'success');
+          setTimeout(() => {
+            btnCopyStoreLink.innerHTML = '<i class="fa-solid fa-copy"></i> <span>Copy Link</span>';
+          }, 2000);
+        } catch (_) {
+          inputEl.select();
+          document.execCommand('copy');
+          showToast('Storefront link copied to clipboard!', 'success');
+        }
+      }
+    });
+  }
+
+  // Copy Seller ID button
+  const btnCopyStoreId = document.getElementById('btn-copy-store-id');
+  if (btnCopyStoreId) {
+    btnCopyStoreId.addEventListener('click', async () => {
+      const idEl = document.getElementById('share-store-id-text');
+      const sellerId = idEl ? idEl.textContent.trim() : (currentSeller?.id || '');
+      if (sellerId) {
+        try {
+          await navigator.clipboard.writeText(sellerId);
+          btnCopyStoreId.innerHTML = '<i class="fa-solid fa-check" style="color: #ffffff;"></i> <span>Copied!</span>';
+          showToast('Seller ID copied to clipboard!', 'success');
+          setTimeout(() => {
+            btnCopyStoreId.innerHTML = '<i class="fa-solid fa-copy"></i> <span>Copy ID</span>';
+          }, 2000);
+        } catch (_) {
+          showToast(`Seller ID: ${sellerId}`, 'info');
+        }
+      }
+    });
+  }
+
   // Global modal escape key listener
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeProductModal();
       closeDeleteModal();
       closeShareModal();
+      closeShareStoreModal();
       if (!currentSeller?.mustChangePassword) {
         closePasswordModal();
       }
@@ -2517,7 +2861,7 @@ function setupEventListeners() {
   });
 
   // Click outside dialog to dismiss
-  ['product-modal', 'delete-modal', 'share-modal'].forEach(modalId => {
+  ['product-modal', 'delete-modal', 'share-modal', 'share-store-modal'].forEach(modalId => {
     const el = document.getElementById(modalId);
     if (el) {
       el.addEventListener('click', (e) => {
@@ -2525,6 +2869,7 @@ function setupEventListeners() {
           if (modalId === 'product-modal') closeProductModal();
           else if (modalId === 'delete-modal') closeDeleteModal();
           else if (modalId === 'share-modal') closeShareModal();
+          else if (modalId === 'share-store-modal') closeShareStoreModal();
         }
       });
     }

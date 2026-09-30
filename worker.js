@@ -36,6 +36,12 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // ━━ 0. BLOCK SENSITIVE FILES & CONFIG EXPOSURE ━━
+    const blockedPatterns = [/^\/\.env/i, /^\/\.git/i, /^\/\.wrangler/i, /database\.rules\.json/i, /wrangler\.toml/i, /package(-lock)?\.json/i, /\.bak\d*$/i];
+    if (blockedPatterns.some((pattern) => pattern.test(url.pathname))) {
+      return new Response('Not Found', { status: 404 });
+    }
+
     // ━━ 1. SERVERLESS API ROUTER (/api/*) ━━
     if (url.pathname.startsWith('/api/')) {
       // 1a. Inject Cloudflare Worker environment secrets into process.env

@@ -51,7 +51,11 @@
 
       // Direct product, store, category or search deep links
       const deepProdId = urlParams.get('productId') || urlParams.get('id');
-      const deepStore = urlParams.get('store');
+      let deepStore = urlParams.get('store') || urlParams.get('seller') || urlParams.get('sellerId');
+      if (!deepStore && window.location.hash) {
+        if (window.location.hash.startsWith('#store-')) deepStore = decodeURIComponent(window.location.hash.replace('#store-', ''));
+        else if (window.location.hash.startsWith('#seller-')) deepStore = decodeURIComponent(window.location.hash.replace('#seller-', ''));
+      }
       const deepCat = urlParams.get('category') || urlParams.get('filter');
       const deepQ = urlParams.get('q') || urlParams.get('search');
 
@@ -86,7 +90,8 @@
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    if ((!currentCustomer || !currentCustomer.email) && (urlParams.get('demo') === '1' || urlParams.get('preview') === '1' || urlParams.get('guest') === '1')) {
+    const hasStoreDeepLink = urlParams.get('store') || urlParams.get('seller') || urlParams.get('productId') || urlParams.get('id') || (window.location.hash && window.location.hash.includes('store'));
+    if ((!currentCustomer || !currentCustomer.email) && (urlParams.get('demo') === '1' || urlParams.get('preview') === '1' || urlParams.get('guest') === '1' || hasStoreDeepLink)) {
       const guestRand = ((typeof crypto !== 'undefined' && crypto.randomUUID) 
         ? crypto.randomUUID().replace(/-/g, '').slice(0, 12) 
         : (Date.now().toString(36) + Math.random().toString(36).substring(2, 8)));
@@ -1341,12 +1346,13 @@
 
   // Helper: Normalize seller attributes across database records
   function normalizeSellerInfo(product) {
-    const rawSellerId = String(product?.sellerId || '').trim();
+    const rawSellerId = String(product?.sellerId || product?.seller_id || '').trim();
     const rawSellerName = String(product?.sellerName || product?.sellerStoreName || '').trim();
     const cleaned = cleanUnicodeSellerName(rawSellerName).toLowerCase();
 
-    // 1. Trusted Brother (Matches Mathematical Bold 𓆩✶𓆪𝐓𝐑𝐔𝐒𝐓𝐄𝐃 𝐁𝐑𝐎𝐓𝐇𝐄𝐑𓆩✶𓆪 or seller_6e2c36f417)
+    // 1. Trusted Brother (Matches Mathematical Bold 𓆩✶𓆪𝐓𝐑𝐔𝐒𝐓𝐄𝐃 𝐁𝐑𝐎𝐓𝐇𝐄𝐑𓆩✶𓆪, seller_6e2c36f417 or seller_jaibajpai67)
     const isTB = rawSellerId === 'seller_6e2c36f417' ||
+                 rawSellerId === 'seller_jaibajpai67' ||
                  (cleaned.includes('trusted') && cleaned.includes('brother')) ||
                  rawSellerName.includes('𝐓𝐑𝐔𝐒𝐓𝐄𝐃');
     if (isTB) {
@@ -1374,31 +1380,25 @@
       };
     }
 
-    // 3. Official Admin / Flagship / Unassigned products
-    const isFlagship = !rawSellerName ||
-                       cleaned.includes('jaigram') ||
-                       cleaned.includes('linkadda') ||
-                       cleaned.includes('official') ||
-                       cleaned.includes('admin') ||
-                       rawSellerId === 'store_linkadda_official';
-    if (isFlagship) {
+    // 3. Other custom verified third-party seller (if explicitly provided and not admin/official)
+    if (rawSellerId && rawSellerId !== 'master_admin' && rawSellerId !== 'store_linkadda_official' && rawSellerName && !cleaned.includes('official') && !cleaned.includes('jaigram') && !cleaned.includes('linkadda')) {
       return {
-        sellerId: 'store_linkadda_official',
-        sellerName: 'JaiGram Official',
-        storeName: 'JaiGram Official',
-        sellerAvatar: '',
-        category: 'VIP Media Partner',
+        sellerId: rawSellerId,
+        sellerName: rawSellerName,
+        storeName: rawSellerName,
+        sellerAvatar: product?.sellerAvatar || '',
+        category: product?.category || 'Digital Creator',
         verified: true
       };
     }
 
-    // 4. Other custom verified seller
+    // 4. Default: All other catalog products belong to Trusted brother (jaibajpai67@gmail.com)
     return {
-      sellerId: rawSellerId || ('store_' + cleaned.replace(/[^a-z0-9_-]/g, '_')),
-      sellerName: rawSellerName,
-      storeName: rawSellerName,
-      sellerAvatar: product?.sellerAvatar || '',
-      category: product?.category || 'Digital Creator',
+      sellerId: 'seller_6e2c36f417',
+      sellerName: 'Trusted brother',
+      storeName: 'Trusted brother',
+      sellerAvatar: '../images/popup-avatar-circle.png',
+      category: 'Digital Creator',
       verified: true
     };
   }
@@ -1488,16 +1488,45 @@
     if (!p || !store) return false;
     const sInfo = normalizeSellerInfo(p);
     const targetStoreId = String(store.id || '').trim().toLowerCase();
-    const targetStoreName = cleanUnicodeSellerName(store.storeName || '').toLowerCase();
+    const targetStoreName = cleanUnicodeSellerName(store.storeName || '').trim().toLowerCase();
 
     // 1. Direct seller ID match
-    if (sInfo.sellerId && targetStoreId && sInfo.sellerId.toLowerCase() === targetStoreId) return true;
+    const pSellerId = String(sInfo.sellerId || '').trim().toLowerCase();
+    if (pSellerId && targetStoreId && pSellerId === targetStoreId) return true;
 
-    // 2. Exact or substring store name match
-    const pStoreName = cleanUnicodeSellerName(sInfo.storeName).toLowerCase();
+    // 2. Trusted brother alias matching
+    const isTargetTb = targetStoreId === 'seller_6e2c36f417' ||
+                       targetStoreId === 'seller_jaibajpai67' ||
+                       targetStoreId === 'store_trusted_brother' ||
+                       (targetStoreName.includes('trusted') && targetStoreName.includes('brother'));
+    const isProdTb = pSellerId === 'seller_6e2c36f417' ||
+                     pSellerId === 'seller_jaibajpai67' ||
+                     pSellerId === 'store_trusted_brother' ||
+                     (cleanUnicodeSellerName(sInfo.storeName).toLowerCase().includes('trusted') && cleanUnicodeSellerName(sInfo.storeName).toLowerCase().includes('brother'));
+
+    if (isTargetTb || isProdTb) {
+      return isTargetTb && isProdTb;
+    }
+
+    // 3. Ghost Layer alias matching
+    const isTargetGhost = targetStoreId === 'seller_8f3baf766f' ||
+                          targetStoreId === 'store_ghost_layer_shop' ||
+                          (targetStoreName.includes('ghost') && targetStoreName.includes('layer'));
+    const isProdGhost = pSellerId === 'seller_8f3baf766f' ||
+                        pSellerId === 'store_ghost_layer_shop' ||
+                        (cleanUnicodeSellerName(sInfo.storeName).toLowerCase().includes('ghost') && cleanUnicodeSellerName(sInfo.storeName).toLowerCase().includes('layer'));
+
+    if (isTargetGhost || isProdGhost) {
+      return isTargetGhost && isProdGhost;
+    }
+
+    // 4. Exact, normalized store name match (strictly length >= 4)
+    const pStoreName = cleanUnicodeSellerName(sInfo.storeName).trim().toLowerCase();
     if (pStoreName && targetStoreName) {
       if (pStoreName === targetStoreName) return true;
-      if (pStoreName.includes(targetStoreName) || targetStoreName.includes(pStoreName)) return true;
+      const pCompact = pStoreName.replace(/[\s_-]+/g, '');
+      const targetCompact = targetStoreName.replace(/[\s_-]+/g, '');
+      if (pCompact.length >= 4 && targetCompact.length >= 4 && pCompact === targetCompact) return true;
     }
 
     return false;
@@ -1722,6 +1751,12 @@
           .filter(Boolean);
 
         if (freshProds.length > 0) {
+          freshProds.sort((a, b) => {
+            const orderA = a.displayOrder !== undefined && a.displayOrder !== null ? Number(a.displayOrder) : 999999;
+            const orderB = b.displayOrder !== undefined && b.displayOrder !== null ? Number(b.displayOrder) : 999999;
+            if (orderA !== orderB) return orderA - orderB;
+            return (b.createdAt || 0) - (a.createdAt || 0);
+          });
           allMarketplaceProducts = freshProds;
           try {
             localStorage.setItem(MARKETPLACE_PRODUCTS_CACHE_KEY, JSON.stringify(allMarketplaceProducts));
@@ -1796,6 +1831,12 @@
     renderMarketplaceCatalog();
     renderFlashDealsRail();
     preloadTopProductImages(allMarketplaceProducts);
+
+    // If storeShowcaseModal is currently open (e.g. from deep link ?store=...), refresh its view with freshly loaded products!
+    const storeModal = document.getElementById('storeShowcaseModal');
+    if (storeModal && storeModal.classList.contains('active') && currentModalStore) {
+      window.openStoreShowcaseModal(currentModalStore.id || currentModalStore.storeName);
+    }
 
     // Start Real-Time Live Sync with Firebase Server-Sent Events
     startRealtimeMarketplaceSync();
@@ -2164,6 +2205,7 @@
   // ━━ 8. STORE SHOWCASE MODAL & FULL-PAGE STORE VIEW ━━
   let currentModalStore = null;
   let currentModalStoreProducts = [];
+  let currentStoreActiveCategory = 'all';
 
   function getProductPrice(p) {
     if (!p) {
@@ -2241,18 +2283,54 @@
   };
 
   window.openStoreShowcaseModal = function (storeNameOrId) {
-    const store = allMarketplaceStores.find(s =>
-      String(s.storeName || '').toLowerCase() === String(storeNameOrId || '').toLowerCase() ||
-      String(s.id || '').toLowerCase() === String(storeNameOrId || '').toLowerCase()
-    ) || {
-      id: 'store_temp',
-      storeName: storeNameOrId,
-      category: 'Digital Creator Store',
-      avatar: '',
-      verified: true,
-      followerCount: 0,
-      totalProducts: 0
-    };
+    if (!storeNameOrId) return;
+    const cleanTarget = String(storeNameOrId).trim();
+    const cleanTargetLower = cleanTarget.toLowerCase();
+
+    // 1. Try finding in pre-extracted stores
+    let store = allMarketplaceStores.find(s =>
+      String(s.storeName || '').trim().toLowerCase() === cleanTargetLower ||
+      String(s.id || '').trim().toLowerCase() === cleanTargetLower ||
+      cleanUnicodeSellerName(s.storeName || '').toLowerCase() === cleanUnicodeSellerName(cleanTarget).toLowerCase()
+    );
+
+    // 2. If not found in stores, inspect allMarketplaceProducts to extract real seller details!
+    if (!store && Array.isArray(allMarketplaceProducts) && allMarketplaceProducts.length) {
+      const matchProd = allMarketplaceProducts.find(p => {
+        const sInfo = normalizeSellerInfo(p);
+        return (
+          (sInfo.sellerId && sInfo.sellerId.toLowerCase() === cleanTargetLower) ||
+          (sInfo.storeName && sInfo.storeName.trim().toLowerCase() === cleanTargetLower) ||
+          (cleanUnicodeSellerName(sInfo.storeName).toLowerCase() === cleanUnicodeSellerName(cleanTarget).toLowerCase()) ||
+          (cleanUnicodeSellerName(sInfo.storeName).toLowerCase().replace(/[\s_-]+/g, '') === cleanUnicodeSellerName(cleanTarget).toLowerCase().replace(/[\s_-]+/g, ''))
+        );
+      });
+
+      if (matchProd) {
+        const sInfo = normalizeSellerInfo(matchProd);
+        store = {
+          id: sInfo.sellerId || cleanTarget,
+          storeName: sInfo.storeName || cleanTarget,
+          avatar: sInfo.sellerAvatar || '',
+          category: sInfo.category || 'Digital Creator',
+          verified: true,
+          followerCount: 0,
+          totalProducts: 0
+        };
+      }
+    }
+
+    if (!store) {
+      store = {
+        id: cleanTarget,
+        storeName: cleanTarget,
+        category: 'Digital Creator Store',
+        avatar: '',
+        verified: true,
+        followerCount: 0,
+        totalProducts: 0
+      };
+    }
 
     currentModalStore = store;
     const modal = document.getElementById('storeShowcaseModal');
@@ -2389,8 +2467,6 @@
     const targetGateway = (window.location.pathname && window.location.pathname.includes('/user/')) ? '../payment.html' : 'payment.html';
     window.location.href = `${targetGateway}?${queryParams.toString()}`;
   };
-
-  let currentStoreActiveCategory = 'all';
 
   function renderStoreCategoryPills(prods) {
     const pillsEl = document.getElementById('modalStoreCategoryPills');
@@ -2548,7 +2624,7 @@
     const followBtn = document.getElementById('modalStoreFollowBtn');
     if (!followBtn) return;
     const isFollowed = isStoreFollowed(storeName);
-    followBtn.className = `store-modal-follow-btn ${isFollowed ? 'following' : ''}`;
+    followBtn.className = `store-modal-follow-btn hero-follow-btn ${isFollowed ? 'following' : ''}`;
     followBtn.innerHTML = `<i class="fa-solid ${isFollowed ? 'fa-check' : 'fa-plus'}"></i> <span class="follow-btn-label">${isFollowed ? 'Following' : 'Follow Store'}</span>`;
     followBtn.onclick = () => {
       window.toggleFollowStore(followBtn, storeName);
@@ -2877,15 +2953,21 @@
     if (titleEl) titleEl.textContent = prodTitle;
 
     // 2. Creator Info & Follow Status
-    const creatorName = p.sellerName || p.sellerStoreName || 'JaiGram Creator';
+    const sInfo = normalizeSellerInfo(p);
+    const creatorName = sInfo.storeName || sInfo.sellerName || 'Trusted brother';
     const cNameEl = document.getElementById('pdmCreatorName');
-    if (cNameEl) cNameEl.textContent = creatorName;
+    if (cNameEl) {
+      cNameEl.textContent = creatorName;
+      cNameEl.setAttribute('data-seller-name', creatorName);
+      cNameEl.setAttribute('data-seller-id', sInfo.sellerId || '');
+    }
 
     const cAvatarEl = document.getElementById('pdmCreatorAvatar');
     if (cAvatarEl) {
       const initial = creatorName.trim().charAt(0).toUpperCase();
-      if (p.sellerAvatar) {
-        cAvatarEl.innerHTML = `<img src="${escapeHtml(p.sellerAvatar)}" alt="${escapeHtml(creatorName)}" onerror="this.parentElement.textContent='${initial}';" />`;
+      const realAvatar = sInfo.sellerAvatar || p.sellerAvatar || '';
+      if (realAvatar) {
+        cAvatarEl.innerHTML = `<img src="${escapeHtml(realAvatar)}" alt="${escapeHtml(creatorName)}" onerror="this.parentElement.textContent='${initial}';" />`;
       } else {
         cAvatarEl.textContent = initial;
       }
@@ -2893,7 +2975,10 @@
 
     const cFollowersEl = document.getElementById('pdmCreatorFollowers');
     if (cFollowersEl) {
-      const matchedStore = allMarketplaceStores.find(s => String(s.storeName || '').toLowerCase() === creatorName.toLowerCase());
+      const matchedStore = allMarketplaceStores.find(s =>
+        String(s.storeName || '').toLowerCase() === creatorName.toLowerCase() ||
+        String(s.id || '').toLowerCase() === (sInfo.sellerId || '').toLowerCase()
+      );
       cFollowersEl.textContent = matchedStore ? getLiveFollowerCount(matchedStore) : '1';
     }
 
@@ -3122,10 +3207,11 @@
 
   window.handlePdmCreatorClick = function () {
     if (!currentPdmProduct) return;
-    const sName = currentPdmProduct.sellerName || currentPdmProduct.sellerStoreName;
-    if (sName) {
+    const sInfo = normalizeSellerInfo(currentPdmProduct);
+    const target = sInfo.storeName || sInfo.sellerId || currentPdmProduct.sellerName || currentPdmProduct.sellerStoreName;
+    if (target) {
       closeProductDetailModal();
-      window.openStoreShowcaseModal(sName);
+      window.openStoreShowcaseModal(target);
     }
   };
 
@@ -3347,7 +3433,9 @@
   function renderEcomProductCardHtml(p) {
     const thumb = extractProductCoverImage(p);
     const pricing = getProductPrice(p);
-    const sellerName = p.sellerName || p.sellerStoreName || 'JaiGram Official';
+    const sInfo = normalizeSellerInfo(p);
+    const sellerName = sInfo.storeName || sInfo.sellerName || 'Trusted brother';
+    const sellerId = sInfo.sellerId || '';
     const buyUrl = `../payment.html?productId=${encodeURIComponent(p.id)}&title=${encodeURIComponent(p.title || 'Digital Product')}&price=${encodeURIComponent(pricing.amount)}&currency=${encodeURIComponent(pricing.currency)}&inr=${encodeURIComponent(pricing.inr)}&usd=${encodeURIComponent(pricing.usd)}&method=${pricing.currency === 'USD' ? 'binancepay' : 'upi'}`;
     const safeId = escapeHtml(p.id);
     const inCart = (typeof isProductInCart === 'function') && isProductInCart(p.id);
@@ -3363,7 +3451,7 @@
       <div class="marketplace-product-card ${isMegaDeal ? 'deal-80-plus' : ''}" onclick="openProductDetailModal('${safeId}')" data-product-id="${safeId}">
         <div class="mp-card-thumb-wrap">
           <img src="${escapeHtml(thumb)}" alt="${escapeHtml(p.title || 'Product')}" class="mp-card-thumb-img" loading="lazy" onerror="if(!this._tried){this._tried=true; const clean=this.src.split('?')[0]; if(this.src!==clean){this.src=clean;}}else{this.style.opacity='0.7';}" />
-          <button type="button" class="btn-card-wishlist ${isSaved ? 'active' : ''}" data-wishlist-id="${safeId}" onclick="toggleWishlistProduct('${safeId}', event)" title="${isSaved ? 'Remove from Wishlist' : 'Add to Wishlist'}" aria-label="Wishlist">
+          <button type="button" class="btn-card-wishlist ${isSaved ? 'active' : ''}" data-wishlist-id="${safeId}" onclick="event.stopPropagation(); event.preventDefault(); toggleWishlistProduct('${safeId}', event)" title="${isSaved ? 'Remove from Wishlist' : 'Add to Wishlist'}" aria-label="Wishlist">
             <i class="${isSaved ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
           </button>
           <div class="mp-card-badge-strip">
@@ -3371,7 +3459,7 @@
           </div>
         </div>
         <div class="mp-card-body">
-          <div class="mp-card-seller-pill" onclick="openStoreShowcaseModal('${escapeHtml(sellerName)}'); event.stopPropagation();" title="View Store">
+          <div class="mp-card-seller-pill" data-seller-name="${escapeHtml(sellerName)}" data-seller-id="${escapeHtml(sellerId)}" onclick="event.stopPropagation(); event.stopImmediatePropagation(); event.preventDefault(); window.openStoreShowcaseModal(this.getAttribute('data-seller-name') || '${escapeHtml(sellerName)}');" title="View Store">
             <i class="fa-solid fa-circle-check text-green"></i>
             <span>${escapeHtml(sellerName)}</span>
           </div>
@@ -3387,10 +3475,10 @@
             ${pricing.discountPct > 0 ? `<span class="mp-card-discount-val ${isMegaDeal ? 'mega-deal-pct' : ''}">${pricing.discountPct}% off</span>` : ''}
           </div>
           <div class="mp-card-actions">
-            <button type="button" class="btn-mp-cart ${inCart ? 'added' : ''}" data-product-id="${safeId}" onclick="toggleCartProduct('${safeId}'); event.stopPropagation();" title="${inCart ? 'In Cart' : 'Add to Cart'}">
+            <button type="button" class="btn-mp-cart ${inCart ? 'added' : ''}" data-product-id="${safeId}" onclick="event.stopPropagation(); event.preventDefault(); toggleCartProduct('${safeId}');" title="${inCart ? 'In Cart' : 'Add to Cart'}">
               <i class="fa-solid ${inCart ? 'fa-check' : 'fa-cart-plus'}"></i> <span>${inCart ? 'Added' : 'Add'}</span>
             </button>
-            <button type="button" class="btn-mp-buy" onclick="window.buyProductNow('${safeId}', event);">
+            <button type="button" class="btn-mp-buy" onclick="event.stopPropagation(); event.preventDefault(); window.buyProductNow('${safeId}', event);">
               <i class="fa-solid fa-bolt"></i> <span>Buy</span>
             </button>
           </div>
@@ -3399,6 +3487,20 @@
     `;
   }
   window.renderEcomProductCardHtml = renderEcomProductCardHtml;
+
+  // Bulletproof click interceptor for seller pills in marketplace cards (runs in CAPTURE phase)
+  document.addEventListener('click', (e) => {
+    const pill = e.target.closest('.mp-card-seller-pill');
+    if (pill) {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      const target = pill.getAttribute('data-seller-name') || pill.getAttribute('data-seller-id') || pill.querySelector('span')?.textContent?.trim();
+      if (target && typeof window.openStoreShowcaseModal === 'function') {
+        window.openStoreShowcaseModal(target);
+      }
+    }
+  }, true);
 
   let currentMarketplaceCategory = 'all';
   let currentMarketplaceSearch = '';
@@ -5295,7 +5397,11 @@
       // Check if there was a pending deep-linked product or store
       const urlParams = new URLSearchParams(window.location.search);
       const deepProdId = urlParams.get('productId') || urlParams.get('id');
-      const deepStore = urlParams.get('store');
+      let deepStore = urlParams.get('store') || urlParams.get('seller') || urlParams.get('sellerId');
+      if (!deepStore && window.location.hash) {
+        if (window.location.hash.startsWith('#store-')) deepStore = decodeURIComponent(window.location.hash.replace('#store-', ''));
+        else if (window.location.hash.startsWith('#seller-')) deepStore = decodeURIComponent(window.location.hash.replace('#seller-', ''));
+      }
       if (deepProdId && typeof window.openProductDetailModal === 'function') {
         window.openProductDetailModal(deepProdId);
       } else if (deepStore && typeof window.openStoreShowcaseModal === 'function') {

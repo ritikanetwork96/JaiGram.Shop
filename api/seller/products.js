@@ -88,9 +88,9 @@ export function sanitizeAndNormalizeProduct(product, existingData = {}, defaults
   const views = Math.max(0, Number(product.views !== undefined ? product.views : (existingData.views !== undefined ? existingData.views : 0)));
 
   // Seller info
-  const sellerId = product.sellerId || existingData.sellerId || defaults.sellerId || 'seller_jaibajpai67';
-  const sellerName = String(product.sellerName || existingData.sellerName || defaults.sellerName || '𓆩✶𓆪𝐓𝐑𝐔𝐒𝐓𝐄𝐃 𝐁𝐑𝐎𝐓𝐇𝐄𝐑𓆩✶𓆪').trim();
-  const sellerEmail = String(product.sellerEmail || existingData.sellerEmail || defaults.sellerEmail || 'jaibajpai67@gmail.com').trim().toLowerCase();
+  const sellerId = product.sellerId || existingData.sellerId || defaults.sellerId || '';
+  const sellerName = String(product.sellerName || existingData.sellerName || defaults.sellerName || '').trim();
+  const sellerEmail = String(product.sellerEmail || existingData.sellerEmail || defaults.sellerEmail || '').trim().toLowerCase();
 
   // Tiers / sub-plans
   let tiers = [];
@@ -127,9 +127,9 @@ export function sanitizeAndNormalizeProduct(product, existingData = {}, defaults
     images,
     galleryImages: images.filter(u => u !== mainImage),
     tiers,
-    sellerId,
-    sellerName: sellerName || '𓆩✶𓆪𝐓𝐑𝐔𝐒𝐓𝐄𝐃 𝐁𝐑𝐎𝐓𝐇𝐄𝐑𓆩✶𓆪',
-    sellerEmail: sellerEmail || 'jaibajpai67@gmail.com',
+    sellerId: sellerId || defaults.sellerId || '',
+    sellerName: sellerName || defaults.sellerName || 'Creator Partner',
+    sellerEmail: sellerEmail || defaults.sellerEmail || '',
     sellerVerified: true,
     isVerified: true,
     verified: true,
@@ -208,6 +208,154 @@ export default async function handler(req, res) {
         success: true,
         product: payload,
         message: 'Product saved successfully with guaranteed button & checkout schema!',
+      });
+    }
+
+    // ━━ 0A1. ASSIGN ALL PRODUCTS TO TRUSTED BROTHER (ADMIN REQUEST) ━━
+    if (action === 'assign_all_to_trusted_brother') {
+      const isAuthorized = await verifyAdminRequest(req);
+      if (!isAuthorized) {
+        return res.status(401).json({ error: 'Unauthorized: Master administrator authentication required.' });
+      }
+
+      const adminToken = await getFirebaseAdminToken();
+      if (!adminToken) {
+        return res.status(500).json({ error: 'Database service unavailable. Please retry in a few moments.' });
+      }
+      const authQuery = `?auth=${encodeURIComponent(adminToken)}`;
+
+      const prodsRes = await fetch(`${RTDB_URL}/products.json${authQuery}`, { signal: AbortSignal.timeout(30000) });
+      if (!prodsRes.ok) {
+        throw new Error('Failed to read products from database');
+      }
+
+      const allProds = (await prodsRes.json()) || {};
+      const targetSellerId = 'seller_jaibajpai67';
+      const targetSellerName = 'Trusted brother';
+      const targetSellerEmail = 'jaibajpai67@gmail.com';
+      const targetSellerPhone = '8004171852';
+
+      let assignedCount = 0;
+      const patchTasks = [];
+
+      // Sort existing entries to establish a clean sequential 1..N displayOrder
+      const sortedEntries = Object.entries(allProds).sort((a, b) => {
+        const orderA = a[1]?.displayOrder !== undefined && a[1]?.displayOrder !== null ? Number(a[1].displayOrder) : 999999;
+        const orderB = b[1]?.displayOrder !== undefined && b[1]?.displayOrder !== null ? Number(b[1].displayOrder) : 999999;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a[1]?.createdAt || 0) - (b[1]?.createdAt || 0);
+      });
+
+      sortedEntries.forEach(([pId, p], idx) => {
+        if (!p || typeof p !== 'object') return;
+        const targetOrder = idx + 1;
+
+        // Preserve products belonging to distinct other third-party verified sellers (e.g. ghost_layer_shop)
+        const pEmail = String(p.sellerEmail || '').toLowerCase().trim();
+        const pSellerId = String(p.sellerId || '').trim();
+        const isOtherThirdParty = (pEmail && pEmail !== targetSellerEmail && pEmail !== 'ritikanetwork96@gmail.com') &&
+                                  (pSellerId && pSellerId !== targetSellerId && pSellerId !== 'master_admin');
+
+        const patchData = {
+          displayOrder: p.displayOrder !== undefined && p.displayOrder !== null ? Number(p.displayOrder) : targetOrder,
+          updatedAt: Date.now(),
+        };
+
+        if (!isOtherThirdParty) {
+          patchData.sellerId = targetSellerId;
+          patchData.sellerName = targetSellerName;
+          patchData.sellerEmail = targetSellerEmail;
+          patchData.sellerPhone = targetSellerPhone;
+          patchData.sellerVerified = true;
+          patchData.status = 'active';
+          patchData.approvalStatus = 'approved';
+          assignedCount++;
+        }
+
+        patchTasks.push(
+          fetch(`${RTDB_URL}/products/${encodeURIComponent(pId)}.json${authQuery}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patchData),
+          }).catch(() => {})
+        );
+      });
+
+      // Synchronize Seller Profile in /sellers, /events/sellers, /public_sellers
+      const sellerRecord = {
+        id: targetSellerId,
+        sellerId: targetSellerId,
+        storeName: targetSellerName,
+        ownerName: 'Trusted',
+        email: targetSellerEmail,
+        phone: targetSellerPhone,
+        category: 'Digital Creator',
+        status: 'active',
+        verified: true,
+        totalProducts: assignedCount,
+        updatedAt: Date.now(),
+      };
+
+      patchTasks.push(
+        fetch(`${RTDB_URL}/sellers/${encodeURIComponent(targetSellerId)}.json${authQuery}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sellerRecord),
+        }).catch(() => {}),
+        fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(targetSellerId)}.json${authQuery}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sellerRecord),
+        }).catch(() => {}),
+        fetch(`${RTDB_URL}/public_sellers/${encodeURIComponent(targetSellerId)}.json${authQuery}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sellerRecord),
+        }).catch(() => {})
+      );
+
+      await Promise.allSettled(patchTasks);
+
+      return res.status(200).json({
+        success: true,
+        message: `Assigned all ${assignedCount} products to ${targetSellerName} (${targetSellerEmail})!`,
+        assignedCount,
+        totalChecked: Object.keys(allProds).length,
+      });
+    }
+
+    // ━━ 0A2. BATCH REORDER PRODUCTS (MASTER ADMIN POSITION SYNC) ━━
+    if (action === 'reorder_batch') {
+      const isAuthorized = await verifyAdminRequest(req);
+      if (!isAuthorized) {
+        return res.status(401).json({ error: 'Unauthorized: Master administrator authentication required.' });
+      }
+
+      const adminToken = await getFirebaseAdminToken();
+      if (!adminToken) {
+        return res.status(500).json({ error: 'Database service unavailable. Please retry in a few moments.' });
+      }
+      const authQuery = `?auth=${encodeURIComponent(adminToken)}`;
+
+      const orderMap = body.orderMap; // { [productId]: newOrderNumber }
+      if (!orderMap || typeof orderMap !== 'object') {
+        return res.status(400).json({ error: 'Missing orderMap payload.' });
+      }
+
+      const tasks = Object.entries(orderMap).map(([pId, pos]) => {
+        return fetch(`${RTDB_URL}/products/${encodeURIComponent(pId)}.json${authQuery}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ displayOrder: Number(pos), updatedAt: Date.now() }),
+        }).catch(() => {});
+      });
+
+      await Promise.allSettled(tasks);
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully reordered ${Object.keys(orderMap).length} products in database.`,
+        updatedCount: Object.keys(orderMap).length,
       });
     }
 
@@ -543,7 +691,16 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Product not found.' });
       }
       const existing = await checkRes.json();
-      if (!existing || !existing.sellerId || existing.sellerId !== sellerId) {
+      const callerEmail = String(body.sellerEmail || '').toLowerCase().trim();
+      const callerStoreName = String(body.sellerStoreName || body.sellerName || '').toLowerCase().trim();
+      const isTb = (callerEmail === 'jaibajpai67@gmail.com') || (sellerId === 'seller_jaibajpai67') || callerStoreName.includes('trusted');
+      const existingName = String(existing?.sellerName || existing?.sellerStoreName || '').toLowerCase();
+      const existingEmail = String(existing?.sellerEmail || '').toLowerCase();
+      const isOwner = (existing?.sellerId && existing.sellerId === sellerId) ||
+                      (existingEmail && callerEmail && existingEmail === callerEmail) ||
+                      (isTb && (existingName.includes('trusted') || existingName.includes('brother') || existingEmail === 'jaibajpai67@gmail.com'));
+
+      if (!existing || !isOwner) {
         return res.status(403).json({ error: 'You do not have permission to delete this product.' });
       }
 

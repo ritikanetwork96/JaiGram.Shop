@@ -152,6 +152,12 @@
 
         <div class="sidebar-nav-section-title" style="margin-top: 24px;">QUICK ACCESS</div>
 
+        <button type="button" class="sidebar-link-item" id="btn-sidebar-share-store" title="Share Your Store Link" style="width: 100%; border: none; background: transparent; text-align: left; cursor: pointer;">
+          <div class="nav-item-icon"><i class="fa-solid fa-share-nodes" style="color: #10b981;"></i></div>
+          <span class="nav-item-label" style="color: #10b981; font-weight: 700;">Share Store Link</span>
+          <i class="fa-solid fa-arrow-up-right-from-square mini-ext-icon"></i>
+        </button>
+
         <a href="../" target="_blank" class="sidebar-link-item" title="Open Public Storefront">
           <div class="nav-item-icon"><i class="fa-solid fa-arrow-up-right-from-square"></i></div>
           <span class="nav-item-label">Live Storefront</span>
@@ -218,6 +224,10 @@
           <a href="../" target="_blank" class="header-mobile-store-link" title="Open Public Storefront">
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </a>
+          <button type="button" id="btn-header-share-store" class="btn-executive-share" title="Share Storefront Link with Customers">
+            <i class="fa-solid fa-share-nodes"></i>
+            <span class="btn-share-label">Share Store</span>
+          </button>
           <button type="button" id="btn-hero-sync-stats" class="btn-executive-sync" title="Sync live stats from database">
             <i class="fa-solid fa-arrows-rotate"></i>
             <span class="btn-sync-label">Sync Live Stats</span>
@@ -247,6 +257,10 @@
               <p class="hero-creator-desc">Manage your digital packs, upload media, customize pricing, and track your rolling 7-day UPI payouts in real time.</p>
             </div>
             <div class="hero-creator-actions">
+              <button type="button" id="btn-hero-share-store" class="btn-hero-share-store" title="Share Storefront Link">
+                <i class="fa-solid fa-share-nodes"></i>
+                <span>Share Store</span>
+              </button>
               <button type="button" onclick="document.getElementById('btn-hero-add-pack').click()" class="btn-hero-add-pack" title="Create New Digital Pack">
                 <i class="fa-solid fa-plus"></i>
                 <span>Add New Pack</span>
@@ -499,20 +513,132 @@
           </div>
         </div>
 
-        <div class="settings-card">
-          <h3 class="settings-card-title">
-            <i class="fa-solid fa-qrcode" style="color: var(--ab-pink); margin-right: 10px;"></i>
-            Receiving UPI Address
-          </h3>
-          <p class="settings-card-desc">Enter your UPI ID (Google Pay, PhonePe, Paytm, or BHIM) where earnings should be transferred.</p>
-          <form id="payout-upi-form" style="display: flex; flex-direction: column; gap: 12px;">
-            <div class="form-group" style="margin: 0;">
-              <input type="text" id="seller-upi-input" class="editor-input" placeholder="e.g. yourname@okaxis, 9876543210@paytm" />
+        <!-- ACTIVE PAYOUT DESTINATION BANNER (SELLER SEES CURRENTLY ACTIVE ACCOUNT) -->
+        <div class="settings-card" style="grid-column: 1 / -1; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(6, 78, 59, 0.12) 100%); border: 1px solid rgba(16, 185, 129, 0.3);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #34d399; flex-shrink: 0;">
+                <i class="fa-solid fa-money-bill-transfer" id="payout-status-icon"></i>
+              </div>
+              <div>
+                <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.8px; color: #10b981; font-weight: 700;">Active Payout Transfer Destination</div>
+                <div id="payout-active-destination-display" style="font-size: 1.1rem; font-weight: 800; color: #ffffff; margin-top: 2px;">
+                  Checking payout configuration...
+                </div>
+              </div>
             </div>
-            <button type="submit" id="btn-save-upi" class="btn-seller-primary" style="width: fit-content;">
-              <i class="fa-solid fa-floppy-disk"></i>
-              <span>Save UPI ID</span>
+            <span id="payout-status-pill" class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-weight: 700; padding: 6px 14px; border-radius: 20px; font-size: 0.82rem; border: 1px solid rgba(16, 185, 129, 0.4);">
+              ✓ Ready for Payouts
+            </span>
+          </div>
+          <div style="font-size: 0.82rem; color: var(--sd-text-muted); margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px;">
+            100% of your creator earnings are transferred to this account every rolling 7 days with zero platform fees.
+          </div>
+        </div>
+
+        <!-- CONFIGURE PAYOUT METHOD (INDIA & INTERNATIONAL) -->
+        <div class="settings-card" style="grid-column: 1 / -1;">
+          <h3 class="settings-card-title">
+            <i class="fa-solid fa-wallet" style="color: var(--ab-pink); margin-right: 10px;"></i>
+            Set or Update Your Payout Destination (India &amp; International)
+          </h3>
+          <p class="settings-card-desc">Select how you want to receive your earnings. Supports Indian UPI, Bank IMPS/NEFT, or International Crypto USDT, Binance Pay, and PayPal.</p>
+          
+          <!-- Method Selection Tabs -->
+          <div class="payout-method-tabs" style="display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap;">
+            <button type="button" class="btn-payout-tab active" data-payout-type="upi" style="padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.15); color: #34d399;">
+              🇮🇳 India UPI
             </button>
+            <button type="button" class="btn-payout-tab" data-payout-type="bank" style="padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04); color: var(--sd-text-muted);">
+              🏦 India Bank Transfer
+            </button>
+            <button type="button" class="btn-payout-tab" data-payout-type="crypto" style="padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04); color: var(--sd-text-muted);">
+              💎 Crypto USDT (TRC-20 / BEP-20)
+            </button>
+            <button type="button" class="btn-payout-tab" data-payout-type="binance" style="padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04); color: var(--sd-text-muted);">
+              🟡 Binance Pay ID
+            </button>
+            <button type="button" class="btn-payout-tab" data-payout-type="paypal" style="padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04); color: var(--sd-text-muted);">
+              💳 PayPal
+            </button>
+          </div>
+
+          <form id="payout-details-form" style="display: flex; flex-direction: column; gap: 14px;">
+            <input type="hidden" id="selected-payout-method" name="payoutMethod" value="upi" />
+
+            <!-- Payout Fields: UPI -->
+            <div id="payout-group-upi" class="payout-field-group">
+              <div class="form-group" style="margin: 0;">
+                <label for="seller-upi-input" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">UPI ID (Google Pay, PhonePe, Paytm, BHIM)</label>
+                <input type="text" id="seller-upi-input" class="editor-input" placeholder="e.g. yourname@okaxis, 9876543210@paytm" />
+                <span class="field-hint" style="font-size: 0.78rem; color: var(--sd-text-muted); margin-top: 4px; display: block;">Direct instant UPI transfer for India accounts.</span>
+              </div>
+            </div>
+
+            <!-- Payout Fields: Bank Transfer -->
+            <div id="payout-group-bank" class="payout-field-group" style="display: none;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                <div class="form-group" style="margin: 0;">
+                  <label for="seller-bank-holder" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">Account Holder Name</label>
+                  <input type="text" id="seller-bank-holder" class="editor-input" placeholder="Full name as on bank passbook" />
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label for="seller-bank-name" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">Bank Name</label>
+                  <input type="text" id="seller-bank-name" class="editor-input" placeholder="e.g. HDFC Bank, SBI, ICICI" />
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label for="seller-bank-acc" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">Account Number</label>
+                  <input type="text" id="seller-bank-acc" class="editor-input" placeholder="Bank Account Number" />
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label for="seller-bank-ifsc" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">IFSC Code</label>
+                  <input type="text" id="seller-bank-ifsc" class="editor-input" placeholder="e.g. HDFC0001234" style="text-transform: uppercase;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Payout Fields: Crypto USDT -->
+            <div id="payout-group-crypto" class="payout-field-group" style="display: none;">
+              <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
+                <div class="form-group" style="margin: 0;">
+                  <label for="seller-usdt-network" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">Network</label>
+                  <select id="seller-usdt-network" class="editor-input" style="font-weight: 700;">
+                    <option value="TRC-20">TRC-20 (Tron) - Recommended</option>
+                    <option value="BEP-20">BEP-20 (Binance Smart Chain)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label for="seller-usdt-address" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">USDT Deposit Address</label>
+                  <input type="text" id="seller-usdt-address" class="editor-input" placeholder="e.g. TQn9Y2khEsLJW... or 0x..." />
+                </div>
+              </div>
+              <span class="field-hint" style="font-size: 0.78rem; color: var(--sd-text-muted); margin-top: 4px; display: block;">Ensure the deposit address matches the selected network.</span>
+            </div>
+
+            <!-- Payout Fields: Binance Pay -->
+            <div id="payout-group-binance" class="payout-field-group" style="display: none;">
+              <div class="form-group" style="margin: 0;">
+                <label for="seller-binance-id" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">Binance Pay ID / Registered Email</label>
+                <input type="text" id="seller-binance-id" class="editor-input" placeholder="e.g. 969887942 or binance-email@gmail.com" />
+                <span class="field-hint" style="font-size: 0.78rem; color: var(--sd-text-muted); margin-top: 4px; display: block;">0-fee instant transfer via Binance Pay.</span>
+              </div>
+            </div>
+
+            <!-- Payout Fields: PayPal -->
+            <div id="payout-group-paypal" class="payout-field-group" style="display: none;">
+              <div class="form-group" style="margin: 0;">
+                <label for="seller-paypal-email" style="font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: block;">PayPal Email Address or PayPal.me Link</label>
+                <input type="text" id="seller-paypal-email" class="editor-input" placeholder="e.g. yourpaypal@gmail.com or paypal.me/yourname" />
+                <span class="field-hint" style="font-size: 0.78rem; color: var(--sd-text-muted); margin-top: 4px; display: block;">Direct international PayPal payout.</span>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 6px;">
+              <button type="submit" id="btn-save-payout-details" class="btn-seller-primary" style="width: fit-content;">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Save Payout Destination</span>
+              </button>
+            </div>
           </form>
         </div>
 
@@ -575,6 +701,10 @@
           </div>
         </div>
         <div class="profile-brand-right">
+          <button type="button" id="btn-prof-share-store" class="btn-profile-share-store" title="Share Storefront Link">
+            <i class="fa-solid fa-share-nodes"></i>
+            <span>Share Store</span>
+          </button>
           <a href="../" target="_blank" class="btn-profile-visit-store" title="View Public Storefront">
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
             <span>View Live Store</span>
@@ -1212,9 +1342,61 @@
     </div>
   </div>
 
+  <!-- SHARE STOREFRONT MODAL (SELLERS SHARE THEIR STORE / SELLER ID) -->
+  <div id="share-store-modal" class="seller-modal-overlay" style="display: none;">
+    <div class="seller-modal-dialog share-dialog">
+      <div class="share-dialog-head">
+        <div class="share-dialog-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);"><i class="fa-solid fa-store"></i></div>
+        <div class="share-dialog-info">
+          <h3 class="share-dialog-title">Share Your Storefront</h3>
+          <p class="share-dialog-subtitle" id="share-store-title-text">Creator Store</p>
+        </div>
+        <button type="button" id="btn-close-share-store-modal" class="btn-modal-close" aria-label="Close modal">&times;</button>
+      </div>
+      
+      <div class="share-dialog-body">
+        <!-- Seller ID Copy Box -->
+        <div class="share-store-id-badge" style="display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.08); border: 1px dashed rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px;">
+          <div>
+            <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ab-muted); font-weight: 700; display: block;">Your Seller ID</span>
+            <strong id="share-store-id-text" style="font-size: 0.95rem; color: #10b981; font-family: monospace;">Loading ID...</strong>
+          </div>
+          <button type="button" id="btn-copy-store-id" class="btn-copy-share" style="padding: 6px 14px; font-size: 0.8rem; background: #10b981;">
+            <i class="fa-solid fa-copy"></i> <span>Copy ID</span>
+          </button>
+        </div>
+
+        <label style="font-size: 0.8rem; font-weight: 700; color: var(--ab-muted); margin-bottom: 6px; display: block;">Direct Storefront Link (Displays All Your Products to Buyers)</label>
+        <div class="share-link-box">
+          <input type="text" id="share-store-link-input" readonly class="share-link-input" />
+          <button type="button" id="btn-copy-store-link" class="btn-copy-share">
+            <i class="fa-solid fa-copy"></i> <span>Copy Link</span>
+          </button>
+        </div>
+
+        <div class="share-buttons-grid" style="margin-top: 14px;">
+          <a id="btn-share-store-whatsapp" href="#" target="_blank" class="btn-social-share share-wa">
+            <i class="fa-brands fa-whatsapp"></i>
+            <span>Share on WhatsApp</span>
+          </a>
+          <a id="btn-share-store-telegram" href="#" target="_blank" class="btn-social-share share-tg">
+            <i class="fa-brands fa-telegram"></i>
+            <span>Share on Telegram</span>
+          </a>
+        </div>
+        <div style="margin-top: 10px;">
+          <button type="button" id="btn-share-store-native" class="btn-social-share" style="width: 100%; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff; cursor: pointer; display: none;">
+            <i class="fa-solid fa-share-nodes"></i>
+            <span>More Sharing Options...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Script Initialization -->
   <script type="module">
-    import { initSellerDashboard } from '/seller/js/seller-dashboard.js?v=2.7_avatar';
+    import { initSellerDashboard } from '/seller/js/seller-dashboard.js?v=2.8_share_store';
 
     // Mobile Sidebar Drawer Toggle
     const toggleBtn = document.getElementById('btn-sidebar-toggle');

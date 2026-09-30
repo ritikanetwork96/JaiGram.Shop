@@ -8,6 +8,15 @@
     // immediately bypass the public storefront showcase and launch User Dashboard directly!
     (function() {
       try {
+        var urlParams = new URLSearchParams(window.location.search);
+        var hasStoreParam = urlParams.has('store') || urlParams.has('seller') || urlParams.has('sellerId') ||
+                            (window.location.hash && (window.location.hash.startsWith('#store-') || window.location.hash.startsWith('#seller-')));
+        if (hasStoreParam) {
+          document.documentElement.style.display = 'none';
+          window.location.replace('user/index.html' + window.location.search + (window.location.hash || ''));
+          return;
+        }
+
         var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                            window.navigator.standalone === true ||
                            document.referrer.includes('android-app://') ||

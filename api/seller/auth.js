@@ -801,7 +801,17 @@ export default async function handler(req, res) {
         storeName: matchedSeller.storeName,
         phone: matchedSeller.phone || '',
         telegram: matchedSeller.telegram || '',
+        payoutMethod: matchedSeller.payoutMethod || (matchedSeller.upiId ? 'upi' : ''),
+        payoutCountry: matchedSeller.payoutCountry || (matchedSeller.usdtAddress || matchedSeller.binancePayId || matchedSeller.paypalEmail ? 'INTL' : 'IN'),
         upiId: matchedSeller.upiId || '',
+        bankName: matchedSeller.bankName || '',
+        accountHolder: matchedSeller.accountHolder || '',
+        accountNumber: matchedSeller.accountNumber || '',
+        ifsc: matchedSeller.ifsc || '',
+        usdtAddress: matchedSeller.usdtAddress || '',
+        usdtNetwork: matchedSeller.usdtNetwork || 'TRC-20',
+        binancePayId: matchedSeller.binancePayId || '',
+        paypalEmail: matchedSeller.paypalEmail || '',
         avatar: matchedSeller.avatar || '',
         category: matchedSeller.category,
         mustChangePassword: Boolean(matchedSeller.mustChangePassword),
@@ -1175,7 +1185,17 @@ export default async function handler(req, res) {
           storeName: seller.storeName,
           phone: seller.phone || '',
           telegram: seller.telegram || '',
+          payoutMethod: seller.payoutMethod || (seller.upiId ? 'upi' : ''),
+          payoutCountry: seller.payoutCountry || (seller.usdtAddress || seller.binancePayId || seller.paypalEmail ? 'INTL' : 'IN'),
           upiId: seller.upiId || '',
+          bankName: seller.bankName || '',
+          accountHolder: seller.accountHolder || '',
+          accountNumber: seller.accountNumber || '',
+          ifsc: seller.ifsc || '',
+          usdtAddress: seller.usdtAddress || '',
+          usdtNetwork: seller.usdtNetwork || 'TRC-20',
+          binancePayId: seller.binancePayId || '',
+          paypalEmail: seller.paypalEmail || '',
           avatar: seller.avatar || '',
           category: seller.category || 'General',
           followerCount: Number(seller.followerCount || seller.followers || 0),
@@ -1194,12 +1214,44 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Unauthorized seller session. Please log in again.' });
       }
 
-      const storeName = String(body.storeName || '').trim();
-      const ownerName = String(body.ownerName || '').trim();
-      const email = String(body.email || '').trim().toLowerCase();
-      const phone = String(body.phone || '').trim();
-      const telegram = String(body.telegram || '').trim();
-      const upiId = String(body.upiId || '').trim();
+      // Fetch existing seller first so partial updates (e.g. updating only UPI or Payout) work smoothly
+      let seller = SELLER_MEMORY_STORE.sellers.get(sellerId);
+      if (!seller) {
+        try {
+          const evRes = await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(sellerId)}.json${authQuery}`);
+          if (evRes.ok) seller = await evRes.json();
+        } catch (_) {}
+      }
+      if (!seller) {
+        try {
+          const rootRes = await fetch(`${RTDB_URL}/sellers/${encodeURIComponent(sellerId)}.json${authQuery}`);
+          if (rootRes.ok) seller = await rootRes.json();
+        } catch (_) {}
+      }
+
+      if (!seller) {
+        return res.status(404).json({ error: 'Seller account not found.' });
+      }
+
+      // Support partial update: use provided body values, or fallback to existing seller values
+      const storeName = body.storeName !== undefined ? String(body.storeName || '').trim() : String(seller.storeName || '').trim();
+      const ownerName = body.ownerName !== undefined ? String(body.ownerName || '').trim() : String(seller.ownerName || '').trim();
+      const email = body.email !== undefined ? String(body.email || '').trim().toLowerCase() : String(seller.email || '').trim().toLowerCase();
+      const phone = body.phone !== undefined ? String(body.phone || '').trim() : String(seller.phone || '').trim();
+      const telegram = body.telegram !== undefined ? String(body.telegram || '').trim() : String(seller.telegram || '').trim();
+
+      // Payout Fields (India UPI / Bank + International Crypto / Binance / PayPal)
+      const payoutCountry = body.payoutCountry !== undefined ? String(body.payoutCountry || 'IN').trim() : (seller.payoutCountry || 'IN');
+      const payoutMethod = body.payoutMethod !== undefined ? String(body.payoutMethod || 'upi').trim() : (seller.payoutMethod || 'upi');
+      const upiId = body.upiId !== undefined ? String(body.upiId || '').trim() : String(seller.upiId || '').trim();
+      const bankName = body.bankName !== undefined ? String(body.bankName || '').trim() : String(seller.bankName || '').trim();
+      const accountHolder = body.accountHolder !== undefined ? String(body.accountHolder || '').trim() : String(seller.accountHolder || '').trim();
+      const accountNumber = body.accountNumber !== undefined ? String(body.accountNumber || '').trim() : String(seller.accountNumber || '').trim();
+      const ifsc = body.ifsc !== undefined ? String(body.ifsc || '').trim().toUpperCase() : String(seller.ifsc || '').trim().toUpperCase();
+      const usdtAddress = body.usdtAddress !== undefined ? String(body.usdtAddress || '').trim() : String(seller.usdtAddress || '').trim();
+      const usdtNetwork = body.usdtNetwork !== undefined ? String(body.usdtNetwork || 'TRC-20').trim() : (seller.usdtNetwork || 'TRC-20');
+      const binancePayId = body.binancePayId !== undefined ? String(body.binancePayId || '').trim() : String(seller.binancePayId || '').trim();
+      const paypalEmail = body.paypalEmail !== undefined ? String(body.paypalEmail || '').trim() : String(seller.paypalEmail || '').trim();
 
       const currentPassword = String(body.currentPassword || '').trim();
       const newPassword = String(body.newPassword || '').trim();
@@ -1217,25 +1269,6 @@ export default async function handler(req, res) {
       // Strictly protect admin account
       if (email.toLowerCase() === 'ritikanetwork96@gmail.com') {
         return res.status(403).json({ error: 'This email is reserved for system administration.' });
-      }
-
-      // Fetch existing seller
-      let seller = SELLER_MEMORY_STORE.sellers.get(sellerId);
-      if (!seller) {
-        try {
-          const evRes = await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(sellerId)}.json${authQuery}`);
-          if (evRes.ok) seller = await evRes.json();
-        } catch (_) {}
-      }
-      if (!seller) {
-        try {
-          const rootRes = await fetch(`${RTDB_URL}/sellers/${encodeURIComponent(sellerId)}.json${authQuery}`);
-          if (rootRes.ok) seller = await rootRes.json();
-        } catch (_) {}
-      }
-
-      if (!seller) {
-        return res.status(404).json({ error: 'Seller account not found.' });
       }
 
       // If email changed, verify uniqueness across other sellers
@@ -1272,7 +1305,17 @@ export default async function handler(req, res) {
         category,
         phone,
         telegram,
+        payoutCountry,
+        payoutMethod,
         upiId,
+        bankName,
+        accountHolder,
+        accountNumber,
+        ifsc,
+        usdtAddress,
+        usdtNetwork,
+        binancePayId,
+        paypalEmail,
         avatar,
         updatedAt: Date.now(),
       };
@@ -1363,7 +1406,17 @@ export default async function handler(req, res) {
         storeName,
         phone,
         telegram,
+        payoutCountry,
+        payoutMethod,
         upiId,
+        bankName,
+        accountHolder,
+        accountNumber,
+        ifsc,
+        usdtAddress,
+        usdtNetwork,
+        binancePayId,
+        paypalEmail,
         avatar,
         category,
         followerCount: Number(seller.followerCount || seller.followers || 0),
@@ -1374,7 +1427,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         seller: updatedSafeSeller,
-        message: 'Profile and account details updated successfully in database!',
+        message: 'Profile and payment details updated successfully in database!',
       });
     }
 

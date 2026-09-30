@@ -7,7 +7,7 @@
     (function() {
       try {
         var params = new URLSearchParams(window.location.search);
-        if (params.get('demo') === '1' || params.get('preview') === '1') {
+        if (params.get('demo') === '1' || params.get('preview') === '1' || params.get('store') || params.get('seller') || params.get('productId') || params.get('id') || (window.location.hash && window.location.hash.indexOf('store') !== -1)) {
           return;
         }
         var raw = localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session');
@@ -67,7 +67,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" />
 
   <!-- User Dashboard Stylesheet -->
-  <link rel="stylesheet" href="user.css?v=20260929_report_sheet_v4" />
+  <link rel="stylesheet" href="user.css?v=20261001_follow_hero_ui" />
   <link rel="stylesheet" href="../shared/payment-gateway.css?v=20260929_v2" />
   <link rel="stylesheet" href="../pwa.css" />
   <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
@@ -1833,12 +1833,6 @@
           </div>
         </div>
         <div class="store-topbar-actions">
-          <button type="button" class="store-modal-follow-btn" id="modalStoreFollowBtn" title="Follow Store">
-            <i class="fa-solid fa-plus"></i> <span class="follow-btn-label">Follow</span>
-          </button>
-          <button type="button" class="store-header-share-btn" onclick="shareStoreShowcase()" title="Share Store" aria-label="Share Store">
-            <i class="fa-solid fa-arrow-up-from-bracket"></i>
-          </button>
           <button type="button" class="store-header-report-btn" onclick="openReportSellerModal()" title="Report Creator" aria-label="Report Creator">
             <i class="fa-solid fa-flag"></i>
           </button>
@@ -1868,6 +1862,12 @@
                 <span class="store-hero-stat-badge star"><i class="fa-solid fa-star"></i> 4.9 Rating</span>
               </div>
             </div>
+          </div>
+          <!-- Hero Actions Bar (Follow Store Moved Down) -->
+          <div class="store-hero-actions-bar">
+            <button type="button" class="store-modal-follow-btn hero-follow-btn" id="modalStoreFollowBtn" title="Follow Store">
+              <i class="fa-solid fa-plus"></i> <span class="follow-btn-label">Follow Store</span>
+            </button>
           </div>
         </div>
       </section>
@@ -1904,8 +1904,6 @@
 
           <!-- Store Products Grid -->
           <div class="store-fullpage-products-grid" id="modalStoreProductsGrid">
-            <!-- Dynamically loaded -->
-          </div>
             <!-- Dynamically loaded -->
           </div>
 
@@ -2123,7 +2121,7 @@
             <div class="fk-seller-label">Seller</div>
             <div class="fk-seller-card">
               <div class="fk-seller-main">
-                <div class="fk-seller-avatar" id="pdmCreatorAvatar">J</div>
+                <div class="fk-seller-avatar" id="pdmCreatorAvatar" onclick="handlePdmCreatorClick()" style="cursor: pointer;" title="View seller store">J</div>
                 <div class="fk-seller-details">
                   <div class="fk-seller-name-row">
                     <strong class="fk-seller-name" id="pdmCreatorName" onclick="handlePdmCreatorClick()">JaiGram Official</strong>
@@ -2758,7 +2756,7 @@
   <script src="../shared/payment-gateway.js"></script>
 
   <!-- User Dashboard Script -->
-  <script src="user.js?v=20260929_report_sheet_v4"></script>
+  <script src="user.js?v=20261001_follow_hero_ui"></script>
   <script src="../pwa-controller.js"></script>
 </body>
 </html>

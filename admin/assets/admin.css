@@ -12351,6 +12351,46 @@ button {
     flex: 1;
     justify-content: center;
   }
+
+  /* Users Management Mobile Adaptations */
+  .users-desktop-table {
+    display: none !important;
+  }
+  .users-mobile-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+  }
+  .users-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    margin-top: 16px !important;
+    padding-top: 16px !important;
+  }
+  .users-toolbar {
+    width: 100%;
+    display: flex !important;
+    gap: 8px !important;
+    flex-wrap: wrap;
+  }
+  .users-toolbar .btn {
+    flex: 1;
+    min-width: 130px;
+    height: 38px;
+    font-size: 12px;
+    justify-content: center;
+  }
+  .users-filter-nav {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 6px;
+  }
+  .users-filter-nav::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @media (max-width: 480px) {
@@ -12376,6 +12416,239 @@ button {
     justify-content: center;
     margin-top: 6px;
   }
+
+  /* Users Mobile Ultra-Compact */
+  .user-mobile-meta-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+  .users-kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .user-mobile-card {
+    padding: 13px !important;
+  }
+  .user-mobile-actions .btn {
+    flex: 1 1 100% !important;
+  }
 }
+
+/* ==========================================================================
+   USERS DIRECTORY & MOBILE CARDS (BASE STYLES)
+   ========================================================================== */
+.users-desktop-table {
+  display: block;
+  width: 100%;
+}
+
+.users-mobile-cards {
+  display: none;
+}
+
+.user-mobile-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-mobile-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4);
+}
+
+.user-mobile-card.status-banned {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.user-mobile-card.status-pending {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.user-mobile-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.user-mobile-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.user-mobile-name {
+  font-size: 15px;
+  font-weight: 750;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.user-mobile-uid {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.user-mobile-email-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+.user-mobile-email-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
+.user-mobile-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.user-mobile-meta-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.user-mobile-meta-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.user-mobile-meta-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.user-mobile-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.user-mobile-actions .btn {
+  flex: 1;
+  min-width: 90px;
+  height: 36px;
+  font-size: 12px;
+  padding: 0 10px;
+  justify-content: center;
+}
+
+/* User Status Badges */
+.user-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.user-status-pill.active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.user-status-pill.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.user-status-pill.banned {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+/* Email Broadcast / Composer Modal */
+.email-composer-modal {
+  max-width: 640px;
+  width: 95%;
+  background: #0f121d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.15);
+  overflow: hidden;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.template-pill-chip {
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.template-pill-chip:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #818cf8;
+}
+
+.template-pill-chip.selected {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #6366f1;
+  color: #ffffff;
+}
+
+.email-preview-box {
+  background: #07060c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
 
 

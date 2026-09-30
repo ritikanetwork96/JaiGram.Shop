@@ -86,6 +86,15 @@ export default async function handler(req, res) {
       const adminToken = typeof getFirebaseAdminToken === 'function' ? await getFirebaseAdminToken() : null;
       existing = await fetchCustomerRecord(uid, adminToken);
 
+      // Security Check: If account is banned, block login immediately
+      if (existing && (existing.status === 'banned' || existing.banned || existing.isBanned)) {
+        return res.status(403).json({
+          error: existing.banReason ? `Your account has been suspended: ${existing.banReason}` : 'Your account has been suspended by administration. Please contact support.',
+          banned: true,
+          status: 'banned',
+        });
+      }
+
       const hasSavedCustomName = Boolean(
         existing?.hasSavedName || 
         (existing?.displayName && existing.displayName !== fallbackName && existing.displayName !== 'Customer')
@@ -104,7 +113,12 @@ export default async function handler(req, res) {
         sessionToken,
         provider: 'email_otp',
         providers: mergedProviders,
-        verified: true,
+        verified: existing?.verified !== undefined ? existing.verified : true,
+        status: existing?.status || (existing?.banned ? 'banned' : 'active'),
+        banned: existing?.banned || false,
+        isBanned: existing?.isBanned || false,
+        banReason: existing?.banReason || null,
+        bannedAt: existing?.bannedAt || null,
         walletBalance: existing?.walletBalance !== undefined ? (Number(existing.walletBalance) === 120 ? 0.00 : Number(existing.walletBalance)) : 0.00,
         createdAt: existing?.createdAt || Date.now(),
         lastLoginAt: Date.now(),

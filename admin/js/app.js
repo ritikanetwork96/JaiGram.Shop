@@ -7979,7 +7979,6 @@ function _buildUsersFromLiveData(data) {
         const k = u.email.toLowerCase().trim();
         userMap.set(k, { uid: key, ...u });
       } else if (u && key.startsWith('cust_')) {
-        // Customer record without email field — use UID as key
         userMap.set(key, { uid: key, ...u });
       }
     });
@@ -8012,6 +8011,7 @@ function _buildUsersFromLiveData(data) {
             displayName: order.name || order.buyerName || order.email.split('@')[0],
             provider: 'order',
             verified: true,
+            status: 'active',
             createdAt: order.date || order.createdAt || order.timestamp || Date.now(),
           });
         }
@@ -8019,50 +8019,531 @@ function _buildUsersFromLiveData(data) {
     });
   }
 
-  const list = Array.from(userMap.values());
+  const list = Array.from(userMap.values()).map(u => {
+    const rawStatus = String(u.status || (u.banned || u.isBanned ? 'banned' : (u.verified === false ? 'pending' : 'active'))).toLowerCase().trim();
+    const status = (rawStatus === 'banned' || rawStatus === 'suspended') ? 'banned' : (rawStatus === 'pending' ? 'pending' : 'active');
+    return {
+      ...u,
+      status,
+      isBanned: status === 'banned',
+      banReason: u.banReason || '',
+      bannedAt: u.bannedAt || null,
+    };
+  });
   list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   return list;
 }
 
 function exportUsersCsv() {
-  // Build fresh from live data
   const users = _buildUsersFromLiveData(ui.data || {});
   if (!users.length) {
     showToast('No users available to export.');
     return;
   }
-  const headers = ['Customer Name', 'Email Address', 'UID', 'Joined Date', 'Auth Providers', 'Status'];
+  const headers = ['Customer Name', 'Email Address', 'UID', 'Joined Date', 'Auth Providers', 'Account Status', 'Ban Reason'];
   const rows = users.map(u => [
     `"${String(u.displayName || 'Customer').replace(/"/g, '""')}"`,
     `"${String(u.email || '').replace(/"/g, '""')}"`,
     `"${String(u.uid || '').replace(/"/g, '""')}"`,
     `"${u.createdAt ? new Date(u.createdAt).toISOString() : ''}"`,
     `"${Array.isArray(u.providers) ? u.providers.join('; ') : (u.provider || '')}"`,
-    `"${u.verified !== false ? 'Verified Member' : 'Pending'}"`
+    `"${u.status === 'banned' ? 'Banned / Suspended' : (u.status === 'pending' ? 'Pending Verification' : 'Active Member')}"`,
+    `"${String(u.banReason || '').replace(/"/g, '""')}"`
   ]);
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `linkadda_users_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `jaigram_users_${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  showToast(`Exported ${users.length} users to CSV!`);
+  showToast(`Exported ${users.length} users to CSV!`, 'success');
 }
 
+// ══════════════════════════════════════════════════════════════════
+// USER STATUS MANAGEMENT (ACTIVE, PENDING, BANNED)
+// ══════════════════════════════════════════════════════════════════
+async function handleSetUserStatus(uid, email, newStatus) {
+  if (!uid && !email) {
+    showToast('Missing user identifier.', 'warning');
+    return;
+  }
+
+  let banReason = '';
+  if (newStatus === 'banned') {
+    const promptRes = prompt(`⚠️ Ban user account "${email || uid}"?\n\nEnter reason for account suspension (e.g. Terms violation, chargeback, spam):`, 'Violation of marketplace terms of service');
+    if (promptRes === null) return; // Cancelled
+    banReason = promptRes.trim() || 'Suspended by Administrator';
+  } else if (newStatus === 'pending') {
+    if (!confirm(`Mark customer "${email || uid}" as PENDING review?`)) return;
+  } else if (newStatus === 'active') {
+    if (!confirm(`Activate / Unban customer "${email || uid}"?`)) return;
+  }
+
+  showToast(`Updating status to ${newStatus.toUpperCase()}...`, 'info');
+
+  const payload = {
+    status: newStatus,
+    verified: newStatus !== 'pending',
+    updatedAt: Date.now(),
+  };
+
+  if (newStatus === 'banned') {
+    payload.banned = true;
+    payload.isBanned = true;
+    payload.bannedAt = Date.now();
+    payload.banReason = banReason;
+  } else {
+    payload.banned = false;
+    payload.isBanned = false;
+    payload.bannedAt = null;
+    payload.banReason = null;
+  }
+
+  try {
+    const updates = [];
+    if (uid) {
+      updates.push(update(ref(db, `customers/${uid}`), payload).catch(() => {}));
+      updates.push(update(ref(db, `events/customers/${uid}`), payload).catch(() => {}));
+    }
+    if (email) {
+      const cleanEmail = email.toLowerCase().trim();
+      const allCustomers = { ...(ui.data?.customers || {}), ...(ui.data?.events?.customers || {}) };
+      for (const [k, v] of Object.entries(allCustomers)) {
+        if (v && v.email && v.email.toLowerCase().trim() === cleanEmail) {
+          updates.push(update(ref(db, `customers/${k}`), payload).catch(() => {}));
+          updates.push(update(ref(db, `events/customers/${k}`), payload).catch(() => {}));
+        }
+      }
+    }
+    await Promise.allSettled(updates);
+
+    // Update in-memory state
+    if (ui.data?.customers && uid && ui.data.customers[uid]) {
+      Object.assign(ui.data.customers[uid], payload);
+    }
+    if (ui.data?.events?.customers && uid && ui.data.events.customers[uid]) {
+      Object.assign(ui.data.events.customers[uid], payload);
+    }
+    if (_usersCache) {
+      const found = _usersCache.find(u => (uid && u.uid === uid) || (email && u.email && u.email.toLowerCase() === email.toLowerCase()));
+      if (found) Object.assign(found, payload);
+    }
+
+    renderView(ui.data || {});
+    showToast(`✅ Customer status changed to ${newStatus.toUpperCase()}!`, 'success');
+  } catch (err) {
+    console.error('Failed to update user status:', err);
+    showToast(`Failed to update status: ${err?.message || err}`, 'danger');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SEND EMAIL / CAMPAIGN MODAL (OFFERS, DEALS, ANNOUNCEMENTS)
+// ══════════════════════════════════════════════════════════════════
+const EMAIL_TEMPLATES = {
+  deal: {
+    name: '🎁 50% OFF Deal',
+    subject: '🔥 Special 50% OFF Exclusive Deal Just For You on JaiGram!',
+    headline: 'EXCLUSIVE DEAL: 50% OFF YOUR NEXT DIGITAL PACK',
+    body: `Hello {NAME},\n\nWe have an exclusive gift for you! Enjoy a massive 50% discount on all trending digital resources, courses, and creator packs on JaiGram Shop.\n\nUse the promo code below at checkout to claim your savings instantly. Valid for the next 48 hours only!`,
+    coupon: 'JAIGRAM50',
+    btnLabel: 'Claim 50% OFF Now',
+    btnUrl: 'https://jaigram.shop',
+  },
+  flash: {
+    name: '⚡ Flash Sale Live',
+    subject: '⚡ Flash Sale Alert: Premium Digital Assets & Bundles Just Dropped!',
+    headline: 'FLASH SALE IS LIVE — LIMITED TIME SPECIALS',
+    body: `Hello {NAME},\n\nOur top creators just dropped fresh premium packs and exclusive bundles on JaiGram Shop!\n\nCheck out the newest additions before the flash sale prices expire.`,
+    coupon: 'FLASHDEAL',
+    btnLabel: 'Explore Flash Deals',
+    btnUrl: 'https://jaigram.shop',
+  },
+  announcement: {
+    name: '📢 Important Update',
+    subject: '📢 Exciting Updates & New Features on JaiGram Shop',
+    headline: 'COMMUNITY ANNOUNCEMENT & PLATFORM UPDATES',
+    body: `Hello {NAME},\n\nWe're continuously enhancing your marketplace experience. We've introduced faster instant downloads, unified creator storefronts, and multi-channel secure payments.\n\nThank you for being a valued part of our growing creator ecosystem!`,
+    coupon: '',
+    btnLabel: 'Visit JaiGram Shop',
+    btnUrl: 'https://jaigram.shop',
+  },
+  warning: {
+    name: '⚠️ Account Notice',
+    subject: '⚠️ Important Notice Regarding Your JaiGram Account',
+    headline: 'IMPORTANT ACCOUNT VERIFICATION NOTICE',
+    body: `Hello {NAME},\n\nThis is an official administrative notice regarding your JaiGram Shop customer account.\n\nPlease verify that your registered email and profile details are up to date to maintain uninterrupted access to your digital purchases.\n\nIf you have any questions, reply to this email or contact support.`,
+    coupon: '',
+    btnLabel: 'View Account Dashboard',
+    btnUrl: 'https://jaigram.shop/user/',
+  },
+  custom: {
+    name: '✍️ Custom Message',
+    subject: '',
+    headline: '',
+    body: '',
+    coupon: '',
+    btnLabel: 'Open JaiGram Shop',
+    btnUrl: 'https://jaigram.shop',
+  },
+};
+
+function buildLuxuryCampaignEmailHtml({ name = 'Valued Customer', headline = '', body = '', coupon = '', btnLabel = '', btnUrl = '' }) {
+  const paragraphs = body.split('\n\n').filter(Boolean).map(p => `<p style="margin: 0 0 16px 0; font-size: 14.5px; line-height: 1.65; color: #cbd5e1;">${escapeHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JaiGram Shop Special Offer</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #07060c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07060c; padding: 36px 14px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 540px; background: linear-gradient(165deg, #131022 0%, #090812 100%); border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 40px rgba(99, 102, 241, 0.15); overflow: hidden;">
+          
+          <!-- Header -->
+          <tr>
+            <td style="padding: 32px 30px 22px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
+              <div style="font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">
+                JaiGram <span style="color: #ff2a8d; font-size: 26px; margin: 0 4px;">&#9819;</span> <span style="background: linear-gradient(135deg, #ff2a8d 0%, #a855f7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Shop</span>
+              </div>
+              <div style="margin-top: 6px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">
+                Premium Digital Creator Marketplace
+              </div>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 36px 30px 28px;">
+              ${headline ? `
+                <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(99, 102, 241, 0.14); border: 1px solid rgba(99, 102, 241, 0.35); color: #818cf8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 18px;">
+                  &#128142; ${escapeHtml(headline)}
+                </div>
+              ` : ''}
+
+              <div style="margin-bottom: 24px;">
+                ${paragraphs}
+              </div>
+
+              ${coupon ? `
+                <div style="margin: 24px auto; padding: 18px 22px; background: rgba(255, 42, 141, 0.08); border: 2px dashed #ff2a8d; border-radius: 16px; text-align: center;">
+                  <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #ff65a3; letter-spacing: 1.5px; margin-bottom: 6px;">YOUR PROMO COUPON CODE</div>
+                  <div style="font-size: 28px; font-weight: 900; letter-spacing: 6px; color: #ffffff; font-family: monospace;">${escapeHtml(coupon)}</div>
+                  <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">Enter this code during checkout for instant savings</div>
+                </div>
+              ` : ''}
+
+              ${btnLabel && btnUrl ? `
+                <div style="text-align: center; margin: 30px 0 10px;">
+                  <a href="${escapeHtml(btnUrl)}" target="_blank" style="display: inline-block; padding: 14px 34px; background: linear-gradient(135deg, #ff2a8d 0%, #6366f1 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(255, 42, 141, 0.35); letter-spacing: 0.3px;">
+                    ${escapeHtml(btnLabel)} &rarr;
+                  </a>
+                </div>
+              ` : ''}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 22px 30px; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.06); background: rgba(0, 0, 0, 0.3);">
+              <p style="margin: 0 0 6px 0; font-size: 12px; color: #64748b;">
+                Sent with &hearts; from the JaiGram Shop Team &bull; <a href="https://jaigram.shop" style="color: #818cf8; text-decoration: none; font-weight: 600;">jaigram.shop</a>
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #475569;">
+                You are receiving this update because you have an account on JaiGram Shop.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+function renderSendMailModal(targetEmail = '', targetName = '') {
+  const allUsers = _buildUsersFromLiveData(ui.data || {});
+  const activeUsers = allUsers.filter(u => u.status === 'active');
+  const defaultTemplate = EMAIL_TEMPLATES.deal;
+  const isSingle = Boolean(targetEmail);
+
+  return `
+    <div class="modal glass email-composer-modal" style="display: flex; flex-direction: column; max-height: 88vh;">
+      
+      <!-- Modal Header -->
+      <div class="panel-head" style="padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2)); border: 1px solid rgba(99,102,241,0.4); display: flex; align-items: center; justify-content: center; color: #818cf8; font-size: 18px;">
+            <i data-lucide="mail"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #ffffff;">${isSingle ? 'Send Email to Customer' : 'Broadcast Email Campaign'}</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--muted);">${isSingle ? `Direct message to ${escapeHtml(targetEmail)}` : `Reach all registered customers via Brevo SMTP`}</p>
+          </div>
+        </div>
+        <button class="btn btn-ghost icon-only" type="button" data-close-modal title="Close"><i data-lucide="x"></i></button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div style="padding: 22px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px;">
+        
+        <!-- Audience Selector -->
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+            <i data-lucide="users" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 4px; color: #818cf8;"></i> Target Audience
+          </label>
+          ${isSingle ? `
+            <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <span style="font-size: 13.5px; font-weight: 750; color: #ffffff;">${escapeHtml(targetName || 'Customer')}</span>
+                <span style="font-size: 12px; color: #94a3b8; margin-left: 6px;">(${escapeHtml(targetEmail)})</span>
+              </div>
+              <input type="hidden" id="email-target-mode" value="single" />
+              <input type="hidden" id="email-target-single" value="${escapeHtml(targetEmail)}" />
+              <input type="hidden" id="email-target-name" value="${escapeHtml(targetName || '')}" />
+              <span class="badge" style="background: rgba(99,102,241,0.2); color: #818cf8; font-size: 11px;">Single Recipient</span>
+            </div>
+          ` : `
+            <select class="input" id="email-target-mode" style="width: 100%; font-size: 13px; font-weight: 600;">
+              <option value="all">📢 All Registered Customers (${allUsers.length} users)</option>
+              <option value="active" selected>✅ Active Members Only (${activeUsers.length} users)</option>
+              <option value="custom">✉️ Specific Email Address...</option>
+            </select>
+            <div id="email-single-input-row" style="display: none; margin-top: 10px;">
+              <input class="input" type="email" id="email-target-single" placeholder="Enter recipient email (e.g. user@gmail.com)" style="font-size: 13px;" />
+            </div>
+          `}
+        </div>
+
+        <!-- Quick Template Presets -->
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <label style="font-size: 12px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.05em;">
+              <i data-lucide="sparkles" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 4px; color: #ff2a8d;"></i> One-Click Email Templates
+            </label>
+            <span style="font-size: 11px; color: var(--muted);">Click to load preset</span>
+          </div>
+          <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
+            ${Object.entries(EMAIL_TEMPLATES).map(([key, tpl]) => `
+              <button type="button" class="template-pill-chip ${key === 'deal' ? 'selected' : ''}" data-action="apply-email-template" data-template="${key}">
+                ${tpl.name}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Email Subject -->
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Email Subject <span style="color: #ef4444;">*</span></label>
+          <input class="input" id="email-field-subject" type="text" placeholder="e.g. 🔥 Exclusive 50% OFF Deal Just For You on JaiGram!" value="${escapeHtml(defaultTemplate.subject)}" required style="font-size: 13.5px; font-weight: 600;" />
+        </div>
+
+        <!-- Banner / Headline -->
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Banner / Offer Headline</label>
+          <input class="input" id="email-field-headline" type="text" placeholder="e.g. EXCLUSIVE DEAL: 50% OFF YOUR NEXT PACK" value="${escapeHtml(defaultTemplate.headline)}" style="font-size: 13px;" />
+        </div>
+
+        <!-- Message Body -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Email Message Content <span style="color: #ef4444;">*</span></label>
+            <span style="font-size: 11px; color: #818cf8;">Tip: Use {NAME} for recipient name</span>
+          </div>
+          <textarea class="input" id="email-field-body" rows="5" placeholder="Type your message, offer terms, or deal details..." style="font-size: 13px; line-height: 1.6; resize: vertical;" required>${escapeHtml(defaultTemplate.body)}</textarea>
+        </div>
+
+        <!-- Promo Code & Action Button Row -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Promo / Coupon Code (Optional)</label>
+            <input class="input" id="email-field-coupon" type="text" placeholder="e.g. JAIGRAM50" value="${escapeHtml(defaultTemplate.coupon)}" style="font-family: monospace; font-weight: 700; text-transform: uppercase;" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Action Button Text</label>
+            <input class="input" id="email-field-btn-label" type="text" placeholder="e.g. Claim 50% OFF Now" value="${escapeHtml(defaultTemplate.btnLabel)}" />
+          </div>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Action Button URL</label>
+          <input class="input" id="email-field-btn-url" type="url" placeholder="https://jaigram.shop" value="${escapeHtml(defaultTemplate.btnUrl)}" />
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <span style="font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px;">
+          <i data-lucide="shield-check" style="width: 14px; height: 14px; color: #10b981;"></i> Dispatched via Brevo SMTP API
+        </span>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-ghost" type="button" data-close-modal>Cancel</button>
+          <button class="btn btn-primary" type="button" id="btn-dispatch-admin-email" data-action="dispatch-admin-email" style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); font-weight: 750;">
+            <i data-lucide="send" style="width: 14px; height: 14px;"></i> <span>Send Email Now</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+function applyEmailTemplate(tplKey) {
+  const tpl = EMAIL_TEMPLATES[tplKey];
+  if (!tpl) return;
+
+  const subjectEl = document.getElementById('email-field-subject');
+  const headlineEl = document.getElementById('email-field-headline');
+  const bodyEl = document.getElementById('email-field-body');
+  const couponEl = document.getElementById('email-field-coupon');
+  const btnLabelEl = document.getElementById('email-field-btn-label');
+  const btnUrlEl = document.getElementById('email-field-btn-url');
+
+  if (subjectEl) subjectEl.value = tpl.subject;
+  if (headlineEl) headlineEl.value = tpl.headline;
+  if (bodyEl) bodyEl.value = tpl.body;
+  if (couponEl) couponEl.value = tpl.coupon;
+  if (btnLabelEl) btnLabelEl.value = tpl.btnLabel;
+  if (btnUrlEl) btnUrlEl.value = tpl.btnUrl;
+
+  document.querySelectorAll('.template-pill-chip').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.template === tplKey);
+  });
+  showToast(`Loaded "${tpl.name}" template!`, 'info');
+}
+
+function attachEmailModalListeners() {
+  const modeSelect = document.getElementById('email-target-mode');
+  const singleRow = document.getElementById('email-single-input-row');
+  if (modeSelect && singleRow) {
+    modeSelect.addEventListener('change', () => {
+      singleRow.style.display = modeSelect.value === 'custom' ? 'block' : 'none';
+    });
+  }
+}
+
+async function handleDispatchAdminEmail() {
+  const btn = document.getElementById('btn-dispatch-admin-email');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2"></i> Sending...';
+    if (window.lucide) lucide.createIcons({ node: btn });
+  }
+
+  const subject = document.getElementById('email-field-subject')?.value?.trim();
+  const headline = document.getElementById('email-field-headline')?.value?.trim();
+  const body = document.getElementById('email-field-body')?.value?.trim();
+  const coupon = document.getElementById('email-field-coupon')?.value?.trim();
+  const btnLabel = document.getElementById('email-field-btn-label')?.value?.trim();
+  const btnUrl = document.getElementById('email-field-btn-url')?.value?.trim();
+  const targetMode = document.getElementById('email-target-mode')?.value || 'all';
+  const singleEmail = document.getElementById('email-target-single')?.value?.trim();
+
+  if (!subject || !body) {
+    showToast('Please enter both Email Subject and Message Body.', 'warning');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="send"></i> Send Email Now';
+      if (window.lucide) lucide.createIcons({ node: btn });
+    }
+    return;
+  }
+
+  let recipients = [];
+  const allUsers = _buildUsersFromLiveData(ui.data || {});
+
+  if (targetMode === 'single' || targetMode === 'custom') {
+    if (!singleEmail) {
+      showToast('Please enter a recipient email address.', 'warning');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="send"></i> Send Email Now';
+        if (window.lucide) lucide.createIcons({ node: btn });
+      }
+      return;
+    }
+    recipients = [{ email: singleEmail, name: document.getElementById('email-target-name')?.value || singleEmail.split('@')[0] }];
+  } else if (targetMode === 'active') {
+    recipients = allUsers.filter(u => u.status === 'active' && u.email).map(u => ({ email: u.email, name: u.displayName || u.email.split('@')[0] }));
+  } else {
+    recipients = allUsers.filter(u => u.email).map(u => ({ email: u.email, name: u.displayName || u.email.split('@')[0] }));
+  }
+
+  if (!recipients.length) {
+    showToast('No valid recipients found with email addresses.', 'warning');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="send"></i> Send Email Now';
+      if (window.lucide) lucide.createIcons({ node: btn });
+    }
+    return;
+  }
+
+  showToast(`Dispatching campaign to ${recipients.length} customer(s)...`, 'info');
+
+  try {
+    const chunkSize = 50;
+    let sentCount = 0;
+    for (let i = 0; i < recipients.length; i += chunkSize) {
+      const chunk = recipients.slice(i, i + chunkSize);
+      const isSingleRecip = chunk.length === 1;
+      const htmlContent = buildLuxuryCampaignEmailHtml({
+        name: isSingleRecip ? chunk[0].name : 'Valued Customer',
+        headline,
+        body: body.replace(/{NAME}/g, isSingleRecip ? chunk[0].name : 'Valued Customer'),
+        coupon,
+        btnLabel,
+        btnUrl,
+      });
+
+      const ok = await sendAdminNotificationEmail({
+        to: chunk,
+        subject,
+        htmlContent,
+      });
+      if (ok) sentCount += chunk.length;
+    }
+
+    closeModal();
+    showToast(`🎉 Email campaign successfully sent to ${recipients.length} customer(s)!`, 'success');
+  } catch (err) {
+    console.error('Email dispatch error:', err);
+    showToast(`Failed to send email: ${err?.message || err}`, 'danger');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="send"></i> Send Email Now';
+      if (window.lucide) lucide.createIcons({ node: btn });
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// USERS MANAGEMENT VIEW (DESKTOP TABLE + MOBILE CARDS)
+// ══════════════════════════════════════════════════════════════════
 function renderUsersManagementView(data = {}, fullData = {}) {
-  // Build users list directly from live RTDB data — no API dependency
   const allUsers = _buildUsersFromLiveData(data);
 
   const totalCount = allUsers.length;
+  const activeCount = allUsers.filter(u => u.status === 'active').length;
+  const pendingCount = allUsers.filter(u => u.status === 'pending').length;
+  const bannedCount = allUsers.filter(u => u.status === 'banned').length;
   const googleCount = allUsers.filter(u => (u.providers && u.providers.includes('google')) || u.provider === 'google').length;
   const otpCount = allUsers.filter(u => (u.providers && u.providers.includes('email_otp')) || u.provider === 'email_otp').length;
-  const verifiedCount = allUsers.filter(u => u.verified !== false).length;
 
   const searchTerm = String(ui.usersSearch || '').toLowerCase().trim();
-  const providerFilter = ui.usersProvider || 'all';
+  const currentFilter = ui.usersFilter || 'all';
 
   let filtered = allUsers;
   if (searchTerm) {
@@ -8070,16 +8551,21 @@ function renderUsersManagementView(data = {}, fullData = {}) {
       const name = String(u.displayName || '').toLowerCase();
       const email = String(u.email || '').toLowerCase();
       const uid = String(u.uid || '').toLowerCase();
-      return name.includes(searchTerm) || email.includes(searchTerm) || uid.includes(searchTerm);
+      const status = String(u.status || '').toLowerCase();
+      return name.includes(searchTerm) || email.includes(searchTerm) || uid.includes(searchTerm) || status.includes(searchTerm);
     });
   }
 
-  if (providerFilter === 'google') {
+  if (currentFilter === 'active') {
+    filtered = filtered.filter(u => u.status === 'active');
+  } else if (currentFilter === 'pending') {
+    filtered = filtered.filter(u => u.status === 'pending');
+  } else if (currentFilter === 'banned') {
+    filtered = filtered.filter(u => u.status === 'banned');
+  } else if (currentFilter === 'google') {
     filtered = filtered.filter(u => (u.providers && u.providers.includes('google')) || u.provider === 'google');
-  } else if (providerFilter === 'email_otp') {
+  } else if (currentFilter === 'email_otp') {
     filtered = filtered.filter(u => (u.providers && u.providers.includes('email_otp')) || u.provider === 'email_otp');
-  } else if (providerFilter === 'both') {
-    filtered = filtered.filter(u => u.providers && u.providers.includes('google') && u.providers.includes('email_otp'));
   }
 
   return `
@@ -8089,57 +8575,70 @@ function renderUsersManagementView(data = {}, fullData = {}) {
       <section class="panel glass" style="padding: 24px 28px; border-radius: 16px; margin-bottom: 24px; border: 1px solid var(--border);">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
           <div>
-            <div style="font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">User Directory & Growth</div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">User Directory & Customer Operations</div>
             <h2 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text);">Registered Customers & Users</h2>
-            <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 13px;">Live view of all customers registered via Continue with Google or Email OTP with exact joined dates.</p>
+            <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 13px;">Manage customer accounts, update Active/Pending/Banned status, and broadcast deals & offers via email.</p>
           </div>
-          <div class="toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <button class="btn btn-ghost" type="button" data-action="refresh-users" title="Refresh user list"><i data-lucide="refresh-cw"></i> Refresh</button>
-            <button class="btn btn-ghost" type="button" data-action="export-users-csv" title="Export users to CSV"><i data-lucide="download"></i> Export CSV</button>
+          <div class="users-toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-primary" type="button" data-action="open-broadcast-mail" style="display: inline-flex; align-items: center; gap: 7px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #fff; font-weight: 750; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);">
+              <i data-lucide="send" style="width: 14px; height: 14px;"></i> <span>Send Email Campaign</span>
+            </button>
+            <button class="btn btn-ghost" type="button" data-action="refresh-users" title="Refresh user list">
+              <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> <span>Refresh</span>
+            </button>
+            <button class="btn btn-ghost" type="button" data-action="export-users-csv" title="Export users to CSV">
+              <i data-lucide="download" style="width: 14px; height: 14px;"></i> <span>Export CSV</span>
+            </button>
           </div>
         </div>
 
         <!-- Metric KPI Cards -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06);">
+        <div class="users-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06);">
           <div style="background: rgba(99, 102, 241, 0.06); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 14px; padding: 16px 18px;">
-            <div style="font-size: 11px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em;">Total Customers</div>
+            <div style="font-size: 11px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em;">Total Accounts</div>
             <div style="font-size: 26px; font-weight: 800; color: #fff; margin-top: 4px;">${totalCount}</div>
             <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Unified registered accounts</div>
           </div>
 
-          <div style="background: rgba(66, 133, 244, 0.06); border: 1px solid rgba(66, 133, 244, 0.25); border-radius: 14px; padding: 16px 18px;">
-            <div style="font-size: 11px; font-weight: 700; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.05em;">Google Auth</div>
-            <div style="font-size: 26px; font-weight: 800; color: #93c5fd; margin-top: 4px;">${googleCount}</div>
-            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Connected with Google</div>
-          </div>
-
-          <div style="background: rgba(255, 42, 141, 0.06); border: 1px solid rgba(255, 42, 141, 0.25); border-radius: 14px; padding: 16px 18px;">
-            <div style="font-size: 11px; font-weight: 700; color: #ff65a3; text-transform: uppercase; letter-spacing: 0.05em;">Email OTP</div>
-            <div style="font-size: 26px; font-weight: 800; color: #ff8abf; margin-top: 4px;">${otpCount}</div>
-            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Verified via OTP code</div>
-          </div>
-
           <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 16px 18px;">
-            <div style="font-size: 11px; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em;">Verified Members</div>
-            <div style="font-size: 26px; font-weight: 800; color: #34d399; margin-top: 4px;">${verifiedCount}</div>
-            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">100% Active members</div>
+            <div style="font-size: 11px; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em;">Active Members</div>
+            <div style="font-size: 26px; font-weight: 800; color: #34d399; margin-top: 4px;">${activeCount}</div>
+            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Full access granted</div>
+          </div>
+
+          <div style="background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 14px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.05em;">Pending Review</div>
+            <div style="font-size: 26px; font-weight: 800; color: #fcd34d; margin-top: 4px;">${pendingCount}</div>
+            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Verification pending</div>
+          </div>
+
+          <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 14px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; color: #f87171; text-transform: uppercase; letter-spacing: 0.05em;">Banned / Suspended</div>
+            <div style="font-size: 26px; font-weight: 800; color: #fca5a5; margin-top: 4px;">${bannedCount}</div>
+            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Blocked from platform</div>
           </div>
         </div>
       </section>
 
       <!-- Status / Provider Filter Tabs -->
-      <div class="order-tabs-nav" style="margin-bottom: 18px; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button type="button" class="order-tab-btn ${providerFilter === 'all' ? 'active' : ''}" data-action="set-users-filter" data-filter="all">
+      <div class="order-tabs-nav users-filter-nav" style="margin-bottom: 18px; display: flex; gap: 8px;">
+        <button type="button" class="order-tab-btn ${currentFilter === 'all' ? 'active' : ''}" data-action="set-users-filter" data-filter="all">
           All Users <span>${totalCount}</span>
         </button>
-        <button type="button" class="order-tab-btn ${providerFilter === 'google' ? 'active' : ''}" data-action="set-users-filter" data-filter="google">
-          <i data-lucide="chrome" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"></i> Google Auth <span>${googleCount}</span>
+        <button type="button" class="order-tab-btn ${currentFilter === 'active' ? 'active' : ''}" data-action="set-users-filter" data-filter="active">
+          <i data-lucide="check-circle-2" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; color: #34d399;"></i> Active <span>${activeCount}</span>
         </button>
-        <button type="button" class="order-tab-btn ${providerFilter === 'email_otp' ? 'active' : ''}" data-action="set-users-filter" data-filter="email_otp">
-          <i data-lucide="mail" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"></i> Email OTP <span>${otpCount}</span>
+        <button type="button" class="order-tab-btn ${currentFilter === 'pending' ? 'active' : ''}" data-action="set-users-filter" data-filter="pending">
+          <i data-lucide="clock" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; color: #fbbf24;"></i> Pending <span>${pendingCount}</span>
         </button>
-        <button type="button" class="order-tab-btn ${providerFilter === 'both' ? 'active' : ''}" data-action="set-users-filter" data-filter="both">
-          <i data-lucide="shield-check" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"></i> Dual Linked
+        <button type="button" class="order-tab-btn ${currentFilter === 'banned' ? 'active' : ''}" data-action="set-users-filter" data-filter="banned">
+          <i data-lucide="shield-alert" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; color: #f87171;"></i> Banned <span>${bannedCount}</span>
+        </button>
+        <button type="button" class="order-tab-btn ${currentFilter === 'google' ? 'active' : ''}" data-action="set-users-filter" data-filter="google">
+          <i data-lucide="chrome" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; color: #60a5fa;"></i> Google <span>${googleCount}</span>
+        </button>
+        <button type="button" class="order-tab-btn ${currentFilter === 'email_otp' ? 'active' : ''}" data-action="set-users-filter" data-filter="email_otp">
+          <i data-lucide="mail" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; color: #ff65a3;"></i> Email OTP <span>${otpCount}</span>
         </button>
       </div>
 
@@ -8147,25 +8646,25 @@ function renderUsersManagementView(data = {}, fullData = {}) {
       <div class="panel glass" style="padding: 16px 20px; border-radius: 14px; margin-bottom: 20px; border: 1px solid var(--border);">
         <div style="display: flex; gap: 14px; align-items: center;">
           <div style="flex: 1; position: relative;">
-            <input class="input" id="usersSearchInput" type="search" placeholder="Search by name, email address, or #LA-UID..." value="${escapeHtml(ui.usersSearch || '')}" style="padding-left: 38px;" />
+            <input class="input" id="usersSearchInput" type="search" placeholder="Search by name, email, #LA-UID, or status (active/banned)..." value="${escapeHtml(ui.usersSearch || '')}" style="padding-left: 38px;" />
             <i data-lucide="search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); width: 16px; height: 16px;"></i>
           </div>
           <span class="chip" style="white-space: nowrap;">${filtered.length} of ${totalCount} users</span>
         </div>
       </div>
 
-      <!-- Users Table -->
-      <section class="panel glass" style="border-radius: 16px; border: 1px solid var(--border); overflow: hidden; padding: 0;">
-        <div class="table-wrap" style="margin: 0; max-height: 700px; overflow-y: auto;">
+      <!-- 1. DESKTOP VIEW: FULL DATA TABLE (Visible > 860px) -->
+      <section class="panel glass users-desktop-table" style="border-radius: 16px; border: 1px solid var(--border); overflow: hidden; padding: 0;">
+        <div class="table-wrap" style="margin: 0; max-height: 720px; overflow-y: auto;">
           <table class="table" style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
-                <th style="min-width: 240px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Customer Name</th>
-                <th style="min-width: 260px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Email Address</th>
-                <th style="min-width: 200px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Joined Date</th>
-                <th style="min-width: 180px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Auth Method</th>
-                <th style="min-width: 140px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Membership</th>
-                <th style="min-width: 100px; padding: 14px 20px; text-align: right; font-size: 11px; text-transform: uppercase; color: var(--muted);">Actions</th>
+                <th style="min-width: 220px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Customer Name</th>
+                <th style="min-width: 240px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Email Address</th>
+                <th style="min-width: 170px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Joined Date</th>
+                <th style="min-width: 150px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Auth Method</th>
+                <th style="min-width: 180px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Account Status</th>
+                <th style="min-width: 180px; padding: 14px 20px; text-align: right; font-size: 11px; text-transform: uppercase; color: var(--muted);">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -8176,17 +8675,18 @@ function renderUsersManagementView(data = {}, fullData = {}) {
                 const shortUid = uid.startsWith('cust_') ? `#LA-${uid.slice(-6).toUpperCase()}` : uid;
                 const initials = name.slice(0, 2).toUpperCase() || 'CU';
                 const joinedDate = u.createdAt ? new Date(u.createdAt) : new Date();
-                const joinedDateStr = joinedDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+                const joinedDateStr = joinedDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
                 const joinedTimeStr = joinedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                 const providers = Array.isArray(u.providers) ? u.providers : (u.provider ? [u.provider] : ['email_otp']);
                 const hasGoogle = providers.includes('google');
                 const hasOtp = providers.includes('email_otp');
+                const status = u.status || 'active';
 
                 return `
                   <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s ease;">
                     <td style="padding: 16px 20px;">
                       <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, rgba(255,42,141,0.2), rgba(168,85,247,0.2)); border: 1px solid rgba(255,42,141,0.3); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #ff65a3;">
+                        <div style="width: 38px; height: 38px; border-radius: 10px; background: ${status === 'banned' ? 'rgba(239, 68, 68, 0.2)' : 'linear-gradient(135deg, rgba(255,42,141,0.2), rgba(168,85,247,0.2))'}; border: 1px solid ${status === 'banned' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255,42,141,0.3)'}; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: ${status === 'banned' ? '#f87171' : '#ff65a3'};">
                           ${escapeHtml(initials)}
                         </div>
                         <div>
@@ -8198,15 +8698,17 @@ function renderUsersManagementView(data = {}, fullData = {}) {
                     <td style="padding: 16px 20px;">
                       <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 13px; color: #cbd5e1; font-weight: 600;">${escapeHtml(email)}</span>
-                        <button type="button" class="btn btn-ghost" style="padding: 4px 8px; font-size: 11px;" onclick="copyText('${escapeHtml(email)}'); showToast('Email copied!');" title="Copy Email">
-                          <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
-                        </button>
+                        ${email !== '—' ? `
+                          <button type="button" class="btn btn-ghost" style="padding: 4px 7px; font-size: 11px;" onclick="copyText('${escapeHtml(email)}'); showToast('Email copied!');" title="Copy Email">
+                            <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
+                          </button>
+                        ` : ''}
                       </div>
                     </td>
                     <td style="padding: 16px 20px;">
                       <div style="display: flex; flex-direction: column; gap: 2px;">
                         <div style="font-size: 13px; font-weight: 700; color: #ffffff;">
-                          <i data-lucide="calendar" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; color: #ff2a8d; margin-right: 4px;"></i>${escapeHtml(joinedDateStr)}
+                          <i data-lucide="calendar" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; color: #818cf8; margin-right: 4px;"></i>${escapeHtml(joinedDateStr)}
                         </div>
                         <div style="font-size: 11px; color: var(--muted);">${escapeHtml(joinedTimeStr)}</div>
                       </div>
@@ -8226,14 +8728,44 @@ function renderUsersManagementView(data = {}, fullData = {}) {
                       </div>
                     </td>
                     <td style="padding: 16px 20px;">
-                      <span style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 750; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399;">
-                        <i data-lucide="shield-check" style="width: 12px; height: 12px;"></i> Verified Member
-                      </span>
+                      <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start;">
+                        <span class="user-status-pill ${status}">
+                          ${status === 'active' ? '<i data-lucide="check-circle-2" style="width: 11px; height: 11px;"></i> Active Member' : ''}
+                          ${status === 'pending' ? '<i data-lucide="clock" style="width: 11px; height: 11px;"></i> Pending Review' : ''}
+                          ${status === 'banned' ? '<i data-lucide="shield-alert" style="width: 11px; height: 11px;"></i> Suspended / Banned' : ''}
+                        </span>
+                        
+                        <!-- Quick Status Switch Buttons -->
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                          ${status !== 'active' ? `
+                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #34d399; border: 1px solid rgba(16,185,129,0.3);" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="active" title="Set Active">
+                              <i data-lucide="check" style="width: 11px; height: 11px;"></i> Active
+                            </button>
+                          ` : ''}
+                          ${status !== 'pending' ? `
+                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #fbbf24; border: 1px solid rgba(245,158,11,0.3);" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="pending" title="Set Pending">
+                              <i data-lucide="clock" style="width: 11px; height: 11px;"></i> Pending
+                            </button>
+                          ` : ''}
+                          ${status !== 'banned' ? `
+                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #f87171; border: 1px solid rgba(239,68,68,0.3);" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="banned" title="Ban User">
+                              <i data-lucide="ban" style="width: 11px; height: 11px;"></i> Ban
+                            </button>
+                          ` : ''}
+                        </div>
+                      </div>
                     </td>
                     <td style="padding: 16px 20px; text-align: right;">
-                      <button type="button" class="btn btn-ghost" style="padding: 6px 12px; font-size: 12px;" onclick="copyText('${escapeHtml(uid)}'); showToast('Customer UID copied!');" title="Copy User ID">
-                        <i data-lucide="fingerprint" style="width: 13px; height: 13px;"></i> Copy ID
-                      </button>
+                      <div style="display: inline-flex; gap: 6px; align-items: center; justify-content: flex-end;">
+                        ${email !== '—' ? `
+                          <button type="button" class="btn btn-ghost" style="padding: 6px 11px; font-size: 12px; color: #818cf8; border-color: rgba(99,102,241,0.3);" data-action="open-user-mail" data-user-email="${escapeHtml(email)}" data-user-name="${escapeHtml(name)}" title="Send Email">
+                            <i data-lucide="mail" style="width: 13px; height: 13px;"></i> Mail
+                          </button>
+                        ` : ''}
+                        <button type="button" class="btn btn-ghost" style="padding: 6px 10px; font-size: 12px;" onclick="copyText('${escapeHtml(uid)}'); showToast('Customer UID copied!');" title="Copy User ID">
+                          <i data-lucide="fingerprint" style="width: 13px; height: 13px;"></i> ID
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 `;
@@ -8246,7 +8778,7 @@ function renderUsersManagementView(data = {}, fullData = {}) {
                       </div>
                       <h4 style="margin: 0; font-size: 16px; font-weight: 750; color: #fff;">No Customers Found</h4>
                       <p style="margin: 0; color: var(--muted); font-size: 13px; max-width: 360px;">
-                        ${searchTerm ? 'No registered customers matched your search query. Try clearing filters.' : 'Customers who authenticate with Google or Email OTP will appear here automatically with their joined dates.'}
+                        ${searchTerm ? 'No registered customers matched your search query. Try clearing filters.' : 'Customers who authenticate with Google or Email OTP will appear here automatically.'}
                       </p>
                     </div>
                   </td>
@@ -8256,6 +8788,118 @@ function renderUsersManagementView(data = {}, fullData = {}) {
           </table>
         </div>
       </section>
+
+      <!-- 2. MOBILE VIEW: ULTRA-POLISHED CUSTOMER CARDS (Visible <= 860px) -->
+      <div class="users-mobile-cards">
+        ${filtered.length ? filtered.map((u) => {
+          const name = u.displayName || 'Customer';
+          const email = u.email || '—';
+          const uid = u.uid || '—';
+          const shortUid = uid.startsWith('cust_') ? `#LA-${uid.slice(-6).toUpperCase()}` : uid;
+          const initials = name.slice(0, 2).toUpperCase() || 'CU';
+          const joinedDate = u.createdAt ? new Date(u.createdAt) : new Date();
+          const joinedDateStr = joinedDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+          const providers = Array.isArray(u.providers) ? u.providers : (u.provider ? [u.provider] : ['email_otp']);
+          const hasGoogle = providers.includes('google');
+          const hasOtp = providers.includes('email_otp');
+          const status = u.status || 'active';
+
+          return `
+            <div class="user-mobile-card status-${status}">
+              
+              <!-- Card Top Header -->
+              <div class="user-mobile-card-head">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                  <div class="user-mobile-avatar" style="background: ${status === 'banned' ? 'rgba(239,68,68,0.2)' : 'linear-gradient(135deg, rgba(255,42,141,0.2), rgba(168,85,247,0.2))'}; border: 1px solid ${status === 'banned' ? 'rgba(239,68,68,0.4)' : 'rgba(255,42,141,0.35)'}; color: ${status === 'banned' ? '#f87171' : '#ff65a3'};">
+                    ${escapeHtml(initials)}
+                  </div>
+                  <div style="min-width: 0; flex: 1;">
+                    <h4 class="user-mobile-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(name)}</h4>
+                    <div class="user-mobile-uid">${escapeHtml(shortUid)}</div>
+                  </div>
+                </div>
+
+                <span class="user-status-pill ${status}">
+                  ${status === 'active' ? '<i data-lucide="check-circle-2" style="width: 10px; height: 10px;"></i> Active' : ''}
+                  ${status === 'pending' ? '<i data-lucide="clock" style="width: 10px; height: 10px;"></i> Pending' : ''}
+                  ${status === 'banned' ? '<i data-lucide="shield-alert" style="width: 10px; height: 10px;"></i> Banned' : ''}
+                </span>
+              </div>
+
+              <!-- Banned Reason Alert (if banned) -->
+              ${status === 'banned' ? `
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 10px; padding: 8px 12px; font-size: 11.5px; color: #fca5a5;">
+                  <strong>⚠️ Account Suspended:</strong> ${escapeHtml(u.banReason || 'Violation of marketplace terms of service')}
+                </div>
+              ` : ''}
+
+              <!-- Email Row with 1-Tap Copy -->
+              <div class="user-mobile-email-row">
+                <span class="user-mobile-email-text">${escapeHtml(email)}</span>
+                ${email !== '—' ? `
+                  <button type="button" class="btn btn-ghost" style="padding: 4px 8px; font-size: 11px; height: 26px;" onclick="copyText('${escapeHtml(email)}'); showToast('Email copied!');" title="Copy Email">
+                    <i data-lucide="copy" style="width: 11px; height: 11px;"></i> Copy
+                  </button>
+                ` : ''}
+              </div>
+
+              <!-- 2-Column Meta Grid -->
+              <div class="user-mobile-meta-grid">
+                <div class="user-mobile-meta-item">
+                  <span class="user-mobile-meta-lbl">Auth Method</span>
+                  <span class="user-mobile-meta-val" style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+                    ${hasGoogle ? `<span style="color: #60a5fa;"><i data-lucide="chrome" style="width: 11px; height: 11px; display: inline-block; vertical-align: middle;"></i> Google</span>` : ''}
+                    ${hasOtp ? `<span style="color: #ff65a3;"><i data-lucide="mail" style="width: 11px; height: 11px; display: inline-block; vertical-align: middle;"></i> Email OTP</span>` : ''}
+                  </span>
+                </div>
+
+                <div class="user-mobile-meta-item">
+                  <span class="user-mobile-meta-lbl">Joined Date</span>
+                  <span class="user-mobile-meta-val" style="color: #cbd5e1;">
+                    <i data-lucide="calendar" style="width: 11px; height: 11px; display: inline-block; vertical-align: middle; color: #818cf8; margin-right: 3px;"></i>${escapeHtml(joinedDateStr)}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Card Bottom Actions -->
+              <div class="user-mobile-actions">
+                ${status !== 'active' ? `
+                  <button type="button" class="btn btn-ghost" style="color: #34d399; border-color: rgba(16,185,129,0.3); font-size: 12px;" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="active" title="Set Active">
+                    <i data-lucide="check-circle" style="width: 13px; height: 13px;"></i> <span>Active</span>
+                  </button>
+                ` : ''}
+                ${status !== 'pending' ? `
+                  <button type="button" class="btn btn-ghost" style="color: #fbbf24; border-color: rgba(245,158,11,0.3); font-size: 12px;" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="pending" title="Set Pending">
+                    <i data-lucide="clock" style="width: 13px; height: 13px;"></i> <span>Pending</span>
+                  </button>
+                ` : ''}
+                ${status !== 'banned' ? `
+                  <button type="button" class="btn btn-ghost" style="color: #f87171; border-color: rgba(239,68,68,0.3); font-size: 12px;" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="banned" title="Ban User">
+                    <i data-lucide="ban" style="width: 13px; height: 13px;"></i> <span>Ban</span>
+                  </button>
+                ` : ''}
+                ${email !== '—' ? `
+                  <button type="button" class="btn btn-ghost" style="color: #818cf8; border-color: rgba(99,102,241,0.3); font-size: 12px;" data-action="open-user-mail" data-user-email="${escapeHtml(email)}" data-user-name="${escapeHtml(name)}" title="Send Mail">
+                    <i data-lucide="send" style="width: 13px; height: 13px;"></i> <span>Mail</span>
+                  </button>
+                ` : ''}
+                <button type="button" class="btn btn-ghost" style="font-size: 12px;" onclick="copyText('${escapeHtml(u.uid)}'); showToast('UID copied!');" title="Copy User ID">
+                  <i data-lucide="fingerprint" style="width: 13px; height: 13px;"></i> <span>ID</span>
+                </button>
+              </div>
+
+            </div>
+          `;
+        }).join('') : `
+          <div class="panel glass" style="padding: 40px 20px; text-align: center; border-radius: 16px;">
+            <div style="font-size: 28px; color: var(--muted); margin-bottom: 8px;">
+              <i data-lucide="users"></i>
+            </div>
+            <h4 style="margin: 0; font-size: 15px; color: #fff;">No Customers Found</h4>
+            <p style="margin: 6px 0 0; color: var(--muted); font-size: 12px;">Try adjusting your search terms or filter pills.</p>
+          </div>
+        `}
+      </div>
 
     </div>
   `;
@@ -11162,8 +11806,37 @@ function attachGlobalHandlers() {
       return;
     }
     if (action === 'set-users-filter') {
+      ui.usersFilter = actionBtn.dataset.filter || 'all';
       ui.usersProvider = actionBtn.dataset.filter || 'all';
       renderView(ui.data || {});
+      return;
+    }
+    if (action === 'set-user-status') {
+      const targetUid = actionBtn.dataset.uid || '';
+      const targetEmail = actionBtn.dataset.email || '';
+      const newStatus = actionBtn.dataset.status || 'active';
+      await handleSetUserStatus(targetUid, targetEmail, newStatus);
+      return;
+    }
+    if (action === 'open-broadcast-mail') {
+      openModal(renderSendMailModal());
+      attachEmailModalListeners();
+      return;
+    }
+    if (action === 'open-user-mail') {
+      const email = actionBtn.dataset.userEmail || '';
+      const name = actionBtn.dataset.userName || '';
+      openModal(renderSendMailModal(email, name));
+      attachEmailModalListeners();
+      return;
+    }
+    if (action === 'apply-email-template') {
+      const tplKey = actionBtn.dataset.template || 'deal';
+      applyEmailTemplate(tplKey);
+      return;
+    }
+    if (action === 'dispatch-admin-email') {
+      await handleDispatchAdminEmail();
       return;
     }
     if (action === 'set-sellers-tab') {

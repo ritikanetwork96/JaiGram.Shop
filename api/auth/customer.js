@@ -239,6 +239,15 @@ export default async function handler(req, res) {
         });
       }
 
+      if (customer && (customer.status === 'banned' || customer.banned || customer.isBanned) && !isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: customer.banReason ? `Your account has been suspended: ${customer.banReason}` : 'Your account has been suspended by administration. Please contact support.',
+          banned: true,
+          status: 'banned',
+        });
+      }
+
       // Provide comprehensive customer details for the user with strictly verified wallet balance
       let verifiedWalletBal = Number(customer?.walletBalance);
       if (isNaN(verifiedWalletBal) || verifiedWalletBal < 0 || verifiedWalletBal === 120 || verifiedWalletBal >= 50000 || String(customer?.walletBalance).includes('11220') || String(customer?.walletBalance).includes('100011')) {
@@ -309,6 +318,18 @@ export default async function handler(req, res) {
         existing = await fetchCustomerRecord(oldUid, token);
       }
 
+      // Security check: Check if user account has been suspended or banned
+      if (existing && (existing.status === 'banned' || existing.banned || existing.isBanned)) {
+        const isAdminCaller = await isAuthorizedAdmin(req);
+        if (!isAdminCaller) {
+          return res.status(403).json({
+            error: existing.banReason ? `Your account has been suspended: ${existing.banReason}` : 'Your account has been suspended by administration. Please contact support.',
+            banned: true,
+            status: 'banned',
+          });
+        }
+      }
+
       // Extract incoming requested name
       const incomingName = String(body.newName || body.name || body.displayName || '').trim();
 
@@ -370,6 +391,7 @@ export default async function handler(req, res) {
       const incomingUsername = String(body.username || body.handle || '').trim().replace(/^@/, '');
       const finalUsername = incomingUsername || existing?.username || existing?.handle || (email ? email.split('@')[0] : '');
 
+      const userStatus = existing?.status || (existing?.banned ? 'banned' : 'active');
       const unifiedCustomer = {
         ...(existing || {}),
         uid,
@@ -383,7 +405,12 @@ export default async function handler(req, res) {
         totalOrders: existing?.totalOrders !== undefined ? existing.totalOrders : 0,
         provider: incomingProvider,
         providers: mergedProviders.length ? mergedProviders : [incomingProvider],
-        verified: true,
+        verified: existing?.verified !== undefined ? existing.verified : true,
+        status: userStatus,
+        banned: existing?.banned || false,
+        isBanned: existing?.isBanned || false,
+        banReason: existing?.banReason || null,
+        bannedAt: existing?.bannedAt || null,
         createdAt: existing?.createdAt || Date.now(),
         lastLoginAt: Date.now(),
         updatedAt: Date.now(),

@@ -794,17 +794,32 @@
 
             <div class="form-group">
               <label for="prof-cur-pwd">Current Password</label>
-              <input type="password" id="prof-cur-pwd" name="currentPassword" class="editor-input" placeholder="Enter current password" />
+              <div class="pwd-input-wrap">
+                <input type="password" id="prof-cur-pwd" name="currentPassword" class="editor-input" placeholder="Enter current password" />
+                <button type="button" class="btn-pwd-icon" data-toggle-for="prof-cur-pwd" title="Toggle password visibility">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
             </div>
 
             <div class="form-group" style="margin-top: 14px;">
               <label for="prof-new-pwd">New Password (min 6 characters)</label>
-              <input type="password" id="prof-new-pwd" name="newPassword" class="editor-input" placeholder="Choose new strong password" minlength="6" />
+              <div class="pwd-input-wrap">
+                <input type="password" id="prof-new-pwd" name="newPassword" class="editor-input" placeholder="Choose new strong password" minlength="6" />
+                <button type="button" class="btn-pwd-icon" data-toggle-for="prof-new-pwd" title="Toggle password visibility">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
             </div>
 
             <div class="form-group" style="margin-top: 14px;">
               <label for="prof-confirm-pwd">Confirm New Password</label>
-              <input type="password" id="prof-confirm-pwd" name="confirmPassword" class="editor-input" placeholder="Re-type new password" minlength="6" />
+              <div class="pwd-input-wrap">
+                <input type="password" id="prof-confirm-pwd" name="confirmPassword" class="editor-input" placeholder="Re-type new password" minlength="6" />
+                <button type="button" class="btn-pwd-icon" data-toggle-for="prof-confirm-pwd" title="Toggle password visibility">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
             </div>
           </div>
 

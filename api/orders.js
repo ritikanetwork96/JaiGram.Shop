@@ -50,8 +50,8 @@ function normalizeOrder(id, raw) {
     productTitle: title,
     productName: title,
     title,
-    sellerName: raw.sellerName || raw.seller || 'LinkAdda Verified',
-    seller: raw.sellerName || raw.seller || 'LinkAdda Verified',
+    sellerName: raw.sellerName || raw.seller || 'JaiGram Verified',
+    seller: raw.sellerName || raw.seller || 'JaiGram Verified',
     buyerEmail: email,
     email,
     customerName: buyerName,
@@ -223,8 +223,8 @@ export default async function handler(req, res) {
                   if (!ord.thumbnail || ord.thumbnail === '') ord.thumbnail = p.thumbnail || p.image || '';
                   if (!ord.badge || ord.badge === 'Digital Content') ord.badge = p.badge || p.category || ord.badge;
                   if (!ord.category || ord.category === 'Digital Content') ord.category = p.category || p.badge || ord.category;
-                  if (!ord.sellerName || ord.sellerName === 'LinkAdda Verified') ord.sellerName = p.sellerName || ord.sellerName;
-                  if (!ord.seller || ord.seller === 'LinkAdda Verified') ord.seller = p.sellerName || ord.seller;
+                  if (!ord.sellerName || ord.sellerName === 'JaiGram Verified' || ord.sellerName === 'LinkAdda Verified') ord.sellerName = p.sellerName || ord.sellerName;
+                  if (!ord.seller || ord.seller === 'JaiGram Verified' || ord.seller === 'LinkAdda Verified') ord.seller = p.sellerName || ord.seller;
                   if (p.specDelivery) ord.specDelivery = p.specDelivery;
                   if (p.specAccess) ord.specAccess = p.specAccess;
                   const realLink = p.telegramLink || p.downloadLink || p.fileUrl || '';
@@ -387,11 +387,11 @@ export default async function handler(req, res) {
               const brevoPayload = {
                 sender: { name: senderName, email: senderEmail },
                 to: [{ email, name: buyerName }],
-                subject: `💰 Payment Receipt: ₹${topupAmt} Added to Your LinkAdda Wallet (${orderReceiptId})`,
+                subject: `💰 Payment Receipt: ₹${topupAmt} Added to Your JaiGram Wallet (${orderReceiptId})`,
                 htmlContent: `
                   <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #07060c; color: #ffffff; padding: 32px 24px; border-radius: 16px; max-width: 520px; margin: 0 auto; border: 1px solid rgba(16, 185, 129, 0.3);">
                     <div style="text-align: center; margin-bottom: 24px;">
-                      <div style="font-size: 26px; font-weight: 800; color: #ffffff;">LinkAdda <span style="color: #10b981;">&#9819;</span> Shop</div>
+                      <div style="font-size: 26px; font-weight: 800; color: #ffffff;">JaiGram <span style="color: #10b981;">&#9819;</span> Shop</div>
                       <div style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #10b981; font-weight: 700; margin-top: 4px;">Official Wallet Top-up Receipt</div>
                     </div>
                     <div style="text-align: center; margin-bottom: 20px;">
@@ -401,7 +401,7 @@ export default async function handler(req, res) {
                     </div>
                     <h2 style="color: #ffffff; margin: 0 0 10px; font-size: 19px; text-align: center;">Hello ${buyerName}! 🎉</h2>
                     <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin-bottom: 22px; text-align: center;">
-                      Aapke LinkAdda Wallet me <strong>₹${topupAmt.toFixed(2)}</strong> successfully add ho gaye hain. Ab aap instant 1-click checkout se koi bhi pack khareed sakte hain.
+                      Aapke JaiGram Wallet me <strong>₹${topupAmt.toFixed(2)}</strong> successfully add ho gaye hain. Ab aap instant 1-click checkout se koi bhi pack khareed sakte hain.
                     </p>
                     <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 22px; text-align: center;">
                       <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">Amount Credited</div>
@@ -429,12 +429,12 @@ export default async function handler(req, res) {
                       </tr>
                     </table>
                     <div style="text-align: center; margin-bottom: 20px;">
-                      <a href="https://linkadda.shop/user" target="_blank" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; padding: 13px 28px; border-radius: 12px; font-weight: 750; font-size: 14px; text-decoration: none; display: inline-block; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45); letter-spacing: 0.3px;">
-                        🚀 Open LinkAdda User Dashboard
+                      <a href="https://jaigram.shop/user" target="_blank" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; padding: 13px 28px; border-radius: 12px; font-weight: 750; font-size: 14px; text-decoration: none; display: inline-block; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45); letter-spacing: 0.3px;">
+                        🚀 Open JaiGram User Dashboard
                       </a>
                     </div>
                     <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; text-align: center;">
-                      <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} LinkAdda Shop &bull; Official Digital Marketplace</p>
+                      <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} JaiGram Shop &bull; Official Digital Marketplace</p>
                     </div>
                   </div>
                 `

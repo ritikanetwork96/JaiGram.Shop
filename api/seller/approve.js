@@ -7,7 +7,7 @@ function hashSellerPassword(password, secret) {
   return crypto.createHmac('sha256', secret).update(password).digest('hex');
 }
 
-function renderSellerApprovalEmail(ownerName, storeName, sellerEmail, tempPassword, portalUrl = 'https://linkadda.shop/seller/login') {
+function renderSellerApprovalEmail(ownerName, storeName, sellerEmail, tempPassword, portalUrl = 'https://jaigram.shop/seller/login') {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -47,7 +47,7 @@ function renderSellerApprovalEmail(ownerName, storeName, sellerEmail, tempPasswo
               </h1>
               
               <p style="margin: 0 0 28px; font-size: 14px; line-height: 1.6; color: #cbd5e1;">
-                Your seller application for <strong style="color: #ffffff;">${storeName}</strong> has been officially approved by LinkAdda Admin. You can now access your seller dashboard, list your exclusive packs, and track your orders.
+                Your seller application for <strong style="color: #ffffff;">${storeName}</strong> has been officially approved by JaiGram Admin. You can now access your seller dashboard, list your exclusive packs, and track your orders.
               </p>
 
               <!-- Credentials Box -->
@@ -56,30 +56,33 @@ function renderSellerApprovalEmail(ownerName, storeName, sellerEmail, tempPasswo
                   &#128272; Your Seller Login Credentials
                 </div>
                 
-                <div style="margin-bottom: 12px;">
+                <div style="margin-bottom: 14px;">
                   <span style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Login Email:</span>
-                  <span style="font-size: 14px; font-weight: 700; color: #ffffff; font-family: monospace;">${sellerEmail}</span>
+                  <span style="display: inline-block; padding: 6px 12px; background: rgba(255, 255, 255, 0.06); border-radius: 6px; font-size: 14px; font-weight: 700; color: #ffffff; font-family: monospace; user-select: all; -webkit-user-select: all; cursor: pointer;">${sellerEmail}</span>
                 </div>
 
-                <div style="margin-bottom: 6px;">
+                <div style="margin-bottom: 10px;">
                   <span style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Temporary Password:</span>
-                  <span style="display: inline-block; padding: 8px 14px; background: rgba(255, 42, 141, 0.16); border: 1px dashed #ff2a8d; border-radius: 8px; font-size: 16px; font-weight: 800; color: #ffffff; font-family: monospace; letter-spacing: 1.5px;">${tempPassword}</span>
+                  <span style="display: inline-block; padding: 8px 16px; background: rgba(255, 42, 141, 0.16); border: 1px dashed #ff2a8d; border-radius: 8px; font-size: 17px; font-weight: 900; color: #fbbf24; font-family: monospace; letter-spacing: 1.5px; user-select: all; -webkit-user-select: all; cursor: pointer;">${tempPassword}</span>
+                  <div style="margin-top: 6px; font-size: 11px; color: #ff65a3; font-weight: 600;">
+                    &#128203; Tap or click password to copy
+                  </div>
                 </div>
 
-                <div style="margin-top: 14px; font-size: 11px; color: #f59e0b; line-height: 1.5;">
-                  &#9888; <strong>Security Notice:</strong> You will be prompted to set your own permanent password immediately upon your first login.
+                <div style="margin-top: 14px; font-size: 11.5px; color: #f59e0b; line-height: 1.5;">
+                  &#9888; <strong>Security Notice:</strong> You will be prompted to set your own permanent password immediately upon your first sign-in.
                 </div>
               </div>
 
               <!-- CTA Button -->
               <div style="margin-bottom: 24px;">
-                <a href="${portalUrl}" style="display: inline-block; background: linear-gradient(135deg, #ff2a8d 0%, #ff65a3 100%); color: #ffffff; text-decoration: none; padding: 14px 34px; border-radius: 14px; font-size: 14px; font-weight: 700; box-shadow: 0 8px 24px rgba(255, 42, 141, 0.4); text-transform: uppercase; letter-spacing: 0.5px;">
+                <a href="${portalUrl}" style="display: inline-block; background: linear-gradient(135deg, #ff2a85 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 14px; font-size: 14px; font-weight: 800; box-shadow: 0 8px 24px rgba(255, 42, 133, 0.45); text-transform: uppercase; letter-spacing: 0.6px;">
                   Login to Seller Hub &rarr;
                 </a>
               </div>
 
               <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-                Direct URL: <a href="${portalUrl}" style="color: #ff2a8d; text-decoration: none;">${portalUrl}</a>
+                Direct URL: <a href="${portalUrl}" style="color: #ff2a8d; text-decoration: none; font-weight: 600;">${portalUrl}</a>
               </p>
             </td>
           </tr>
@@ -88,7 +91,7 @@ function renderSellerApprovalEmail(ownerName, storeName, sellerEmail, tempPasswo
           <tr>
             <td style="padding: 20px 32px; background: rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #64748b;">
-                &copy; ${new Date().getFullYear()} JaiGram Shop &bull; All Rights Reserved
+                &copy; ${new Date().getFullYear()} JaiGram Shop &bull; Official Partner Network
               </p>
             </td>
           </tr>

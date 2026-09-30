@@ -67,7 +67,7 @@ export function verifySellerToken(sellerId, token, secret) {
   return bufSig.length === bufExpected.length && crypto.timingSafeEqual(bufSig, bufExpected);
 }
 
-function renderPasswordResetEmail(ownerName, storeName, otpCode) {
+function renderPasswordResetEmail(ownerName, storeName, otpCode, portalUrl = 'https://jaigram.shop/seller/login') {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -97,9 +97,22 @@ function renderPasswordResetEmail(ownerName, storeName, otpCode) {
               <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.6; color: #cbd5e1;">
                 We received a request to reset the password for your JaiGram seller account (<strong>${storeName}</strong>). Use the verification code below to set your new password:
               </p>
-              <div style="margin: 0 auto 24px; display: inline-block; padding: 14px 28px; background: rgba(255, 42, 141, 0.12); border: 2px dashed #ff2a8d; border-radius: 12px; letter-spacing: 6px; font-size: 32px; font-weight: 900; color: #ffffff; font-family: monospace;">
-                ${otpCode}
+
+              <!-- Prominent Copy-Ready OTP Box -->
+              <div style="margin: 0 auto 20px; max-width: 320px; padding: 18px 24px; background: linear-gradient(135deg, rgba(255, 42, 133, 0.16) 0%, rgba(139, 92, 246, 0.12) 100%); border: 2px solid #ff2a85; border-radius: 16px; box-shadow: 0 10px 30px rgba(255, 42, 133, 0.3); text-align: center;">
+                <span style="font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #ffffff; font-family: 'SF Mono', Consolas, 'Courier New', monospace; display: block; user-select: all; -webkit-user-select: all; -moz-user-select: all; cursor: pointer; text-shadow: 0 0 14px rgba(255, 42, 133, 0.6);">${otpCode}</span>
+                <div style="margin-top: 8px; display: inline-block; padding: 4px 12px; background: rgba(255, 255, 255, 0.08); border-radius: 6px; font-size: 11px; font-weight: 700; color: #ff65a3; letter-spacing: 0.5px;">
+                  &#128203; Tap or click code to copy
+                </div>
               </div>
+
+              <!-- Direct CTA Action Button -->
+              <div style="margin-bottom: 22px;">
+                <a href="${portalUrl}" target="_blank" style="display: inline-block; padding: 13px 32px; background: linear-gradient(135deg, #ff2a85 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; font-weight: 800; font-size: 13.5px; border-radius: 12px; box-shadow: 0 6px 20px rgba(255, 42, 133, 0.45); text-transform: uppercase; letter-spacing: 0.6px;">
+                  Open Seller Hub &amp; Reset &rarr;
+                </a>
+              </div>
+
               <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
                 This code is valid for <strong>15 minutes</strong>. If you did not request this password reset, please ignore this email or contact JaiGram support.
               </p>
@@ -152,7 +165,7 @@ function renderPasswordChangedNotificationEmail(ownerName, storeName, timestampS
               </div>
               <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 800; color: #ffffff;">Password Changed Successfully</h2>
               <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #cbd5e1;">
-                Hello <strong>${ownerName || storeName}</strong>, this is an official security confirmation that the confidential password for your LinkAdda seller account (<strong>${storeName}</strong>) was successfully updated on <strong>${timestampStr}</strong>.
+                Hello <strong>${ownerName || storeName}</strong>, this is an official security confirmation that the confidential password for your JaiGram seller account (<strong>${storeName}</strong>) was successfully updated on <strong>${timestampStr}</strong>.
               </p>
 
               <div style="margin: 0 auto 26px; padding: 16px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; text-align: left;">
@@ -218,6 +231,8 @@ export default async function handler(req, res) {
       let eventSeller = null;
       let rootSeller = null;
       let foundKey = null;
+      const matchedKeys = new Set();
+      const candidateHashes = [];
 
       // 1. Query RTDB /events/sellers
       try {
@@ -227,9 +242,13 @@ export default async function handler(req, res) {
           if (sellers && typeof sellers === 'object') {
             for (const [key, s] of Object.entries(sellers)) {
               if (s && String(s.email || '').trim().toLowerCase() === cleanEmail) {
-                eventSeller = { ...s, id: s.id || key };
-                foundKey = key;
-                break;
+                matchedKeys.add(key);
+                if (s.id) matchedKeys.add(s.id);
+                if (s.passwordHash) candidateHashes.push(s.passwordHash);
+                if (!eventSeller || (Number(s.passwordUpdatedAt || 0) > Number(eventSeller.passwordUpdatedAt || 0))) {
+                  eventSeller = { ...s, id: s.id || key };
+                  foundKey = key;
+                }
               }
             }
           }
@@ -244,9 +263,13 @@ export default async function handler(req, res) {
           if (sellers && typeof sellers === 'object') {
             for (const [key, s] of Object.entries(sellers)) {
               if (s && String(s.email || '').trim().toLowerCase() === cleanEmail) {
-                rootSeller = { ...s, id: s.id || key };
-                if (!foundKey) foundKey = key;
-                break;
+                matchedKeys.add(key);
+                if (s.id) matchedKeys.add(s.id);
+                if (s.passwordHash) candidateHashes.push(s.passwordHash);
+                if (!rootSeller || (Number(s.passwordUpdatedAt || 0) > Number(rootSeller.passwordUpdatedAt || 0))) {
+                  rootSeller = { ...s, id: s.id || key };
+                  if (!foundKey) foundKey = key;
+                }
               }
             }
           }
@@ -256,12 +279,16 @@ export default async function handler(req, res) {
       // If found in one node, attempt targeted lookup in the other node to merge all fields
       const resolvedId = eventSeller?.id || rootSeller?.id || foundKey;
       if (resolvedId) {
+        matchedKeys.add(resolvedId);
         if (!eventSeller) {
           try {
             const evSRes = await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(resolvedId)}.json${authQuery}`);
             if (evSRes.ok) {
               const d = await evSRes.json();
-              if (d && typeof d === 'object') eventSeller = { ...d, id: d.id || resolvedId };
+              if (d && typeof d === 'object') {
+                eventSeller = { ...d, id: d.id || resolvedId };
+                if (d.passwordHash) candidateHashes.push(d.passwordHash);
+              }
             }
           } catch (_) {}
         }
@@ -270,7 +297,10 @@ export default async function handler(req, res) {
             const rootSRes = await fetch(`${RTDB_URL}/sellers/${encodeURIComponent(resolvedId)}.json${authQuery}`);
             if (rootSRes.ok) {
               const d = await rootSRes.json();
-              if (d && typeof d === 'object') rootSeller = { ...d, id: d.id || resolvedId };
+              if (d && typeof d === 'object') {
+                rootSeller = { ...d, id: d.id || resolvedId };
+                if (d.passwordHash) candidateHashes.push(d.passwordHash);
+              }
             }
           } catch (_) {}
         }
@@ -286,18 +316,26 @@ export default async function handler(req, res) {
               for (const [appKey, a] of Object.entries(apps)) {
                 if (a && String(a.email || '').trim().toLowerCase() === cleanEmail && (a.status === 'approved' || a.sellerId)) {
                   const sId = a.sellerId || appKey;
+                  matchedKeys.add(sId);
+                  matchedKeys.add(appKey);
                   try {
                     const sRes = await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(sId)}.json${authQuery}`);
                     if (sRes.ok) {
                       const sd = await sRes.json();
-                      if (sd) eventSeller = { ...sd, id: sd.id || sId };
+                      if (sd) {
+                        eventSeller = { ...sd, id: sd.id || sId };
+                        if (sd.passwordHash) candidateHashes.push(sd.passwordHash);
+                      }
                     }
                   } catch (_) {}
                   try {
                     const sRes = await fetch(`${RTDB_URL}/sellers/${encodeURIComponent(sId)}.json${authQuery}`);
                     if (sRes.ok) {
                       const sd = await sRes.json();
-                      if (sd) rootSeller = { ...sd, id: sd.id || sId };
+                      if (sd) {
+                        rootSeller = { ...sd, id: sd.id || sId };
+                        if (sd.passwordHash) candidateHashes.push(sd.passwordHash);
+                      }
                     }
                   } catch (_) {}
                   break;
@@ -312,10 +350,14 @@ export default async function handler(req, res) {
       let memSeller = null;
       if (resolvedId && SELLER_MEMORY_STORE.sellers.has(resolvedId)) {
         memSeller = SELLER_MEMORY_STORE.sellers.get(resolvedId);
+        if (memSeller?.passwordHash) candidateHashes.push(memSeller.passwordHash);
       } else {
-        for (const s of SELLER_MEMORY_STORE.sellers.values()) {
+        for (const [k, s] of SELLER_MEMORY_STORE.sellers.entries()) {
           if (s && String(s.email || '').trim().toLowerCase() === cleanEmail) {
             memSeller = s;
+            matchedKeys.add(k);
+            if (s.id) matchedKeys.add(s.id);
+            if (s.passwordHash) candidateHashes.push(s.passwordHash);
             break;
           }
         }
@@ -327,12 +369,30 @@ export default async function handler(req, res) {
 
       // Merge records: rootSeller (base) + eventSeller (events) + memSeller (cache)
       const merged = {
-        ...(memSeller || {}),
         ...(rootSeller || {}),
         ...(eventSeller || {}),
+        ...(memSeller || {}),
         id: resolvedId || eventSeller?.id || rootSeller?.id || memSeller?.id,
         email: cleanEmail,
       };
+
+      // Guaranteed passwordHash selection: pick newest by passwordUpdatedAt
+      let bestHash = merged.passwordHash;
+      const memUpdated = Number(memSeller?.passwordUpdatedAt || 0);
+      const evUpdated = Number(eventSeller?.passwordUpdatedAt || 0);
+      const rtUpdated = Number(rootSeller?.passwordUpdatedAt || 0);
+
+      if (memUpdated >= evUpdated && memUpdated >= rtUpdated && memSeller?.passwordHash) {
+        bestHash = memSeller.passwordHash;
+      } else if (evUpdated >= rtUpdated && eventSeller?.passwordHash) {
+        bestHash = eventSeller.passwordHash;
+      } else if (rootSeller?.passwordHash) {
+        bestHash = rootSeller.passwordHash;
+      }
+      merged.passwordHash = bestHash;
+      merged._candidateHashes = Array.from(new Set(candidateHashes.filter(Boolean)));
+      if (merged.id) matchedKeys.add(merged.id);
+      merged.allMatchedKeys = Array.from(matchedKeys);
 
       // Specifically guarantee resetOtp and resetAttempts are preserved from whichever has them
       if (!merged.resetOtp && rootSeller?.resetOtp) merged.resetOtp = rootSeller.resetOtp;
@@ -745,11 +805,21 @@ export default async function handler(req, res) {
       }
 
       if (matchedSeller.status === 'suspended') {
-        return res.status(403).json({ error: 'Your seller account is currently suspended. Please contact LinkAdda Admin.' });
+        return res.status(403).json({ error: 'Your seller account is currently suspended. Please contact JaiGram Admin.' });
       }
 
       // Verify Password Hash using bulletproof verifyPassword
-      const isValid = verifyPassword(password, matchedSeller.passwordHash, secret);
+      let isValid = verifyPassword(password, matchedSeller.passwordHash, secret);
+
+      // If not valid with primary hash, check all candidate hashes across nodes/memory
+      if (!isValid && Array.isArray(matchedSeller._candidateHashes) && matchedSeller._candidateHashes.length) {
+        for (const candHash of matchedSeller._candidateHashes) {
+          if (candHash && verifyPassword(password, candHash, secret)) {
+            isValid = true;
+            break;
+          }
+        }
+      }
 
       if (!isValid) {
         const nextCount = attemptRecord.count + 1;
@@ -768,25 +838,28 @@ export default async function handler(req, res) {
         });
       }
 
-      // Upgrade hash to canonical HMAC-SHA256 if matched via legacy hash
+      // Upgrade hash to canonical HMAC-SHA256 across all matching nodes/keys
       const canonicalHash = hashSellerPassword(password, secret);
-      if (matchedSeller.passwordHash !== canonicalHash) {
-        matchedSeller.passwordHash = canonicalHash;
-        try {
-          Promise.allSettled([
-            fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(matchedSeller.id)}.json${authQuery}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ passwordHash: canonicalHash }),
-            }),
-            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(matchedSeller.id)}.json${authQuery}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ passwordHash: canonicalHash }),
-            }),
-          ]).catch(() => {});
-        } catch (_) {}
-      }
+      const keysToSync = (matchedSeller.allMatchedKeys && matchedSeller.allMatchedKeys.length) ? matchedSeller.allMatchedKeys : [matchedSeller.id];
+      const nowTs = Date.now();
+
+      keysToSync.forEach(k => {
+        if (SELLER_MEMORY_STORE.sellers.has(k)) {
+          const m = SELLER_MEMORY_STORE.sellers.get(k);
+          m.passwordHash = canonicalHash;
+          m.passwordUpdatedAt = nowTs;
+        }
+        fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passwordHash: canonicalHash, passwordUpdatedAt: nowTs }),
+        }).catch(() => {});
+        fetch(`${RTDB_URL}/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passwordHash: canonicalHash, passwordUpdatedAt: nowTs }),
+        }).catch(() => {});
+      });
 
       // Clear failed login attempts counter on successful authentication
       sellerFailedLoginMap.delete(email);
@@ -859,6 +932,16 @@ export default async function handler(req, res) {
 
       if (!seller) return res.status(404).json({ error: 'Seller record not found.' });
 
+      // If email present, also query findSellerByEmail to discover all associated keys
+      if (seller.email) {
+        try {
+          const fullSeller = await findSellerByEmail(seller.email);
+          if (fullSeller) {
+            seller = { ...fullSeller, ...seller };
+          }
+        } catch (_) {}
+      }
+
       // Verify old password if provided
       if (seller.passwordHash && oldPassword) {
         if (!verifyPassword(oldPassword, seller.passwordHash, secret)) {
@@ -867,33 +950,42 @@ export default async function handler(req, res) {
       }
 
       const newHash = hashSellerPassword(newPassword, secret);
+      const nowTs = Date.now();
       const updateData = {
         passwordHash: newHash,
         mustChangePassword: false,
-        passwordUpdatedAt: Date.now(),
+        passwordUpdatedAt: nowTs,
       };
 
-      if (SELLER_MEMORY_STORE.sellers.has(sellerId)) {
-        const memSeller = SELLER_MEMORY_STORE.sellers.get(sellerId);
-        memSeller.passwordHash = newHash;
-        memSeller.mustChangePassword = false;
-        memSeller.passwordUpdatedAt = Date.now();
-      }
+      const keysToUpdate = (seller.allMatchedKeys && seller.allMatchedKeys.length) ? seller.allMatchedKeys : [sellerId];
+      keysToUpdate.forEach(k => {
+        if (SELLER_MEMORY_STORE.sellers.has(k)) {
+          const mem = SELLER_MEMORY_STORE.sellers.get(k);
+          Object.assign(mem, updateData);
+        } else {
+          SELLER_MEMORY_STORE.sellers.set(k, { ...seller, ...updateData, id: k });
+        }
+      });
 
       try {
-        await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(sellerId)}.json${authQuery}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData),
+        const patchPromises = [];
+        keysToUpdate.forEach(k => {
+          patchPromises.push(
+            fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updateData),
+            }).catch(() => {})
+          );
+          patchPromises.push(
+            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updateData),
+            }).catch(() => {})
+          );
         });
-
-        if (adminToken) {
-          fetch(`${RTDB_URL}/sellers/${encodeURIComponent(sellerId)}.json${authQuery}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData),
-          }).catch(() => {});
-        }
+        await Promise.allSettled(patchPromises);
       } catch (_) {}
 
       // Send Security Confirmation Email via Brevo API
@@ -960,29 +1052,37 @@ export default async function handler(req, res) {
         resetAttempts: 0,
       };
 
-      if (SELLER_MEMORY_STORE.sellers.has(seller.id)) {
-        const mem = SELLER_MEMORY_STORE.sellers.get(seller.id);
-        mem.resetOtp = otp;
-        mem.resetExpires = resetExpires;
-        mem.resetAttempts = 0;
-      } else {
-        SELLER_MEMORY_STORE.sellers.set(seller.id, { ...seller, ...updateData });
-      }
+      const keysToUpdate = (seller.allMatchedKeys && seller.allMatchedKeys.length) ? seller.allMatchedKeys : [seller.id];
 
-      // Write reset OTP to BOTH /events/sellers and /sellers so it can never be lost
+      keysToUpdate.forEach(k => {
+        if (SELLER_MEMORY_STORE.sellers.has(k)) {
+          const mem = SELLER_MEMORY_STORE.sellers.get(k);
+          Object.assign(mem, updateData);
+        } else {
+          SELLER_MEMORY_STORE.sellers.set(k, { ...seller, ...updateData, id: k });
+        }
+      });
+
+      // Write reset OTP to BOTH /events/sellers and /sellers across all matched keys
       try {
-        await Promise.allSettled([
-          fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData),
-          }),
-          fetch(`${RTDB_URL}/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData),
-          }),
-        ]);
+        const patchPromises = [];
+        keysToUpdate.forEach(k => {
+          patchPromises.push(
+            fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updateData),
+            }).catch(() => {})
+          );
+          patchPromises.push(
+            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updateData),
+            }).catch(() => {})
+          );
+        });
+        await Promise.allSettled(patchPromises);
       } catch (e) {
         console.warn('Failed to save reset OTP:', e.message);
       }
@@ -994,6 +1094,10 @@ export default async function handler(req, res) {
 
       if (apiKey) {
         try {
+          const reqHost = req.headers['host'] || req.headers['x-forwarded-host'] || '';
+          const isLocal = reqHost.includes('localhost') || reqHost.includes('127.0.0.1');
+          const portalUrl = isLocal ? `http://${reqHost}/seller/login` : 'https://jaigram.shop/seller/login';
+
           await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
@@ -1005,7 +1109,7 @@ export default async function handler(req, res) {
               sender: { name: senderName, email: senderEmail },
               to: [{ email: seller.email, name: seller.ownerName || seller.storeName }],
               subject: `🔐 JaiGram Seller Hub: Your Password Reset Code is ${otp}`,
-              htmlContent: renderPasswordResetEmail(seller.ownerName, seller.storeName, otp),
+              htmlContent: renderPasswordResetEmail(seller.ownerName, seller.storeName, otp, portalUrl),
             }),
           });
         } catch (mailErr) {
@@ -1088,40 +1192,87 @@ export default async function handler(req, res) {
       }
 
       const newHash = hashSellerPassword(newPassword, secret);
+      const nowTs = Date.now();
       const updateData = {
         passwordHash: newHash,
         mustChangePassword: false,
-        passwordUpdatedAt: Date.now(),
+        passwordUpdatedAt: nowTs,
         resetOtp: null,
         resetExpires: null,
         resetAttempts: 0,
       };
 
-      if (SELLER_MEMORY_STORE.sellers.has(seller.id)) {
-        const mem = SELLER_MEMORY_STORE.sellers.get(seller.id);
-        mem.passwordHash = newHash;
-        mem.mustChangePassword = false;
-        mem.passwordUpdatedAt = Date.now();
-        mem.resetOtp = null;
-        mem.resetExpires = null;
-        mem.resetAttempts = 0;
-      }
+      // Clear failed login attempts / lockouts immediately
+      sellerFailedLoginMap.delete(email);
+
+      const keysToUpdate = (seller.allMatchedKeys && seller.allMatchedKeys.length) ? seller.allMatchedKeys : [seller.id];
+
+      keysToUpdate.forEach(k => {
+        if (SELLER_MEMORY_STORE.sellers.has(k)) {
+          const mem = SELLER_MEMORY_STORE.sellers.get(k);
+          Object.assign(mem, updateData);
+        } else {
+          SELLER_MEMORY_STORE.sellers.set(k, { ...seller, ...updateData, id: k });
+        }
+      });
 
       try {
-        await Promise.allSettled([
-          fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData),
-          }),
-          fetch(`${RTDB_URL}/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData),
-          }),
-        ]);
+        const patchPromises = [];
+        keysToUpdate.forEach(k => {
+          patchPromises.push(
+            fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updateData),
+            }).catch(() => {})
+          );
+          patchPromises.push(
+            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updateData),
+            }).catch(() => {})
+          );
+        });
+        await Promise.allSettled(patchPromises);
       } catch (e) {
         console.warn('Failed to update reset password:', e.message);
+      }
+
+      // Send Security Confirmation Email via Brevo API
+      const apiKey = (process.env.BREVO_API_KEY || '').trim();
+      const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
+      const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
+
+      const reqHost = req.headers['host'] || req.headers['x-forwarded-host'] || '';
+      const isLocal = reqHost.includes('localhost') || reqHost.includes('127.0.0.1');
+      const portalUrl = isLocal ? `http://${reqHost}/seller/login` : 'https://jaigram.shop/seller/login';
+
+      if (apiKey && (seller.email || email)) {
+        try {
+          const timestampStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+          await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'accept': 'application/json',
+              'api-key': apiKey,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              sender: { name: senderName, email: senderEmail },
+              to: [{ email: seller.email || email, name: seller.ownerName || seller.storeName || 'Partner' }],
+              subject: `🔒 Security Alert: Your JaiGram Seller Password Has Been Updated`,
+              htmlContent: renderPasswordChangedNotificationEmail(
+                seller.ownerName || seller.storeName,
+                seller.storeName || 'Creator Store',
+                timestampStr,
+                portalUrl
+              ),
+            }),
+          });
+        } catch (mailErr) {
+          console.warn('Could not send password change confirmation email:', mailErr.message);
+        }
       }
 
       // Generate session token so seller can be logged in immediately
@@ -1326,32 +1477,77 @@ export default async function handler(req, res) {
         patchData.passwordUpdatedAt = Date.now();
       }
 
-      // Update in-memory
-      if (SELLER_MEMORY_STORE.sellers.has(sellerId)) {
-        const mem = SELLER_MEMORY_STORE.sellers.get(sellerId);
-        Object.assign(mem, patchData);
-      }
+      // Update in-memory across all matching keys
+      const keysToUpdate = (seller.allMatchedKeys && seller.allMatchedKeys.length) ? seller.allMatchedKeys : [sellerId];
+      keysToUpdate.forEach(k => {
+        if (SELLER_MEMORY_STORE.sellers.has(k)) {
+          const mem = SELLER_MEMORY_STORE.sellers.get(k);
+          Object.assign(mem, patchData);
+        } else {
+          SELLER_MEMORY_STORE.sellers.set(k, { ...seller, ...patchData, id: k });
+        }
+      });
 
-      // Update RTDB /events/sellers/{id}
+      // Update RTDB /events/sellers and /sellers across all keys
       try {
-        await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(sellerId)}.json${authQuery}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(patchData),
+        const patchPromises = [];
+        keysToUpdate.forEach(k => {
+          patchPromises.push(
+            fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(patchData),
+            }).catch(() => {})
+          );
+          patchPromises.push(
+            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(k)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(patchData),
+            }).catch(() => {})
+          );
         });
-      } catch (e) {
-        console.warn('events/sellers patch error:', e.message);
-      }
-
-      // Update RTDB /sellers/{id}
-      try {
-        await fetch(`${RTDB_URL}/sellers/${encodeURIComponent(sellerId)}.json${authQuery}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(patchData),
-        });
+        await Promise.allSettled(patchPromises);
       } catch (e) {
         console.warn('sellers patch error:', e.message);
+      }
+
+      // If password was changed in profile, send security alert email via Brevo
+      if (updatedHash) {
+        const apiKey = (process.env.BREVO_API_KEY || '').trim();
+        const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
+        const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
+
+        const reqHost = req.headers['host'] || req.headers['x-forwarded-host'] || '';
+        const isLocal = reqHost.includes('localhost') || reqHost.includes('127.0.0.1');
+        const portalUrl = isLocal ? `http://${reqHost}/seller/login` : 'https://jaigram.shop/seller/login';
+
+        if (apiKey && email) {
+          try {
+            const timestampStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+            await fetch('https://api.brevo.com/v3/smtp/email', {
+              method: 'POST',
+              headers: {
+                'accept': 'application/json',
+                'api-key': apiKey,
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify({
+                sender: { name: senderName, email: senderEmail },
+                to: [{ email, name: ownerName || storeName }],
+                subject: `🔒 Security Alert: Your JaiGram Seller Password Has Been Updated`,
+                htmlContent: renderPasswordChangedNotificationEmail(
+                  ownerName || storeName,
+                  storeName,
+                  timestampStr,
+                  portalUrl
+                ),
+              }),
+            });
+          } catch (mailErr) {
+            console.warn('Could not send password change confirmation email:', mailErr.message);
+          }
+        }
       }
 
       // Also update /public_sellers/{id} so directory reflects changes instantly

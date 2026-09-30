@@ -89,7 +89,10 @@ export function sanitizeAndNormalizeProduct(product, existingData = {}, defaults
 
   // Seller info
   const sellerId = product.sellerId || existingData.sellerId || defaults.sellerId || '';
-  const sellerName = String(product.sellerName || existingData.sellerName || defaults.sellerName || '').trim();
+  let sellerName = String(product.sellerName || existingData.sellerName || defaults.sellerName || '').trim();
+  if (!sellerName || /linkadda/i.test(sellerName)) {
+    sellerName = defaults.sellerName || 'Trusted brother';
+  }
   const sellerEmail = String(product.sellerEmail || existingData.sellerEmail || defaults.sellerEmail || '').trim().toLowerCase();
 
   // Tiers / sub-plans
@@ -416,8 +419,8 @@ export default async function handler(req, res) {
         if (needsHealing) {
           healedCount++;
           const cleanProd = sanitizeAndNormalizeProduct(p, p, {
-            sellerId: p.sellerId || 'master_admin',
-            sellerName: p.sellerName || 'LinkAdda Official',
+            sellerId: p.sellerId || 'seller_jaibajpai67',
+            sellerName: (p.sellerName && !/linkadda/i.test(p.sellerName)) ? p.sellerName : 'Trusted brother',
           });
           cleanProd.id = cleanProd.id || pId;
           patchTasks.push(

@@ -519,7 +519,11 @@ async function loadSellerProducts() {
         const matchDirect = (pId && sId && pId === sId) || (pEmail && sEmail && pEmail === sEmail);
 
         if (matchTb || matchDirect) {
-          sellerProducts.push({ ...prod, id });
+          let resolvedSellerName = String(prod.sellerName || prod.sellerStoreName || '').trim();
+          if (!resolvedSellerName || /linkadda/i.test(resolvedSellerName)) {
+            resolvedSellerName = currentSeller?.storeName || 'Trusted brother';
+          }
+          sellerProducts.push({ ...prod, id, sellerName: resolvedSellerName });
         }
       }
     }
@@ -844,7 +848,7 @@ function renderProducts() {
           <!-- Verified Seller Store Indicator -->
           <div class="product-seller-row" style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 0.8rem; background: rgba(16, 185, 129, 0.08); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.25);">
             <i class="fa-solid fa-circle-check" style="color: #10b981;"></i>
-            <span style="color: var(--sd-text-body, #334155);">Sold by: <strong style="color: var(--sd-text-title, #0f172a); font-weight: 800;">${escapeHtml(p.sellerName || currentSeller?.storeName || 'Creator Store')}</strong></span>
+            <span style="color: var(--sd-text-body, #334155);">Sold by: <strong style="color: var(--sd-text-title, #0f172a); font-weight: 800;">${escapeHtml((p.sellerName && !/linkadda/i.test(p.sellerName)) ? p.sellerName : (currentSeller?.storeName || 'Creator Store'))}</strong></span>
             <span style="margin-left: auto; font-size: 0.72rem; font-weight: 800; color: #059669; background: rgba(16, 185, 129, 0.18); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">✓ Verified</span>
           </div>
 
@@ -1300,7 +1304,8 @@ function updateLivePreview() {
 
   if (prevSeller) {
     const sInput = document.getElementById('modal-seller-name');
-    const displayStore = sInput?.value?.trim() || currentSeller?.storeName || 'Creator Store';
+    const rawVal = sInput?.value?.trim();
+    const displayStore = (rawVal && !/linkadda/i.test(rawVal)) ? rawVal : (currentSeller?.storeName || 'Creator Store');
     prevSeller.textContent = `Sold by ${displayStore}`;
   }
 
@@ -1648,7 +1653,8 @@ export function openProductModal(product = null) {
   }
 
   // Pre-fill verified creator / store name immediately
-  const resolvedStoreName = product?.sellerName || product?.sellerStoreName || currentSeller?.storeName || 'Creator Store';
+  const rawPStore = product?.sellerName || product?.sellerStoreName || '';
+  const resolvedStoreName = (rawPStore && !/linkadda/i.test(rawPStore)) ? rawPStore : (currentSeller?.storeName || 'Creator Store');
   if (sellerInput) {
     sellerInput.value = resolvedStoreName;
   }
@@ -2900,3 +2906,19 @@ export function closePasswordModal() {
   const modal = document.getElementById('password-modal');
   if (modal) modal.classList.remove('active');
 }
+
+// Delegate for password visibility toggle buttons
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-pwd-icon[data-toggle-for]');
+  if (!btn) return;
+  e.preventDefault();
+  const inputId = btn.getAttribute('data-toggle-for');
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPwd = input.type === 'password';
+  input.type = isPwd ? 'text' : 'password';
+  const icon = btn.querySelector('i');
+  if (icon) {
+    icon.className = isPwd ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+  }
+});

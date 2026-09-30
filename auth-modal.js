@@ -399,9 +399,21 @@ function getLuxuryEmailTemplate(otp, userEmail) {
               <p style="margin: 0 0 28px; font-size: 14px; line-height: 1.6; color: #cbd5e1;">
                 Use this single-use 6-digit code to securely authenticate for <strong style="color: #ffffff;">${userEmail}</strong>.
               </p>
-              <div style="margin: 10px auto 26px; max-width: 320px; padding: 20px 24px; background: linear-gradient(135deg, rgba(255, 42, 141, 0.16) 0%, rgba(225, 29, 72, 0.08) 100%); border: 2px solid #ff2a8d; border-radius: 18px; box-shadow: 0 10px 35px rgba(255, 42, 141, 0.3);">
-                <span style="font-size: 40px; font-weight: 800; letter-spacing: 10px; color: #ffffff; font-family: 'Courier New', Courier, monospace; display: block; margin-left: 10px;">${otp}</span>
+              <!-- Prominent Copy-Ready OTP Box -->
+              <div style="margin: 10px auto 20px; max-width: 340px; padding: 22px 24px; background: linear-gradient(135deg, rgba(255, 42, 133, 0.16) 0%, rgba(139, 92, 246, 0.12) 100%); border: 2px solid #ff2a85; border-radius: 18px; box-shadow: 0 10px 35px rgba(255, 42, 133, 0.35); text-align: center;">
+                <span style="font-size: 42px; font-weight: 900; letter-spacing: 10px; color: #ffffff; font-family: 'SF Mono', Consolas, 'Courier New', monospace; display: block; user-select: all; -webkit-user-select: all; -moz-user-select: all; cursor: pointer; text-shadow: 0 0 16px rgba(255, 42, 133, 0.6);">${otp}</span>
+                <div style="margin-top: 10px; display: inline-block; padding: 4px 12px; background: rgba(255, 255, 255, 0.08); border-radius: 6px; font-size: 11px; font-weight: 700; color: #ff65a3; letter-spacing: 0.5px;">
+                  &#128203; Tap or click code to copy
+                </div>
               </div>
+
+              <!-- Direct CTA Action Button -->
+              <div style="margin-bottom: 22px;">
+                <a href="https://jaigram.shop/login.html" target="_blank" style="display: inline-block; padding: 13px 32px; background: linear-gradient(135deg, #ff2a85 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; font-weight: 800; font-size: 13.5px; border-radius: 12px; box-shadow: 0 6px 20px rgba(255, 42, 133, 0.45); text-transform: uppercase; letter-spacing: 0.6px;">
+                  Open JaiGram Shop &rarr;
+                </a>
+              </div>
+
               <p style="margin: 0; font-size: 13px; color: #fb7185; font-weight: 600;">
                 &#9201; Code expires in <strong>5 minutes</strong>.
               </p>
@@ -1722,6 +1734,32 @@ function initAuthModalEvents() {
           handleVerifyOtp();
         }
       }
+    });
+  }
+
+  // Quick 1-Click Paste OTP Button Listener
+  const btnPasteOtp = document.getElementById('btnPasteOtp');
+  if (btnPasteOtp) {
+    btnPasteOtp.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        const clean = (text || '').replace(/\D/g, '').slice(0, 6);
+        if (clean) {
+          if (masterInput) {
+            masterInput.value = clean;
+            syncOtpCellsUI(clean);
+            if (clean.length === 6) {
+              handleVerifyOtp();
+            }
+          } else {
+            const boxes = document.querySelectorAll('.otp-digit-box');
+            if (boxes && boxes.length) {
+              clean.split('').forEach((ch, i) => { if (boxes[i]) boxes[i].value = ch; });
+              if (clean.length === 6) handleVerifyOtp();
+            }
+          }
+        }
+      } catch (_) {}
     });
   }
 

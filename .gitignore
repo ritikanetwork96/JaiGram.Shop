@@ -98,4 +98,25 @@ temp-*.mjs
 .agents/
 .gemini/
 
+# Certificate and encryption keys
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.asc
+
+# Database dumps & local sqlite files
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# Local debug artifacts
+*.cpuprofile
+*.heapsnapshot
+
+
 

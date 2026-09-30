@@ -83,7 +83,7 @@ export default async function handler(req, res) {
         success: true,
         reportId,
         report: reportRecord,
-        message: 'Your report has been submitted to the LinkAdda Trust & Safety admin team for priority review.',
+        message: 'Your report has been submitted to the JaiGram Trust & Safety admin team for priority review.',
       });
     } catch (err) {
       console.error('Report submission error:', err);

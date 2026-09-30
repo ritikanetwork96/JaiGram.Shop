@@ -36,8 +36,27 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ━━ 0. BLOCK SENSITIVE FILES & CONFIG EXPOSURE ━━
-    const blockedPatterns = [/^\/\.env/i, /^\/\.git/i, /^\/\.wrangler/i, /database\.rules\.json/i, /wrangler\.toml/i, /package(-lock)?\.json/i, /\.bak\d*$/i];
+    // ━━ 0. BLOCK SENSITIVE FILES & CONFIG EXPOSURE (EDGE DEFENSE) ━━
+    const blockedPatterns = [
+      /^\/\.env/i,
+      /^\/\.git/i,
+      /^\/\.wrangler/i,
+      /^\/\.vscode/i,
+      /^\/\.agents/i,
+      /^\/\.gemini/i,
+      /^\/scripts\//i,
+      /^\/scratch\//i,
+      /runtime-secrets\.js/i,
+      /database\.rules\.json/i,
+      /wrangler\.toml/i,
+      /package(-lock)?\.json/i,
+      /^\/api\/_utils/i,
+      /\.bak\d*$/i,
+      /\.log$/i,
+      /\.ps1$/i,
+      /\.mjs$/i,
+      /\.(md|markdown)$/i
+    ];
     if (blockedPatterns.some((pattern) => pattern.test(url.pathname))) {
       return new Response('Not Found', { status: 404 });
     }

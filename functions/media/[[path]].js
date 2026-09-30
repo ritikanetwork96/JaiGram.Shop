@@ -93,9 +93,9 @@ export async function onRequest(context) {
 
   // 3. Fallback: S3Client Direct to Cloudflare R2 S3 Endpoint
   try {
-    const endpoint = (env?.R2_ENDPOINT || process.env?.R2_ENDPOINT || 'https://e251083d3d3878442daf244a17d304e5.r2.cloudflarestorage.com').replace(/\/+$/, '');
-    const accessKeyId = (env?.R2_ACCESS_KEY_ID || process.env?.R2_ACCESS_KEY_ID || 'd296eace59751e50b03caad7be7c9e29').trim();
-    const secretAccessKey = (env?.R2_SECRET_ACCESS_KEY || process.env?.R2_SECRET_ACCESS_KEY || '6c01e7ca5baee5253e1744e18cd7086a83305b9e17c3ad250ee4153e0bc1dea5').trim();
+    const endpoint = (env?.R2_ENDPOINT || process.env?.R2_ENDPOINT || '').replace(/\/+$/, '');
+    const accessKeyId = (env?.R2_ACCESS_KEY_ID || process.env?.R2_ACCESS_KEY_ID || '').trim();
+    const secretAccessKey = (env?.R2_SECRET_ACCESS_KEY || process.env?.R2_SECRET_ACCESS_KEY || '').trim();
     const bucket = (env?.R2_BUCKET || process.env?.R2_BUCKET || 'linkadda-media').trim();
 
     if (endpoint && accessKeyId && secretAccessKey) {

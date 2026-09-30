@@ -8999,7 +8999,7 @@ function cleanStoreName(name) {
 
   if (s.includes('trusted') || s.includes('brother')) return 'trusted brother';
   if (s.includes('ghost') || s.includes('hardik')) return 'ghost layer shop';
-  if (s.includes('linkadda') || s.includes('jaigram')) return 'linkadda official';
+  if (s.includes('linkadda') || s.includes('jaigram')) return 'trusted brother';
   return s;
 }
 
@@ -9126,7 +9126,7 @@ function getUnifiedSellersMap(data = {}, fullData = {}) {
       return false;
     });
 
-    if (!existingKey && pSellerName && cleanP !== 'linkadda official') {
+    if (!existingKey && pSellerName && cleanP !== 'linkadda official' && cleanP !== 'trusted brother') {
       const genId = pSellerId || ('creator_' + (cleanP.replace(/\s+/g, '_') || Date.now()));
       unified[genId] = {
         id: genId,

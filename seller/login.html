@@ -435,7 +435,12 @@
       <!-- Step 2: Verify OTP & Set New Password -->
       <form id="forgot-step2-form" class="seller-form" style="display: none;">
         <div class="form-group">
-          <label for="reset-otp">6-Digit Verification Code <span class="req">*</span></label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label for="reset-otp" style="margin-bottom: 0;">6-Digit Verification Code <span class="req">*</span></label>
+            <button type="button" id="btn-paste-seller-otp" style="background: rgba(255, 42, 133, 0.12); border: 1px solid rgba(255, 42, 133, 0.3); color: var(--ab-pink); font-size: 0.76rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+              <i class="fa-regular fa-clipboard"></i> <span>Paste Code</span>
+            </button>
+          </div>
           <input type="text" id="reset-otp" name="otp" placeholder="123456" maxlength="6" required pattern="[0-9]{4,6}" style="letter-spacing: 4px; font-weight: 700; font-size: 1.1rem; text-align: center;">
           <span class="field-hint">Enter the code sent to your email (valid for 15 minutes).</span>
         </div>
@@ -445,6 +450,9 @@
           <div class="input-icon-wrap">
             <input type="password" id="new-password" name="newPassword" placeholder="Minimum 6 characters" required minlength="6" autocomplete="new-password">
             <i class="fa-solid fa-lock input-left-icon"></i>
+            <button type="button" id="btn-toggle-new-pwd" class="btn-pwd-icon" title="Toggle password visibility">
+              <i class="fa-regular fa-eye"></i>
+            </button>
           </div>
         </div>
 
@@ -453,6 +461,9 @@
           <div class="input-icon-wrap">
             <input type="password" id="confirm-new-password" name="confirmPassword" placeholder="Confirm your new password" required minlength="6" autocomplete="new-password">
             <i class="fa-solid fa-lock input-left-icon"></i>
+            <button type="button" id="btn-toggle-confirm-pwd" class="btn-pwd-icon" title="Toggle password visibility">
+              <i class="fa-regular fa-eye"></i>
+            </button>
           </div>
         </div>
 
@@ -551,17 +562,25 @@
       rememberMeBox.checked = true;
     }
 
-    // Toggle Password Visibility
-    if (toggleBtn && pwdInput) {
-      toggleBtn.addEventListener('click', () => {
-        const isPwd = pwdInput.type === 'password';
-        pwdInput.type = isPwd ? 'text' : 'password';
-        const eyeIcon = toggleBtn.querySelector('i');
+    // Reusable Password Visibility Toggle Helper
+    function setupPasswordToggle(btnId, inputId) {
+      const btn = document.getElementById(btnId);
+      const input = document.getElementById(inputId);
+      if (!btn || !input) return;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isPwd = input.type === 'password';
+        input.type = isPwd ? 'text' : 'password';
+        const eyeIcon = btn.querySelector('i');
         if (eyeIcon) {
           eyeIcon.className = isPwd ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
         }
       });
     }
+
+    setupPasswordToggle('btn-toggle-pwd', 'seller-password');
+    setupPasswordToggle('btn-toggle-new-pwd', 'new-password');
+    setupPasswordToggle('btn-toggle-confirm-pwd', 'confirm-new-password');
 
     // Check query params for notices
     const urlParams = new URLSearchParams(window.location.search);
@@ -666,6 +685,25 @@
         btnResend.textContent = "Didn't receive code? Resend";
       }
     });
+
+    const btnPasteSellerOtp = document.getElementById('btn-paste-seller-otp');
+    if (btnPasteSellerOtp) {
+      btnPasteSellerOtp.addEventListener('click', async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          const clean = (text || '').replace(/\D/g, '').slice(0, 6);
+          if (clean) {
+            const otpInput = document.getElementById('reset-otp');
+            if (otpInput) {
+              otpInput.value = clean;
+              otpInput.dispatchEvent(new Event('input', { bubbles: true }));
+              const passInput = document.getElementById('new-password');
+              if (passInput) passInput.focus();
+            }
+          }
+        } catch (_) {}
+      });
+    }
 
     // ━━ FORGOT PASSWORD STEP 2 (VERIFY & RESET) ━━
     forgotStep2.addEventListener('submit', async (e) => {

@@ -227,29 +227,6 @@
   }
 }
 
-/* Floating Crown Accent */
-.splash-crown-badge {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #180a2a, #0b0314);
-  border: 1.5px solid #fbbf24;
-  box-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fbbf24;
-  animation: crownFloat 2.4s ease-in-out infinite alternate;
-}
-
-@keyframes crownFloat {
-  0% { transform: translateY(0) rotate(-6deg); }
-  100% { transform: translateY(-4px) rotate(6deg); }
-}
-
 /* Brand Typography */
 .pwa-splash-brand {
   display: flex;

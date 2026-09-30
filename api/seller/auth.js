@@ -11,6 +11,44 @@ function hashSellerPassword(password, secret) {
   return crypto.createHmac('sha256', secret).update(password).digest('hex');
 }
 
+function verifyPassword(inputPassword, storedHash, secret) {
+  if (!inputPassword || !storedHash) return false;
+
+  const cleanPass = String(inputPassword).trim();
+  const cleanStored = String(storedHash).trim();
+
+  // 1. Primary HMAC-SHA256
+  try {
+    const hmacHash = crypto.createHmac('sha256', secret).update(cleanPass).digest('hex');
+    if (hmacHash.length === cleanStored.length && crypto.timingSafeEqual(Buffer.from(hmacHash, 'hex'), Buffer.from(cleanStored, 'hex'))) {
+      return true;
+    }
+  } catch (_) {}
+
+  // 2. Client-side admin approval hash: SHA-256(password + secret)
+  try {
+    const concatHash = crypto.createHash('sha256').update(cleanPass + secret).digest('hex');
+    if (concatHash.length === cleanStored.length && crypto.timingSafeEqual(Buffer.from(concatHash, 'hex'), Buffer.from(cleanStored, 'hex'))) {
+      return true;
+    }
+  } catch (_) {}
+
+  // 3. Simple SHA-256(password)
+  try {
+    const simpleSha = crypto.createHash('sha256').update(cleanPass).digest('hex');
+    if (simpleSha.length === cleanStored.length && crypto.timingSafeEqual(Buffer.from(simpleSha, 'hex'), Buffer.from(cleanStored, 'hex'))) {
+      return true;
+    }
+  } catch (_) {}
+
+  // 4. Plaintext fallback (if legacy password was stored raw)
+  if (cleanPass === cleanStored) {
+    return true;
+  }
+
+  return false;
+}
+
 export function createSellerToken(sellerId, secret) {
   const expires = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days session
   const payload = `${sellerId}:${expires}`;
@@ -172,52 +210,144 @@ export default async function handler(req, res) {
     const adminToken = await getFirebaseAdminToken();
     const authQuery = adminToken ? `?auth=${encodeURIComponent(adminToken)}` : '';
 
-    // Helper to find a seller by email
+    // Helper to find a seller by email with comprehensive multi-node merging
     async function findSellerByEmail(email) {
       const cleanEmail = String(email || '').trim().toLowerCase();
+      if (!cleanEmail) return null;
 
-      // 1. Query RTDB events first so we always have the freshest record!
+      let eventSeller = null;
+      let rootSeller = null;
+      let foundKey = null;
+
+      // 1. Query RTDB /events/sellers
       try {
         const evRes = await fetch(`${RTDB_URL}/events/sellers.json${authQuery}`);
         if (evRes.ok) {
           const sellers = await evRes.json();
           if (sellers && typeof sellers === 'object') {
             for (const [key, s] of Object.entries(sellers)) {
-              if (s && String(s.email || '').toLowerCase() === cleanEmail) {
-                const found = { ...s, id: s.id || key };
-                SELLER_MEMORY_STORE.sellers.set(found.id, found);
-                return found;
+              if (s && String(s.email || '').trim().toLowerCase() === cleanEmail) {
+                eventSeller = { ...s, id: s.id || key };
+                foundKey = key;
+                break;
               }
             }
           }
         }
       } catch (_) {}
 
-      // 2. Query root sellers
+      // 2. Query RTDB /sellers
       try {
         const rootRes = await fetch(`${RTDB_URL}/sellers.json${authQuery}`);
         if (rootRes.ok) {
           const sellers = await rootRes.json();
           if (sellers && typeof sellers === 'object') {
             for (const [key, s] of Object.entries(sellers)) {
-              if (s && String(s.email || '').toLowerCase() === cleanEmail) {
-                const found = { ...s, id: s.id || key };
-                SELLER_MEMORY_STORE.sellers.set(found.id, found);
-                return found;
+              if (s && String(s.email || '').trim().toLowerCase() === cleanEmail) {
+                rootSeller = { ...s, id: s.id || key };
+                if (!foundKey) foundKey = key;
+                break;
               }
             }
           }
         }
       } catch (_) {}
 
-      // 3. Fallback to in-memory store
-      for (const s of SELLER_MEMORY_STORE.sellers.values()) {
-        if (s && String(s.email || '').toLowerCase() === cleanEmail) {
-          return { ...s };
+      // If found in one node, attempt targeted lookup in the other node to merge all fields
+      const resolvedId = eventSeller?.id || rootSeller?.id || foundKey;
+      if (resolvedId) {
+        if (!eventSeller) {
+          try {
+            const evSRes = await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(resolvedId)}.json${authQuery}`);
+            if (evSRes.ok) {
+              const d = await evSRes.json();
+              if (d && typeof d === 'object') eventSeller = { ...d, id: d.id || resolvedId };
+            }
+          } catch (_) {}
+        }
+        if (!rootSeller) {
+          try {
+            const rootSRes = await fetch(`${RTDB_URL}/sellers/${encodeURIComponent(resolvedId)}.json${authQuery}`);
+            if (rootSRes.ok) {
+              const d = await rootSRes.json();
+              if (d && typeof d === 'object') rootSeller = { ...d, id: d.id || resolvedId };
+            }
+          } catch (_) {}
         }
       }
 
-      return null;
+      // 3. Fallback: check /events/seller_applications if not found yet
+      if (!eventSeller && !rootSeller) {
+        try {
+          const appRes = await fetch(`${RTDB_URL}/events/seller_applications.json${authQuery}`);
+          if (appRes.ok) {
+            const apps = await appRes.json();
+            if (apps && typeof apps === 'object') {
+              for (const [appKey, a] of Object.entries(apps)) {
+                if (a && String(a.email || '').trim().toLowerCase() === cleanEmail && (a.status === 'approved' || a.sellerId)) {
+                  const sId = a.sellerId || appKey;
+                  try {
+                    const sRes = await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(sId)}.json${authQuery}`);
+                    if (sRes.ok) {
+                      const sd = await sRes.json();
+                      if (sd) eventSeller = { ...sd, id: sd.id || sId };
+                    }
+                  } catch (_) {}
+                  try {
+                    const sRes = await fetch(`${RTDB_URL}/sellers/${encodeURIComponent(sId)}.json${authQuery}`);
+                    if (sRes.ok) {
+                      const sd = await sRes.json();
+                      if (sd) rootSeller = { ...sd, id: sd.id || sId };
+                    }
+                  } catch (_) {}
+                  break;
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 4. Memory store lookup
+      let memSeller = null;
+      if (resolvedId && SELLER_MEMORY_STORE.sellers.has(resolvedId)) {
+        memSeller = SELLER_MEMORY_STORE.sellers.get(resolvedId);
+      } else {
+        for (const s of SELLER_MEMORY_STORE.sellers.values()) {
+          if (s && String(s.email || '').trim().toLowerCase() === cleanEmail) {
+            memSeller = s;
+            break;
+          }
+        }
+      }
+
+      if (!eventSeller && !rootSeller && !memSeller) {
+        return null;
+      }
+
+      // Merge records: rootSeller (base) + eventSeller (events) + memSeller (cache)
+      const merged = {
+        ...(memSeller || {}),
+        ...(rootSeller || {}),
+        ...(eventSeller || {}),
+        id: resolvedId || eventSeller?.id || rootSeller?.id || memSeller?.id,
+        email: cleanEmail,
+      };
+
+      // Specifically guarantee resetOtp and resetAttempts are preserved from whichever has them
+      if (!merged.resetOtp && rootSeller?.resetOtp) merged.resetOtp = rootSeller.resetOtp;
+      if (!merged.resetOtp && eventSeller?.resetOtp) merged.resetOtp = eventSeller.resetOtp;
+      if (!merged.resetOtp && memSeller?.resetOtp) merged.resetOtp = memSeller.resetOtp;
+
+      if (merged.resetExpires === undefined) {
+        merged.resetExpires = eventSeller?.resetExpires ?? rootSeller?.resetExpires ?? memSeller?.resetExpires;
+      }
+      if (merged.resetAttempts === undefined) {
+        merged.resetAttempts = eventSeller?.resetAttempts ?? rootSeller?.resetAttempts ?? memSeller?.resetAttempts ?? 0;
+      }
+
+      SELLER_MEMORY_STORE.sellers.set(merged.id, merged);
+      return merged;
     }
 
     // ━━ 0. PUBLIC ACTION: LIST VERIFIED SELLERS (Strict No Contact / Privacy Shield) ━━
@@ -618,14 +748,10 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Your seller account is currently suspended. Please contact LinkAdda Admin.' });
       }
 
-      // Verify Password Hash
-      const inputHash = hashSellerPassword(password, secret);
-      const storedHash = matchedSeller.passwordHash;
+      // Verify Password Hash using bulletproof verifyPassword
+      const isValid = verifyPassword(password, matchedSeller.passwordHash, secret);
 
-      const bufInput = Buffer.from(inputHash, 'hex');
-      const bufStored = Buffer.from(storedHash || '', 'hex');
-
-      if (bufInput.length !== bufStored.length || !crypto.timingSafeEqual(bufInput, bufStored)) {
+      if (!isValid) {
         const nextCount = attemptRecord.count + 1;
         if (nextCount >= MAX_SELLER_LOGIN_ATTEMPTS) {
           sellerFailedLoginMap.set(email, { count: nextCount, lockedUntil: now + SELLER_LOCKOUT_MS });
@@ -640,6 +766,26 @@ export default async function handler(req, res) {
         return res.status(401).json({
           error: `Incorrect password. ${remaining} attempt(s) remaining before account lockout.`,
         });
+      }
+
+      // Upgrade hash to canonical HMAC-SHA256 if matched via legacy hash
+      const canonicalHash = hashSellerPassword(password, secret);
+      if (matchedSeller.passwordHash !== canonicalHash) {
+        matchedSeller.passwordHash = canonicalHash;
+        try {
+          Promise.allSettled([
+            fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(matchedSeller.id)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ passwordHash: canonicalHash }),
+            }),
+            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(matchedSeller.id)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ passwordHash: canonicalHash }),
+            }),
+          ]).catch(() => {});
+        } catch (_) {}
       }
 
       // Clear failed login attempts counter on successful authentication
@@ -705,10 +851,7 @@ export default async function handler(req, res) {
 
       // Verify old password if provided
       if (seller.passwordHash && oldPassword) {
-        const oldHash = hashSellerPassword(oldPassword, secret);
-        const bufInput = Buffer.from(oldHash, 'hex');
-        const bufStored = Buffer.from(seller.passwordHash, 'hex');
-        if (bufInput.length !== bufStored.length || !crypto.timingSafeEqual(bufInput, bufStored)) {
+        if (!verifyPassword(oldPassword, seller.passwordHash, secret)) {
           return res.status(400).json({ error: 'Current password does not match.' });
         }
       }
@@ -801,6 +944,7 @@ export default async function handler(req, res) {
       const resetExpires = Date.now() + 15 * 60 * 1000; // 15 mins
 
       const updateData = {
+        email: seller.email || email,
         resetOtp: otp,
         resetExpires,
         resetAttempts: 0,
@@ -811,14 +955,24 @@ export default async function handler(req, res) {
         mem.resetOtp = otp;
         mem.resetExpires = resetExpires;
         mem.resetAttempts = 0;
+      } else {
+        SELLER_MEMORY_STORE.sellers.set(seller.id, { ...seller, ...updateData });
       }
 
+      // Write reset OTP to BOTH /events/sellers and /sellers so it can never be lost
       try {
-        await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData),
-        });
+        await Promise.allSettled([
+          fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData),
+          }),
+          fetch(`${RTDB_URL}/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData),
+          }),
+        ]);
       } catch (e) {
         console.warn('Failed to save reset OTP:', e.message);
       }
@@ -878,25 +1032,42 @@ export default async function handler(req, res) {
 
       const currentAttempts = Number(seller.resetAttempts || 0);
       if (currentAttempts >= 5) {
-        // Invalidate OTP on 5 failed attempts
+        // Invalidate OTP on 5 failed attempts in BOTH nodes
         try {
-          await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ resetOtp: null, resetExpires: null, resetAttempts: 0 }),
-          });
+          const lockPayload = { resetOtp: null, resetExpires: null, resetAttempts: 0 };
+          await Promise.allSettled([
+            fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(lockPayload),
+            }),
+            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(lockPayload),
+            }),
+          ]);
         } catch (_) {}
         return res.status(429).json({ error: 'Too many incorrect attempts. Password reset code has been locked. Please request a new code.' });
       }
 
-      if (!seller.resetOtp || String(seller.resetOtp).trim() !== otp) {
+      const storedOtp = seller.resetOtp !== undefined && seller.resetOtp !== null ? String(seller.resetOtp).trim() : '';
+      if (!storedOtp || storedOtp !== otp) {
         const nextAttempts = currentAttempts + 1;
         try {
-          await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ resetAttempts: nextAttempts }),
-          });
+          const attemptPayload = { resetAttempts: nextAttempts };
+          await Promise.allSettled([
+            fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(attemptPayload),
+            }),
+            fetch(`${RTDB_URL}/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(attemptPayload),
+            }),
+          ]);
         } catch (_) {}
         const remaining = Math.max(0, 5 - nextAttempts);
         return res.status(400).json({ error: `Invalid verification code. ${remaining} attempt(s) remaining.` });
@@ -927,26 +1098,43 @@ export default async function handler(req, res) {
       }
 
       try {
-        await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData),
-        });
-
-        if (adminToken) {
+        await Promise.allSettled([
+          fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData),
+          }),
           fetch(`${RTDB_URL}/sellers/${encodeURIComponent(seller.id)}.json${authQuery}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updateData),
-          }).catch(() => {});
-        }
+          }),
+        ]);
       } catch (e) {
         console.warn('Failed to update reset password:', e.message);
       }
 
+      // Generate session token so seller can be logged in immediately
+      const token = createSellerToken(seller.id, secret);
+      const safeSeller = {
+        id: seller.id,
+        email: seller.email,
+        ownerName: seller.ownerName,
+        storeName: seller.storeName,
+        phone: seller.phone || '',
+        telegram: seller.telegram || '',
+        upiId: seller.upiId || '',
+        avatar: seller.avatar || '',
+        category: seller.category || 'General',
+        mustChangePassword: false,
+        status: seller.status || 'active',
+      };
+
       return res.status(200).json({
         success: true,
         message: 'Password reset successfully! You can now sign in with your new password.',
+        token,
+        seller: safeSeller,
       });
     }
 
@@ -1065,10 +1253,7 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'New password must be at least 6 characters.' });
         }
         if (seller.passwordHash && currentPassword) {
-          const oldHash = hashSellerPassword(currentPassword, secret);
-          const bufInput = Buffer.from(oldHash, 'hex');
-          const bufStored = Buffer.from(seller.passwordHash, 'hex');
-          if (bufInput.length !== bufStored.length || !crypto.timingSafeEqual(bufInput, bufStored)) {
+          if (!verifyPassword(currentPassword, seller.passwordHash, secret)) {
             return res.status(400).json({ error: 'Current password is incorrect.' });
           }
         } else if (seller.passwordHash && !currentPassword) {

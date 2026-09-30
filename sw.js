@@ -1,9 +1,10 @@
 // JaiGram Shop — High-Performance Progressive Web App Service Worker (sw.js)
-const CACHE_NAME = 'jaigram-pwa-v1';
+const CACHE_NAME = 'jaigram-pwa-v2';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/user/index.html',
   '/manifest.json',
   '/favicon.svg',
   '/images/pwa-icon.svg',

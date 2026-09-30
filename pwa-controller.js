@@ -277,7 +277,6 @@
     cleanUpInstalledUi();
     initSplashScreen();
 
-    // Trigger first-visit popup after 2 seconds on ROOT STOREFRONT ONLY (Never inside user portal or admin!)
     const path = (window.location.pathname || '').toLowerCase();
     const isRootStorefront = (path === '/' || path === '' || path.endsWith('/index.html')) &&
       !path.includes('/user') &&
@@ -285,6 +284,20 @@
       !path.includes('/seller') &&
       !path.includes('/payment');
 
+    // Direct standalone PWA users with active customer session to User Dashboard
+    if (isRootStorefront && isRunningStandalone()) {
+      try {
+        const rawCust = localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session');
+        const parsed = rawCust ? JSON.parse(rawCust) : null;
+        const allowShowcase = window.location.search.includes('showcase=1') || window.location.search.includes('browse=1');
+        if (parsed && (parsed.email || parsed.uid) && !allowShowcase) {
+          window.location.replace('/user/index.html' + (window.location.hash || ''));
+          return;
+        }
+      } catch (_) {}
+    }
+
+    // Trigger first-visit popup after 2 seconds on ROOT STOREFRONT ONLY (Never inside user portal or admin!)
     if (isRootStorefront) {
       setTimeout(showInstallPopup, 2000);
     }

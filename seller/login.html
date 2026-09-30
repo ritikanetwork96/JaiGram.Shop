@@ -511,10 +511,11 @@
     import {
       loginSeller,
       getSellerSession,
+      setSellerSession,
       getRememberedEmail,
       requestPasswordReset,
       verifyPasswordReset
-    } from './js/seller-auth.js?v=27';
+    } from './js/seller-auth.js?v=28';
 
     // If already logged in, redirect to dashboard
     const existing = getSellerSession();
@@ -688,19 +689,26 @@
 
       try {
         const res = await verifyPasswordReset(email, otp, newPass);
-        forgotAlert.textContent = res.message || 'Password reset successfully! Redirecting to Sign In...';
+        forgotAlert.textContent = res.message || 'Password reset successfully! Redirecting...';
         forgotAlert.className = 'form-alert-box alert-success';
         forgotAlert.style.display = 'block';
 
-        setTimeout(() => {
-          cardForgot.style.display = 'none';
-          cardSignIn.style.display = 'block';
-          emailInput.value = email;
-          pwdInput.value = newPass;
-          alertBox.textContent = 'Password reset! Click Sign In to continue.';
-          alertBox.className = 'form-alert-box alert-success';
-          alertBox.style.display = 'block';
-        }, 1200);
+        if (res.token && res.seller) {
+          setSellerSession(res);
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 800);
+        } else {
+          setTimeout(() => {
+            cardForgot.style.display = 'none';
+            cardSignIn.style.display = 'block';
+            emailInput.value = email;
+            pwdInput.value = newPass;
+            alertBox.textContent = 'Password reset! Click Sign In to continue.';
+            alertBox.className = 'form-alert-box alert-success';
+            alertBox.style.display = 'block';
+          }, 1000);
+        }
       } catch (err) {
         forgotAlert.textContent = err.message || 'Reset failed.';
         forgotAlert.className = 'form-alert-box alert-error';

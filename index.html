@@ -2,6 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // ━━ PWA / INSTALLED APP DIRECT ROUTING GATEKEEPER ━━
+    // If opened as installed App (standalone PWA / mobile app / source=pwa) AND user is logged in,
+    // immediately bypass the public storefront showcase and launch User Dashboard directly!
+    (function() {
+      try {
+        var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                           window.navigator.standalone === true ||
+                           document.referrer.includes('android-app://') ||
+                           window.location.search.includes('source=pwa') ||
+                           localStorage.getItem('jaigram_pwa_installed') === 'true';
+
+        var raw = localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session');
+        var sess = raw ? JSON.parse(raw) : null;
+        var isLoggedIn = !!(sess && typeof sess === 'object' && (sess.email || sess.uid));
+
+        var allowShowcase = window.location.search.includes('showcase=1') || window.location.search.includes('browse=1');
+
+        if (isLoggedIn && (isStandalone || window.location.search.includes('source=pwa')) && !allowShowcase) {
+          document.documentElement.style.display = 'none';
+          window.location.replace('user/index.html' + (window.location.hash || ''));
+        }
+      } catch (_) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
   <title>JaiGram Shop — Explore Premium Digital Content</title>
   <meta name="description" content="Get exclusive content, private collections, software, tools, courses and more — all in one place. Instant access, secure payments, 100% trusted." />

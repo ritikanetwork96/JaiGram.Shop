@@ -14,18 +14,21 @@
   --pwa-muted: #94a3b8;
 }
 
-/* ━━ 1. APP SPLASH SCREEN OVERLAY ━━ */
+/* ━━ 1. APP SPLASH SCREEN OVERLAY (LUXURY CINEMATIC EDITION) ━━ */
 .jaigram-pwa-splash {
   position: fixed;
   inset: 0;
-  z-index: 999999;
-  background: radial-gradient(circle at center, #13082a 0%, #050209 100%);
+  z-index: 9999999;
+  background: #06020c;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.45s ease, visibility 0.45s ease;
+  overflow: hidden;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: all;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .jaigram-pwa-splash.hide-splash {
@@ -34,51 +37,372 @@
   pointer-events: none;
 }
 
+.jaigram-pwa-splash.hide-splash .pwa-splash-content {
+  transform: scale(1.06) translateY(-12px);
+  filter: blur(6px);
+  opacity: 0;
+  transition: transform 0.48s cubic-bezier(0.4, 0, 0.2, 1), filter 0.48s ease, opacity 0.48s ease;
+}
+
+/* Ambient Moving Aurora Orbs */
+.splash-ambient-aura {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  opacity: 0.45;
+  will-change: transform;
+}
+
+.splash-ambient-aura.primary {
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, #ff2a85 0%, rgba(255, 42, 133, 0) 70%);
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: auraFloatPrimary 8s ease-in-out infinite alternate;
+}
+
+.splash-ambient-aura.secondary {
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, #7928ca 0%, rgba(121, 40, 202, 0) 70%);
+  bottom: 20%;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  animation: auraFloatSecondary 9s ease-in-out infinite alternate;
+}
+
+@keyframes auraFloatPrimary {
+  0% { transform: translate(-55%, -45%) scale(0.9); opacity: 0.4; }
+  100% { transform: translate(-45%, -55%) scale(1.15); opacity: 0.55; }
+}
+
+@keyframes auraFloatSecondary {
+  0% { transform: translate(-45%, 45%) scale(1.1); opacity: 0.4; }
+  100% { transform: translate(-55%, 55%) scale(0.9); opacity: 0.55; }
+}
+
+/* Floating Starlight Particles */
+.splash-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.splash-particles .p-dot {
+  position: absolute;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ff2a85, 0 0 16px #ffffff;
+  animation: particleTwinkle 3s ease-in-out infinite;
+}
+
+.p-dot.p1 { width: 3px; height: 3px; top: 18%; left: 22%; animation-delay: 0s; }
+.p-dot.p2 { width: 4px; height: 4px; top: 32%; right: 20%; animation-delay: 0.7s; background: #ff4da6; }
+.p-dot.p3 { width: 2.5px; height: 2.5px; bottom: 28%; left: 25%; animation-delay: 1.4s; background: #c084fc; }
+.p-dot.p4 { width: 3.5px; height: 3.5px; bottom: 22%; right: 24%; animation-delay: 2.1s; }
+.p-dot.p5 { width: 2px; height: 2px; top: 50%; left: 12%; animation-delay: 1s; }
+.p-dot.p6 { width: 3px; height: 3px; top: 45%; right: 14%; animation-delay: 1.8s; background: #38bdf8; }
+
+@keyframes particleTwinkle {
+  0%, 100% { opacity: 0.2; transform: translateY(0) scale(0.8); }
+  50% { opacity: 0.9; transform: translateY(-12px) scale(1.25); }
+}
+
+/* Main Content Column */
 .pwa-splash-content {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 22px;
   text-align: center;
+  padding: 0 24px;
+  animation: splashEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes splashEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Icon Card & Sonic Ripple Waves */
+.pwa-splash-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splash-ripple {
+  position: absolute;
+  border-radius: 36px;
+  border: 1.5px solid rgba(255, 42, 133, 0.4);
+  pointer-events: none;
+  animation: splashRipple 3s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.splash-ripple.ring-1 { animation-delay: 0s; }
+.splash-ripple.ring-2 { animation-delay: 0.9s; }
+.splash-ripple.ring-3 { animation-delay: 1.8s; }
+
+@keyframes splashRipple {
+  0% {
+    width: 120px;
+    height: 120px;
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+  100% {
+    width: 220px;
+    height: 220px;
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+.splash-icon-card {
+  position: relative;
+  width: 118px;
+  height: 118px;
+  border-radius: 32px;
+  padding: 3px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 42, 133, 0.8) 50%, rgba(121, 40, 202, 0.9) 100%);
+  box-shadow: 0 0 50px rgba(255, 42, 133, 0.5), 0 20px 45px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+  animation: iconCardPulse 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes iconCardPulse {
+  0% {
+    box-shadow: 0 0 40px rgba(255, 42, 133, 0.4), 0 16px 36px rgba(0, 0, 0, 0.85);
+    transform: translateY(0);
+  }
+  100% {
+    box-shadow: 0 0 65px rgba(255, 42, 133, 0.7), 0 24px 50px rgba(0, 0, 0, 0.95);
+    transform: translateY(-5px);
+  }
 }
 
 .pwa-splash-icon {
-  width: 110px;
-  height: 110px;
-  border-radius: 28px;
-  box-shadow: 0 0 35px var(--pwa-glow), 0 10px 25px rgba(0, 0, 0, 0.8);
-  animation: pwaPulse 2.2s ease-in-out infinite;
+  width: 100%;
+  height: 100%;
+  border-radius: 29px;
   object-fit: cover;
+  display: block;
+}
+
+/* Light Glint Streak across Icon */
+.splash-icon-glint {
+  position: absolute;
+  inset: -100%;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  animation: iconGlintSweep 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes iconGlintSweep {
+  0%, 40% {
+    transform: translateX(-120%);
+  }
+  75%, 100% {
+    transform: translateX(120%);
+  }
+}
+
+/* Floating Crown Accent */
+.splash-crown-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #180a2a, #0b0314);
+  border: 1.5px solid #fbbf24;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fbbf24;
+  animation: crownFloat 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes crownFloat {
+  0% { transform: translateY(0) rotate(-6deg); }
+  100% { transform: translateY(-4px) rotate(6deg); }
+}
+
+/* Brand Typography */
+.pwa-splash-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.pwa-splash-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(255, 42, 133, 0.1);
+  border: 1px solid rgba(255, 42, 133, 0.28);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  color: #ff4da6;
+  text-transform: uppercase;
+}
+
+.kicker-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+  animation: kickerDotPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes kickerDotPulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.4); opacity: 1; }
 }
 
 .pwa-splash-title {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
   color: #ffffff;
+  margin: 0;
+  line-height: 1.2;
 }
 
-.pwa-splash-title span {
-  background: linear-gradient(135deg, #ff2a85 0%, #8b5cf6 100%);
+.brand-gradient {
+  background: linear-gradient(135deg, #ff2a85 0%, #d946ef 50%, #a855f7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.brand-subtag {
+  font-size: 14px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f4f4f5;
+  vertical-align: middle;
+  letter-spacing: 1px;
 }
 
 .pwa-splash-sub {
-  font-size: 13px;
-  color: var(--pwa-muted);
-  letter-spacing: 0.5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #a1a1aa;
+  letter-spacing: 1.5px;
+  margin: 0;
+  text-transform: uppercase;
 }
 
-.pwa-splash-spinner {
-  width: 34px;
-  height: 34px;
-  border: 3px solid rgba(255, 42, 133, 0.18);
-  border-top-color: #ff2a85;
-  border-radius: 50%;
-  animation: pwaSpin 0.8s linear infinite;
-  margin-top: 10px;
+/* Luxury High-Tech Progress Track */
+.pwa-splash-loader-box {
+  width: 230px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 4px;
+}
+
+.splash-progress-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.splash-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff2a85 0%, #d946ef 45%, #a855f7 80%, #38bdf8 100%);
+  box-shadow: 0 0 14px #ff2a85;
+  transition: width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.splash-progress-laser {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 14px;
+  left: 0%;
+  background: radial-gradient(circle, #ffffff 0%, rgba(255, 42, 133, 0) 80%);
+  filter: drop-shadow(0 0 6px #ffffff);
+  transform: translateX(-50%);
+  transition: left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+.splash-loader-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.splash-status-text {
+  color: #71717a;
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+
+.splash-percent-text {
+  color: #e4e4e7;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+/* Bottom Security Credential */
+.pwa-splash-footer {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.42);
+  letter-spacing: 0.4px;
+  white-space: nowrap;
 }
 
 /* ━━ 2. FIRST-VISIT PWA INSTALL POPUP (NON-BLOCKING) ━━ */

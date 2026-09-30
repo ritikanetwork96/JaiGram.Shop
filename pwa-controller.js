@@ -214,29 +214,156 @@
     guide.classList.add('active');
   }
 
-  // 10. Native App Splash Screen (Triggers ONLY when launched from home screen icon)
-  function initSplashScreen() {
-    if (!window.matchMedia('(display-mode: standalone)').matches && window.navigator.standalone !== true) return;
-
+  // 10. Native App Splash Screen (Luxury Cinematic Experience)
+  function createSplashElement() {
     const splash = document.createElement('div');
     splash.id = 'jaigramPwaSplash';
     splash.className = 'jaigram-pwa-splash';
     splash.innerHTML = `
+      <div class="splash-ambient-aura primary"></div>
+      <div class="splash-ambient-aura secondary"></div>
+      
+      <div class="splash-particles">
+        <span class="p-dot p1"></span>
+        <span class="p-dot p2"></span>
+        <span class="p-dot p3"></span>
+        <span class="p-dot p4"></span>
+        <span class="p-dot p5"></span>
+        <span class="p-dot p6"></span>
+      </div>
+
       <div class="pwa-splash-content">
-        <img src="/images/pwa-icon.svg" alt="JaiGram" class="pwa-splash-icon" onerror="this.src='/images/pwa-icon-512.jpg'" />
-        <div class="pwa-splash-title">Jai<span>Gram</span> Shop</div>
-        <div class="pwa-splash-sub">SECURE • DISCRETE • CLOUD VAULT</div>
-        <div class="pwa-splash-spinner"></div>
+        <div class="pwa-splash-icon-wrapper">
+          <div class="splash-ripple ring-1"></div>
+          <div class="splash-ripple ring-2"></div>
+          <div class="splash-ripple ring-3"></div>
+          
+          <div class="splash-icon-card">
+            <img src="/images/pwa-icon-512.jpg" alt="JaiGram" class="pwa-splash-icon" onerror="this.src='/images/pwa-icon.svg'" />
+            <div class="splash-icon-glint"></div>
+          </div>
+
+          <div class="splash-crown-badge">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5m14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="pwa-splash-brand">
+          <div class="pwa-splash-kicker">
+            <span class="kicker-pulse-dot"></span>
+            <span>OFFICIAL DIGITAL MARKETPLACE</span>
+          </div>
+          <h1 class="pwa-splash-title">
+            JAI<span class="brand-gradient">GRAM</span> <span class="brand-subtag">SHOP</span>
+          </h1>
+          <p class="pwa-splash-sub">VIP CONTENT VAULT • 100% PRIVATE &amp; ENCRYPTED</p>
+        </div>
+
+        <div class="pwa-splash-loader-box">
+          <div class="splash-progress-track">
+            <div class="splash-progress-bar" id="splashProgressBar"></div>
+            <div class="splash-progress-laser" id="splashProgressLaser"></div>
+          </div>
+          <div class="splash-loader-meta">
+            <span class="splash-status-text" id="splashStatusText">Initializing secure vault...</span>
+            <span class="splash-percent-text" id="splashPercentText">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pwa-splash-footer">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>End-to-End Encrypted Cloud Infrastructure</span>
       </div>
     `;
+    return splash;
+  }
+
+  function runSplashProgress(splash, duration = 1400, onComplete) {
+    const bar = splash.querySelector('#splashProgressBar');
+    const laser = splash.querySelector('#splashProgressLaser');
+    const statusText = splash.querySelector('#splashStatusText');
+    const percentText = splash.querySelector('#splashPercentText');
+    
+    let currentPercent = 0;
+    const startTime = performance.now();
+
+    function updateProgress(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Smooth ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      currentPercent = Math.min(Math.round(eased * 100), 100);
+
+      if (bar) bar.style.width = currentPercent + '%';
+      if (laser) laser.style.left = currentPercent + '%';
+      if (percentText) percentText.textContent = currentPercent + '%';
+
+      if (statusText) {
+        if (currentPercent < 28) {
+          statusText.textContent = 'Connecting to secure cloud...';
+        } else if (currentPercent < 64) {
+          statusText.textContent = 'Decrypting premium collections...';
+        } else if (currentPercent < 95) {
+          statusText.textContent = 'Verifying VIP credentials...';
+        } else {
+          statusText.textContent = 'Vault unlocked • Welcome!';
+        }
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(updateProgress);
+      } else {
+        setTimeout(() => {
+          splash.classList.add('hide-splash');
+          setTimeout(() => {
+            splash.remove();
+            if (typeof onComplete === 'function') onComplete();
+          }, 500);
+        }, 180);
+      }
+    }
+
+    requestAnimationFrame(updateProgress);
+  }
+
+  function showJaiGramSplash(customDuration = 1400, callback) {
+    const existing = document.getElementById('jaigramPwaSplash');
+    if (existing) existing.remove();
+
+    const splash = createSplashElement();
+    document.body.appendChild(splash);
+    runSplashProgress(splash, customDuration, callback);
+    return splash;
+  }
+
+  window.showJaiGramSplash = showJaiGramSplash;
+
+  function initSplashScreen() {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         window.navigator.standalone === true ||
+                         document.referrer.includes('android-app://') ||
+                         window.location.search.includes('source=pwa');
+    const isPreview = window.location.search.includes('splash') || window.location.hash.includes('splash');
+
+    if (!isStandalone && !isPreview) return;
+
+    const splash = createSplashElement();
     document.body.appendChild(splash);
 
-    // Dismiss splash once page is ready
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        splash.classList.add('hide-splash');
-        setTimeout(() => splash.remove(), 450);
-      }, 500);
+    // Let page load while running progress
+    let pageLoaded = document.readyState === 'complete';
+    if (!pageLoaded) {
+      window.addEventListener('load', () => { pageLoaded = true; });
+    }
+
+    runSplashProgress(splash, 1300, () => {
+      try { sessionStorage.setItem('jaigram_splash_shown', 'true'); } catch (_) {}
     });
   }
 

@@ -1,50 +1,120 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0d0718"/>
-      <stop offset="100%" stop-color="#050209"/>
-    </linearGradient>
-    <linearGradient id="neonPink" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff2a85"/>
-      <stop offset="45%" stop-color="#e11d48"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
-    </linearGradient>
-    <linearGradient id="neonBorder" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff2a85"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
-    </linearGradient>
-    <radialGradient id="neonAura" cx="50%" cy="55%" r="45%">
-      <stop offset="0%" stop-color="#ff2a85" stop-opacity="0.45"/>
-      <stop offset="50%" stop-color="#8b5cf6" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#050209" stop-opacity="0"/>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#1e0b2b"/>
+      <stop offset="55%" stop-color="#0d0414"/>
+      <stop offset="100%" stop-color="#050108"/>
     </radialGradient>
-    <filter id="neonFilter" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
+
+    <!-- Neon Rim Gradient -->
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff2a8d"/>
+      <stop offset="30%" stop-color="#c026d3"/>
+      <stop offset="70%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#ff2a8d"/>
+    </linearGradient>
+
+    <!-- Monogram Gradient -->
+    <linearGradient id="jgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="25%" stop-color="#ff4da6"/>
+      <stop offset="65%" stop-color="#d946ef"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+
+    <!-- Crown Diamond Gradient -->
+    <linearGradient id="crownGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#e2e8f0"/>
+      <stop offset="70%" stop-color="#94a3b8"/>
+      <stop offset="100%" stop-color="#64748b"/>
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="neonBloom" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
       <feMerge>
+        <feMergeNode in="blur"/>
         <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
+
+    <!-- Soft Ambient Bloom -->
+    <radialGradient id="centerAura" cx="50%" cy="50%" r="45%">
+      <stop offset="0%" stop-color="#ff2a8d" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#9333ea" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#050108" stop-opacity="0"/>
+    </radialGradient>
   </defs>
 
-  <!-- Squircle App Background -->
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- Ambient Neon Rim -->
-  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="url(#neonBorder)" stroke-width="4" stroke-opacity="0.55"/>
-  <!-- Radial Neon Aura Bloom -->
-  <rect width="512" height="512" rx="112" fill="url(#neonAura)"/>
+  <!-- Squircle Base -->
+  <rect width="512" height="512" rx="116" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle Inner Aura -->
+  <rect width="512" height="512" rx="116" fill="url(#centerAura)"/>
 
-  <!-- Shopping Bag Handles -->
-  <path d="M 204 186 C 204 126, 308 126, 308 186" fill="none" stroke="url(#neonPink)" stroke-width="24" stroke-linecap="round" filter="url(#neonFilter)"/>
+  <!-- High-Precision Neon Bevel Rim -->
+  <rect x="8" y="8" width="496" height="496" rx="110" fill="none" stroke="url(#rimGrad)" stroke-width="4.5" stroke-opacity="0.8"/>
+  <rect x="14" y="14" width="484" height="484" rx="104" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.25"/>
 
-  <!-- Glowing Shopping Bag Body -->
-  <path d="M 158 198 L 354 198 L 374 384 C 376 402, 362 416, 344 416 L 168 416 C 150 416, 136 402, 138 384 Z" 
-        fill="#120924" fill-opacity="0.8" stroke="url(#neonPink)" stroke-width="24" stroke-linejoin="round" stroke-linecap="round" filter="url(#neonFilter)"/>
+  <!-- Top Imperial Crown Crest -->
+  <g transform="translate(136, 92)" filter="url(#neonBloom)">
+    <!-- Crown Base Band -->
+    <path d="M 20 86 Q 120 96 220 86 L 216 74 Q 120 84 24 74 Z" fill="url(#crownGrad)" stroke="#ffffff" stroke-width="1.5"/>
+    <!-- Band Jewels -->
+    <circle cx="50" cy="80" r="3.5" fill="#ff2a8d"/>
+    <circle cx="85" cy="82" r="4" fill="#38bdf8"/>
+    <circle cx="120" cy="83" r="5" fill="#ffffff"/>
+    <circle cx="155" cy="82" r="4" fill="#38bdf8"/>
+    <circle cx="190" cy="80" r="3.5" fill="#ff2a8d"/>
 
-  <!-- Bag Perspective Side Depth Lines -->
-  <path d="M 158 198 L 180 414 M 354 198 L 332 414" fill="none" stroke="url(#neonPink)" stroke-width="6" stroke-opacity="0.4"/>
+    <!-- Crown Spikes / Peaks -->
+    <!-- Center Main Finial -->
+    <path d="M 120 18 L 132 52 L 108 52 Z" fill="url(#crownGrad)"/>
+    <polygon points="120,6 126,18 120,24 114,18" fill="#ffffff"/>
+    
+    <!-- Mid Peaks -->
+    <path d="M 68 36 L 82 66 L 56 66 Z" fill="url(#crownGrad)"/>
+    <circle cx="68" cy="32" r="4.5" fill="#ffffff"/>
 
-  <!-- Stylized G Monogram for JaiGram -->
-  <path d="M 288 280 C 288 258, 272 244, 256 244 C 228 244, 212 268, 212 308 C 212 348, 228 372, 256 372 C 278 372, 292 356, 294 332 L 254 332" 
-        fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" filter="url(#neonFilter)"/>
+    <path d="M 172 36 L 184 66 L 158 66 Z" fill="url(#crownGrad)"/>
+    <circle cx="172" cy="32" r="4.5" fill="#ffffff"/>
+
+    <!-- Outer Peaks -->
+    <path d="M 28 50 L 42 74 L 18 74 Z" fill="url(#crownGrad)"/>
+    <circle cx="28" cy="46" r="3.5" fill="#ffffff"/>
+
+    <path d="M 212 50 L 222 74 L 198 74 Z" fill="url(#crownGrad)"/>
+    <circle cx="212" cy="46" r="3.5" fill="#ffffff"/>
+
+    <!-- Crown Filigree Arches -->
+    <path d="M 28 72 Q 48 56 68 66 Q 94 44 120 54 Q 146 44 172 66 Q 192 56 212 72" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- Interlocking Luxury Monogram "J G" -->
+  <g filter="url(#neonBloom)">
+    <!-- Glow Backdrop for JG -->
+    <path d="M 190 220 C 190 200, 230 196, 250 196 C 285 196, 280 230, 280 270 L 280 340 C 280 380, 248 404, 205 404 C 165 404, 150 376, 150 354 C 150 338, 164 326, 178 326 C 192 326, 202 338, 198 352 C 194 366, 206 376, 222 376 C 242 376, 254 360, 254 336 L 254 278 C 240 286, 220 288, 204 284 C 182 278, 176 256, 182 242 C 188 230, 204 226, 224 226 L 254 226" 
+          fill="none" stroke="#ff2a8d" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+
+    <!-- Letter 'J' (Sleek Calligraphic Swash) -->
+    <path d="M 176 220 C 210 216, 252 216, 252 216 L 252 344 C 252 376, 236 404, 196 404 C 162 404, 142 378, 142 354 C 142 336, 158 324, 174 324 C 188 324, 198 336, 194 352 C 190 366, 200 378, 216 378 C 234 378, 244 362, 244 340 L 244 234 L 176 234" 
+          fill="url(#jgGrad)" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Letter 'G' (Modern High-Fashion Form) -->
+    <path d="M 334 256 C 316 232, 288 222, 258 228 C 220 236, 204 274, 204 316 C 204 364, 228 404, 282 404 C 324 404, 356 376, 360 334 L 284 334 L 284 312 L 372 312 C 374 346, 362 390, 326 414 C 298 430, 256 426, 226 410 C 186 388, 178 334, 180 298 C 184 246, 218 206, 274 206 C 314 206, 344 226, 360 252 Z" 
+          fill="url(#jgGrad)" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Specular Glints / Diamond Sparkles -->
+  <g fill="#ffffff">
+    <!-- Star 1 Top Right -->
+    <path d="M 380 140 Q 380 156 364 156 Q 380 156 380 172 Q 380 156 396 156 Q 380 156 380 140 Z"/>
+    <!-- Star 2 Center Glow -->
+    <path d="M 256 70 Q 256 82 244 82 Q 256 82 256 94 Q 256 82 268 82 Q 256 82 256 70 Z"/>
+    <!-- Star 3 Lower Left -->
+    <path d="M 124 380 Q 124 390 114 390 Q 124 390 124 400 Q 124 390 134 390 Q 124 390 124 380 Z"/>
+  </g>
 </svg>

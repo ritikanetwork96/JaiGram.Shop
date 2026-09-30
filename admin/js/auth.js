@@ -193,7 +193,7 @@ export function mountLoginPage(root) {
     <div class="auth-shell">
       <div class="auth-card glass">
         <div class="auth-brand">
-          <div class="auth-mark">L</div>
+          <div class="auth-mark">J</div>
           <div>
             <h1>${escapeHtml(APP_CONFIG.appName)}</h1>
             <p>Master Administrator Access</p>
@@ -215,7 +215,7 @@ export function mountLoginPage(root) {
           </label>
           <button type="submit" class="btn btn-primary btn-block" style="font-weight: 700;">Sign In as Administrator</button>
           <button type="button" id="forgotBtn" class="btn btn-ghost btn-block">Forgot Password</button>
-          <p class="auth-note" id="authNote">Authorized personnel only &bull; LinkAdda Root Control</p>
+          <p class="auth-note" id="authNote">Authorized personnel only &bull; JaiGram Root Control</p>
 
           <div style="margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); font-size: 12px; color: #a5b4fc; text-align: center;">
             Are you an authorized creator / seller partner?<br>

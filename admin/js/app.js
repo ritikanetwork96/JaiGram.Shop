@@ -343,7 +343,7 @@ const singleEditors = {
         { label: 'Binance Pay & Crypto (0% Gas Fee)', value: 'binancepay' },
         { label: 'Cards (Visa, Mastercard, RuPay)', value: 'cards' },
         { label: 'Netbanking (SBI, ICICI, HDFC, Axis)', value: 'netbanking' },
-        { label: 'LinkAdda Wallet (1-Click Instant)', value: 'wallet' },
+        { label: 'JaiGram Wallet (1-Click Instant)', value: 'wallet' },
         { label: 'Bank Transfer (IMPS / NEFT)', value: 'custom_bank' },
         { label: 'Bitcoin (BTC Native Network)', value: 'custom_btc' },
         { label: 'USDT BEP-20 (BNB Smart Chain)', value: 'bep20' },
@@ -357,7 +357,7 @@ const singleEditors = {
       { key: 'upiSub', label: 'UPI Subtitle (default: GPay, PhonePe, Paytm)', type: 'text' },
       { key: 'upiLogo', label: 'UPI Custom Logo Image URL (leave empty for official logos)', type: 'url' },
       { key: 'upiId', label: 'Merchant UPI VPA ID (e.g. Ritikane@ptyes)', type: 'text' },
-      { key: 'merchantName', label: 'Merchant Display Name (e.g. LinkAdda Store)', type: 'text' },
+      { key: 'merchantName', label: 'Merchant Display Name (e.g. JaiGram Shop)', type: 'text' },
       { key: 'qrImage', label: 'Custom Static QR Image URL', type: 'url' },
 
       // Binance Pay & Crypto
@@ -1287,14 +1287,14 @@ function renderProductEditor(record = {}, schema = null) {
             <div class="product-grid-2" style="margin-top: 14px;">
               <div class="field">
                 <label for="sellerName" style="font-weight: 700;">Seller / Studio Name</label>
-                <input class="input" type="text" name="sellerName" id="sellerName" value="${escapeHtml(data.sellerName || 'LinkAdda Official')}" placeholder="e.g. LinkAdda Official" />
+                <input class="input" type="text" name="sellerName" id="sellerName" value="${escapeHtml(data.sellerName || 'JaiGram Official')}" placeholder="e.g. JaiGram Official" />
                 <small class="field-hint">Displays as 'Sold by [Store Name] 🛡️ Verified' on product card & details drawer.</small>
               </div>
 
               <div class="field">
                 <label for="rating">Star Rating (1.0 to 5.0)</label>
                 <input class="input" type="text" name="rating" id="rating" value="${escapeHtml(data.rating || '4.9')}" placeholder="e.g. 4.9" />
-                <small class="field-hint">Displays on LinkAdda rating pill.</small>
+                <small class="field-hint">Displays on JaiGram rating pill.</small>
               </div>
 
               <div class="field">
@@ -1316,7 +1316,7 @@ function renderProductEditor(record = {}, schema = null) {
             <div class="editor-section-head">
               <div>
                 <h4><i data-lucide="badge-dollar-sign" style="color: #34d399; width: 18px; height: 18px;"></i> 2. Pricing & Instant Order Link</h4>
-                <p>Commercial prices, original MRP for LinkAdda discount % and checkout links.</p>
+                <p>Commercial prices, original MRP for JaiGram discount % and checkout links.</p>
               </div>
             </div>
             
@@ -5474,7 +5474,7 @@ function renderSingleEditorPage(node, schema, data = {}) {
                   <span style="font-size: 11px; color: var(--muted);">${escapeHtml(record.status === 'hidden' ? '⚠️ Hidden' : '🟢 Active')}</span>
                 </div>
                 <h3 style="font-size: 18px; font-weight: 800; color: var(--text); margin: 0 0 8px 0; line-height: 1.3;">
-                  ${escapeHtml(record.title || 'Welcome to Linkadda Shop')}
+                  ${escapeHtml(record.title || 'Welcome to JaiGram Shop')}
                 </h3>
                 <p style="font-size: 12.5px; color: var(--muted); margin: 0 0 16px 0; line-height: 1.4;">
                   ${escapeHtml(record.subtitle || 'High quality products & instant digital access.')}
@@ -5519,7 +5519,7 @@ function renderSingleEditorPage(node, schema, data = {}) {
                 <label style="display: block; font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.04em;">
                   ${isHero ? 'Hero Title Heading' : 'Banner Deal Title'}
                 </label>
-                <input type="text" name="title" value="${escapeHtml(record.title || (isHero ? 'Linkadda Premium Shop' : 'All Collection Pack'))}" class="input" style="width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;" required />
+                <input type="text" name="title" value="${escapeHtml(record.title || (isHero ? 'JaiGram Premium Shop' : 'All Collection Pack'))}" class="input" style="width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;" required />
               </div>
 
               <div>
@@ -6476,7 +6476,7 @@ function renderSettingsManagementView(data = {}, fullData = {}) {
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;">
             <div>
               <label style="display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.04em;">Store / Website Name</label>
-              <input type="text" name="siteName" value="${escapeHtml(settings.siteName || 'Linkadda Shop')}" class="input" style="width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;" placeholder="e.g. Linkadda Shop" required />
+              <input type="text" name="siteName" value="${escapeHtml(settings.siteName || 'JaiGram Shop')}" class="input" style="width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;" placeholder="e.g. JaiGram Shop" required />
               <small style="display: block; color: var(--muted); font-size: 11px; margin-top: 4px;">Shown in navbar and browser tab.</small>
             </div>
 
@@ -6505,7 +6505,7 @@ function renderSettingsManagementView(data = {}, fullData = {}) {
 
             <div style="grid-column: 1 / -1;">
               <label style="display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.04em;">Footer Copyright & Notice</label>
-              <textarea name="footer" rows="2" class="textarea" style="width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; resize: vertical;" placeholder="e.g. © 2026 Linkadda Shop. All rights reserved.">${escapeHtml(settings.footer || '© 2026 Linkadda.Shop. All rights reserved.')}</textarea>
+              <textarea name="footer" rows="2" class="textarea" style="width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; resize: vertical;" placeholder="e.g. © 2026 JaiGram Shop. All rights reserved.">${escapeHtml(settings.footer || '© 2026 JaiGram.Shop. All rights reserved.')}</textarea>
               <small style="display: block; color: var(--muted); font-size: 11px; margin-top: 4px;">Displayed at the bottom of every page.</small>
             </div>
           </div>
@@ -6533,7 +6533,7 @@ function renderSettingsManagementView(data = {}, fullData = {}) {
 
             <div>
               <label style="display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.04em;">Support Email</label>
-              <input type="email" name="email" value="${escapeHtml(settings.email || currentEmail)}" class="input" style="width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;" placeholder="support@linkadda.shop" />
+              <input type="email" name="email" value="${escapeHtml(settings.email || currentEmail)}" class="input" style="width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;" placeholder="support@jaigram.shop" />
             </div>
 
             <div>
@@ -6866,7 +6866,7 @@ function getStandardPaymentMethods(payment = {}) {
     },
     {
       id: 'wallet',
-      name: payment.walletTitle || payment.walletName || 'LinkAdda Wallet',
+      name: payment.walletTitle || payment.walletName || 'JaiGram Wallet',
       sub: payment.walletSub || '1-Click Instant Customer Balance',
       type: 'wallet',
       iconClass: 'icon-wallet',
@@ -11857,7 +11857,7 @@ function attachGlobalHandlers() {
         return;
       }
 
-      if (!confirm(`Approve "${storeName}" (${sellerEmail}) as an official LinkAdda Seller?\n\nA secure temporary password will be generated and emailed to ${sellerEmail} via Brevo SMTP.`)) {
+      if (!confirm(`Approve "${storeName}" (${sellerEmail}) as an official JaiGram Seller?\n\nA secure temporary password will be generated and emailed to ${sellerEmail} via Brevo SMTP.`)) {
         return;
       }
       actionBtn.disabled = true;
@@ -11934,13 +11934,13 @@ function attachGlobalHandlers() {
           // Secure backend email dispatch
           sendAdminNotificationEmail({
             to: [{ email: sellerEmail, name: storeName }],
-            subject: `🎉 Congratulations! Your LinkAdda Seller Account is Approved (${storeName})`,
+            subject: `🎉 Congratulations! Your JaiGram Seller Account is Approved (${storeName})`,
             htmlContent: `
               <div style="font-family: sans-serif; background: #07060c; color: #fff; padding: 30px; border-radius: 16px; max-width: 500px; margin: 0 auto;">
-                <h1 style="color: #ff2a8d; margin-top: 0;">Welcome to LinkAdda, ${escapeHtml(storeName)}!</h1>
-                <p style="color: #cbd5e1; line-height: 1.5;">Your digital content partner application has been approved by LinkAdda Admin. You can now log into your Seller Hub, list exclusive packs, and track your 100% payouts.</p>
+                <h1 style="color: #ff2a8d; margin-top: 0;">Welcome to JaiGram, ${escapeHtml(storeName)}!</h1>
+                <p style="color: #cbd5e1; line-height: 1.5;">Your digital content partner application has been approved by JaiGram Admin. You can now log into your Seller Hub, list exclusive packs, and track your 100% payouts.</p>
                 <div style="background: #181426; padding: 20px; border-radius: 12px; margin: 24px 0; border: 1px solid rgba(255,42,141,0.3);">
-                  <p style="margin: 0 0 10px 0; color: #94a3b8; font-size: 13px;">Login Portal: <a href="https://linkadda.shop/seller/login" style="color: #ff2a8d; font-weight: 700;">linkadda.shop/seller/login</a></p>
+                  <p style="margin: 0 0 10px 0; color: #94a3b8; font-size: 13px;">Login Portal: <a href="https://jaigram.shop/seller/login" style="color: #ff2a8d; font-weight: 700;">jaigram.shop/seller/login</a></p>
                   <p style="margin: 0 0 10px 0; color: #94a3b8; font-size: 13px;">Email: <strong style="color: #fff;">${escapeHtml(sellerEmail)}</strong></p>
                   <p style="margin: 0; color: #94a3b8; font-size: 13px;">Temporary Password: <code style="color: #fbbf24; font-size: 16px; font-weight: 800;">${escapeHtml(tempPassword)}</code></p>
                 </div>
@@ -11977,8 +11977,8 @@ function attachGlobalHandlers() {
       } catch (_) {}
 
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const portalUrl = isLocalhost ? `${window.location.origin}/seller/login` : 'https://linkadda.shop/seller/login';
-      const portalLabel = isLocalhost ? `${window.location.host}/seller/login` : 'linkadda.shop/seller/login';
+      const portalUrl = isLocalhost ? `${window.location.origin}/seller/login` : 'https://jaigram.shop/seller/login';
+      const portalLabel = isLocalhost ? `${window.location.host}/seller/login` : 'jaigram.shop/seller/login';
 
       // Open Success Credentials Modal with direct 1-click copy & profile view
       openModal(`
@@ -12015,7 +12015,7 @@ function attachGlobalHandlers() {
           </div>
 
           <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
-            <button class="btn btn-ghost" type="button" data-action="copy-credentials" data-text="LinkAdda Seller Login\nPortal: ${portalUrl}\nEmail: ${escapeHtml(sellerEmail)}\nPassword: ${escapeHtml(tempPassword)}">
+            <button class="btn btn-ghost" type="button" data-action="copy-credentials" data-text="JaiGram Seller Login\nPortal: ${portalUrl}\nEmail: ${escapeHtml(sellerEmail)}\nPassword: ${escapeHtml(tempPassword)}">
               <i data-lucide="copy"></i> Copy Credentials
             </button>
             <button class="btn btn-primary" type="button" data-action="view-seller-profile" data-seller-id="${sellerId}">
@@ -13061,7 +13061,7 @@ function attachGlobalHandlers() {
         `"${String(orderPaymentProof(o) || '').replace(/"/g, '""')}"`
       ]);
       const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-      downloadTextFile(`linkadda-orders-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+      downloadTextFile(`jaigram-orders-${new Date().toISOString().slice(0, 10)}.csv`, csv);
       showToast('Orders exported to CSV!');
       return;
     }
@@ -13163,11 +13163,11 @@ function attachGlobalHandlers() {
                 const payMethod = order.paymentMethod || order.method || 'Instant UPI / Online Payment';
                 sendAdminNotificationEmail({
                   to: [{ email: bEmail, name: buyerDispName }],
-                  subject: `💰 Payment Receipt: ₹${topupAmount} Added to Your LinkAdda Wallet (${orderReceiptId})`,
+                  subject: `💰 Payment Receipt: ₹${topupAmount} Added to Your JaiGram Wallet (${orderReceiptId})`,
                   htmlContent: `
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #07060c; color: #ffffff; padding: 32px 24px; border-radius: 16px; max-width: 520px; margin: 0 auto; border: 1px solid rgba(16, 185, 129, 0.3);">
                       <div style="text-align: center; margin-bottom: 24px;">
-                        <div style="font-size: 26px; font-weight: 800; color: #ffffff;">LinkAdda <span style="color: #10b981;">&#9819;</span> Shop</div>
+                        <div style="font-size: 26px; font-weight: 800; color: #ffffff;">JaiGram <span style="color: #10b981;">&#9819;</span> Shop</div>
                         <div style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #10b981; font-weight: 700; margin-top: 4px;">Official Wallet Top-up Receipt</div>
                       </div>
                       <div style="text-align: center; margin-bottom: 20px;">
@@ -13177,7 +13177,7 @@ function attachGlobalHandlers() {
                       </div>
                       <h2 style="color: #ffffff; margin: 0 0 10px; font-size: 19px; text-align: center;">Hello ${escapeHtml(buyerDispName)}! 🎉</h2>
                       <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin-bottom: 22px; text-align: center;">
-                        Aapke LinkAdda Wallet me <strong>₹${topupAmount.toFixed(2)}</strong> successfully add ho gaye hain. Ab aap instant 1-click checkout se koi bhi pack khareed sakte hain.
+                        Aapke JaiGram Wallet me <strong>₹${topupAmount.toFixed(2)}</strong> successfully add ho gaye hain. Ab aap instant 1-click checkout se koi bhi pack khareed sakte hain.
                       </p>
                       
                       <!-- Prominent Receipt Box -->
@@ -13210,13 +13210,13 @@ function attachGlobalHandlers() {
                       </table>
 
                       <div style="text-align: center; margin-bottom: 20px;">
-                        <a href="https://linkadda.shop/user" target="_blank" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; padding: 13px 28px; border-radius: 12px; font-weight: 750; font-size: 14px; text-decoration: none; display: inline-block; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45); letter-spacing: 0.3px;">
-                          🚀 Open LinkAdda User Dashboard
+                        <a href="https://jaigram.shop/user" target="_blank" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; padding: 13px 28px; border-radius: 12px; font-weight: 750; font-size: 14px; text-decoration: none; display: inline-block; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45); letter-spacing: 0.3px;">
+                          🚀 Open JaiGram User Dashboard
                         </a>
                       </div>
 
                       <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; text-align: center;">
-                        <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} LinkAdda Shop &bull; Official Digital Marketplace</p>
+                        <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} JaiGram Shop &bull; Official Digital Marketplace</p>
                       </div>
                     </div>
                   `
@@ -13263,12 +13263,12 @@ function attachGlobalHandlers() {
             htmlContent: `
               <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #07060c; color: #ffffff; padding: 32px 24px; border-radius: 16px; max-width: 520px; margin: 0 auto; border: 1px solid rgba(16, 185, 129, 0.3);">
                 <div style="text-align: center; margin-bottom: 24px;">
-                  <div style="font-size: 26px; font-weight: 800; color: #ffffff;">LinkAdda <span style="color: #10b981;">&#9819;</span> Store</div>
+                  <div style="font-size: 26px; font-weight: 800; color: #ffffff;">JaiGram <span style="color: #10b981;">&#9819;</span> Store</div>
                   <div style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #10b981; font-weight: 700; margin-top: 4px;">Payment Verified &amp; Approved</div>
                 </div>
                 <h2 style="color: #ffffff; margin: 0 0 12px; font-size: 19px;">Hello ${escapeHtml(buyerName)}! 🎉</h2>
                 <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
-                  Your payment for <strong>${escapeHtml(orderTitle)}</strong> has been verified and approved by LinkAdda Admin.
+                  Your payment for <strong>${escapeHtml(orderTitle)}</strong> has been verified and approved by JaiGram Admin.
                 </p>
                 <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 22px; border-radius: 14px; margin: 24px 0; text-align: center;">
                   <p style="margin: 0 0 14px; font-size: 13px; color: #94a3b8; font-weight: 600;">Use the button below to join the VIP Telegram channel and access your pack:</p>
@@ -13280,7 +13280,7 @@ function attachGlobalHandlers() {
                   Direct URL: <a href="${escapeHtml(productLink)}" style="color: #38bdf8; word-break: break-all;">${escapeHtml(productLink)}</a>
                 </p>
                 <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; text-align: center;">
-                  <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} LinkAdda Shop &bull; 24/7 VIP Support: @Linkadda_Support</p>
+                  <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} JaiGram Shop &bull; 24/7 VIP Support: @JaiGram_Support</p>
                 </div>
               </div>
             `
@@ -13311,12 +13311,12 @@ function attachGlobalHandlers() {
             htmlContent: `
               <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #07060c; color: #ffffff; padding: 32px 24px; border-radius: 16px; max-width: 520px; margin: 0 auto; border: 1px solid rgba(255, 42, 141, 0.3);">
                 <div style="text-align: center; margin-bottom: 24px;">
-                  <div style="font-size: 26px; font-weight: 800; color: #ffffff;">LinkAdda <span style="color: #ff2a8d;">&#9819;</span> Seller Hub</div>
+                  <div style="font-size: 26px; font-weight: 800; color: #ffffff;">JaiGram <span style="color: #ff2a8d;">&#9819;</span> Seller Hub</div>
                   <div style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #ff2a8d; font-weight: 700; margin-top: 4px;">Order Verified &amp; Approved</div>
                 </div>
                 <h2 style="color: #ffffff; margin: 0 0 12px; font-size: 19px;">Congratulations, ${escapeHtml(sellerStore)}! 💰</h2>
                 <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
-                  An order for your pack <strong>"${escapeHtml(orderTitle)}"</strong> has been verified and approved by LinkAdda Admin.
+                  An order for your pack <strong>"${escapeHtml(orderTitle)}"</strong> has been verified and approved by JaiGram Admin.
                 </p>
                 <div style="background: rgba(255, 42, 141, 0.08); border: 1px solid rgba(255, 42, 141, 0.25); padding: 18px; border-radius: 12px; margin: 20px 0;">
                   <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
@@ -13336,7 +13336,7 @@ function attachGlobalHandlers() {
                   100% of this sale amount has been approved and credited to your seller account for 7-day rolling automated UPI payout.
                 </p>
                 <div style="text-align: center; margin-top: 24px;">
-                  <a href="https://linkadda.shop/seller/dashboard" target="_blank" style="background: linear-gradient(135deg, #ff2a8d, #ff5e36); color: #ffffff; padding: 12px 24px; border-radius: 10px; font-weight: 800; font-size: 13.5px; text-decoration: none; display: inline-block;">
+                  <a href="https://jaigram.shop/seller/dashboard" target="_blank" style="background: linear-gradient(135deg, #ff2a8d, #ff5e36); color: #ffffff; padding: 12px 24px; border-radius: 10px; font-weight: 800; font-size: 13.5px; text-decoration: none; display: inline-block;">
                     Open Seller Dashboard
                   </a>
                 </div>
@@ -13798,7 +13798,7 @@ function attachGlobalHandlers() {
       const formData = new FormData(form);
       const nextSettings = {
         ...(ui.data?.settings || {}),
-        siteName: (formData.get('siteName') || '').trim() || 'Linkadda Shop',
+        siteName: (formData.get('siteName') || '').trim() || 'JaiGram Shop',
         logo: (formData.get('logo') || '').trim(),
         favicon: (formData.get('favicon') || '').trim(),
         telegram: (formData.get('telegram') || '').trim(),

@@ -80,7 +80,7 @@ export const DEFAULT_EMPTY = {
   slug: '',
   description: '',
   category: '',
-  sellerName: 'LinkAdda Official',
+  sellerName: 'JaiGram Official',
   priceINR: '',
   priceUSD: '',
   originalPriceINR: '',

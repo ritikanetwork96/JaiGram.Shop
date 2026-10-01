@@ -32,9 +32,16 @@
     );
   }
 
-  // 3. Register Service Worker (HTTP/HTTPS only)
+  // 3. Register Service Worker (HTTP/HTTPS only; unregister on local dev to prevent stale caches)
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     window.addEventListener('load', () => {
+      if (isLocal) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          regs.forEach((reg) => reg.unregister());
+        }).catch(() => {});
+        return;
+      }
       navigator.serviceWorker
         .register('/sw.js')
         .then((reg) => {

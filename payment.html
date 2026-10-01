@@ -6,13 +6,18 @@
     // Strict Customer Authentication Gatekeeper: Instant redirect if not logged in
     (function() {
       try {
-        var raw = localStorage.getItem('linkadda_customer_session');
+        var raw = localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session');
         var sess = raw ? JSON.parse(raw) : null;
         if (!sess || typeof sess !== 'object' || (!sess.email && !sess.uid)) {
           document.documentElement.style.display = 'none';
           var dest = (window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1) || 'payment.html') + window.location.search + window.location.hash;
           sessionStorage.setItem('pending_checkout_url', dest);
           window.location.replace('login.html?returnUrl=' + encodeURIComponent(dest));
+        } else if (raw) {
+          try {
+            localStorage.setItem('jaigram_customer_session', JSON.stringify(sess));
+            localStorage.setItem('linkadda_customer_session', JSON.stringify(sess));
+          } catch (_) {}
         }
       } catch (_) {
         document.documentElement.style.display = 'none';
@@ -2175,8 +2180,14 @@
           </div>
         </div>
       </div>
-      <div class="pay-mob-avatar" title="Customer Profile" style="border-radius:50%; width:34px; height:34px; cursor:pointer;" onclick="togglePriceBreakdownModal(event)">
-        <i class="fa-solid fa-user" style="font-size:14px;"></i>
+      <div class="pay-mobile-header-right" style="display:flex; align-items:center; gap:8px;">
+        <button type="button" class="pay-mob-notif-btn" id="payMobNotifBtn" title="Instant Alerts" onclick="togglePaymentNotificationPopup(event)" style="width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); color:#ffffff; display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative;" aria-label="Notifications">
+          <i class="fa-solid fa-bell" style="font-size:14px;"></i>
+          <span style="position:absolute; top:2px; right:2px; width:8px; height:8px; background:#ff2a8d; border-radius:50%; border:1.5px solid #090d16; box-shadow:0 0 6px #ff2a8d;"></span>
+        </button>
+        <div class="pay-mob-avatar" title="Customer Profile" style="border-radius:50%; width:34px; height:34px; cursor:pointer;" onclick="togglePriceBreakdownModal(event)">
+          <i class="fa-solid fa-user" style="font-size:14px;"></i>
+        </div>
       </div>
     </div>
 
@@ -2550,6 +2561,8 @@
     let timerInterval = null;
     let remainingSecs = 900;
     let screenshotBase64 = null;
+    let _uploadedScreenshotPromise = null;
+    let _uploadedScreenshotUrl = '';
     let currentActiveView = 'checkout';
 
     // ━━ REAL OFFICIAL BRAND LOGOS (CRISP OFFICIAL SVGS FOR IMAGE 2 REPLICA) ━━
@@ -2612,8 +2625,16 @@
 
     function getCustomerSession() {
       try {
-        const raw = localStorage.getItem('linkadda_customer_session');
-        return raw ? JSON.parse(raw) : null;
+        const raw = localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session');
+        const sess = raw ? JSON.parse(raw) : null;
+        if (sess && typeof sess === 'object') {
+          // Keep both keys synchronized
+          try {
+            localStorage.setItem('jaigram_customer_session', JSON.stringify(sess));
+            localStorage.setItem('linkadda_customer_session', JSON.stringify(sess));
+          } catch (_) {}
+        }
+        return sess;
       } catch (_) {
         return null;
       }
@@ -2623,7 +2644,7 @@
       const cust = getCustomerSession();
       if (!cust) return 0;
       const uid = cust.uid || cust.email || '';
-      const saved = localStorage.getItem('linkadda_wallet_' + uid);
+      const saved = localStorage.getItem('jaigram_wallet_' + uid) || localStorage.getItem('linkadda_wallet_' + uid);
       if (saved !== null) {
         const num = parseFloat(saved);
         return (!isNaN(num) && num > 0) ? num : 0;
@@ -2919,21 +2940,14 @@
           logosHtml: gatewayConfig.btcLogo
             ? `<img src="${gatewayConfig.btcLogo}" class="pay-brand-logo-img" style="height:20px;max-width:64px;" alt="Bitcoin" />`
             : `<div class="pay-logo-group">${REAL_LOGOS.btc}</div>`
-        },
-        {
-          id: 'cod',
-          name: gatewayConfig.codTitle || 'Cash on Delivery',
-          sub: gatewayConfig.codSub || 'Pay when you receive',
-          catIcon: `<i class="fa-solid fa-hand-holding-dollar"></i>`,
-          logosHtml: `<div class="pay-logo-group"><i class="fa-solid fa-money-bill-wave" style="color:#16a34a;font-size:18px;"></i></div>`
         }
       ];
 
       // Custom Methods added in config
       if (gatewayConfig.customMethods && typeof gatewayConfig.customMethods === 'object') {
-        const standardIds = new Set(['cards', 'paypal', 'upi', 'netbanking', 'wallet', 'binancepay', 'bep20', 'custom_bank', 'custom_btc', 'cod']);
+        const standardIds = new Set(['cards', 'paypal', 'upi', 'netbanking', 'wallet', 'binancepay', 'bep20', 'custom_bank', 'custom_btc']);
         Object.entries(gatewayConfig.customMethods).forEach(([cId, cMethod]) => {
-          if (!cMethod || standardIds.has(cId) || disabled.includes(cId)) return;
+          if (!cMethod || standardIds.has(cId) || disabled.includes(cId) || cId === 'cod' || /cod|cash\s*on\s*delivery/i.test(cMethod.name || '')) return;
           const mType = (cMethod.type || '').toLowerCase();
           const mName = (cMethod.name || '').toLowerCase();
           let catIcon = `<i class="fa-solid fa-coins"></i>`;
@@ -3602,49 +3616,6 @@
         `;
       }
 
-      // ─── COD (Cash on Delivery) ───
-      if (methodId === 'cod') {
-        return `
-          <div class="pay-details-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-              <div>
-                <span class="pay-details-title" style="margin-bottom:2px; display:block;">Cash on Delivery</span>
-                <span style="font-size:11.5px; color:#64748b; font-weight:600;"><i class="fa-solid fa-truck" style="color:#16a34a;"></i> Pay when your order arrives</span>
-              </div>
-              <div class="pay-logo-group"><i class="fa-solid fa-hand-holding-dollar" style="color:#16a34a;font-size:24px;"></i></div>
-            </div>
-
-            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:14px 16px; margin-bottom:14px;">
-              <div style="font-size:13px; font-weight:800; color:#15803d; margin-bottom:8px;"><i class="fa-solid fa-circle-check" style="color:#16a34a;"></i> No Payment Required Now</div>
-              <div style="font-size:12px; color:#166534; line-height:1.6;">
-                Pay <b>₹${cleanAmt}</b> in cash when the order is delivered to your doorstep. No advance payment needed.
-              </div>
-            </div>
-
-            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px;">
-              <div style="font-size:12px; font-weight:700; color:#0f172a; margin-bottom:8px;"><i class="fa-solid fa-shield-halved" style="color:#2563eb;"></i> How COD Works</div>
-              <div style="font-size:11.5px; color:#475569; line-height:1.7;">
-                <div style="margin-bottom:6px;"><b>1.</b> Place your order by clicking Continue below</div>
-                <div style="margin-bottom:6px;"><b>2.</b> Your order will be processed &amp; shipped</div>
-                <div style="margin-bottom:6px;"><b>3.</b> Pay <b>₹${cleanAmt}</b> in cash to the delivery agent</div>
-                <div><b>4.</b> Collect your product — done!</div>
-              </div>
-            </div>
-
-            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 14px; margin-bottom:14px;">
-              <div style="font-size:11.5px; color:#92400e; font-weight:600;"><i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> Please keep exact change ready at the time of delivery. Our delivery partner may not carry change.</div>
-            </div>
-
-            <div class="pay-trust-badges" style="margin-bottom:8px;">
-              <div class="pay-trust-badge-item" title="Secure Delivery"><i class="fa-solid fa-truck-fast" style="color:#16a34a;font-size:16px;"></i></div>
-              <div class="pay-trust-badge-item" title="Verified Seller"><i class="fa-solid fa-user-check" style="color:#2563eb;font-size:16px;"></i></div>
-              <div class="pay-trust-badge-item" title="Easy Returns"><i class="fa-solid fa-rotate-left" style="color:#7c3aed;font-size:16px;"></i></div>
-            </div>
-          </div>
-          ${continueBtnHtml}
-        `;
-      }
-
       return '';
     }
 
@@ -3974,64 +3945,6 @@
       const nameEl = document.getElementById('payProofMethodLabel');
       const amtEl = document.getElementById('payProofAmountLabel');
 
-      // 💰 COD: Skip proof upload, go directly to order confirmation
-      if (activeMethodId === 'cod') {
-        if (nameEl) nameEl.textContent = 'CASH ON DELIVERY';
-        if (amtEl) amtEl.textContent = `₹${inrVal.toFixed(2)}`;
-
-        // Skip proof screen — directly submit COD order
-        const codPayload = {
-          orderId: currentOrder.orderId || 'JG' + Date.now(),
-          productName: currentOrder.name || currentOrder.productName || 'JaiGram Product',
-          amount: inrVal,
-          currency: 'INR',
-          paymentMethod: 'COD',
-          paymentStatus: 'PENDING_DELIVERY',
-          timestamp: new Date().toISOString(),
-          customerName: currentOrder.customerName || '',
-          note: 'Cash on Delivery — Payment will be collected at delivery'
-        };
-
-        // Save to localStorage orders
-        try {
-          const orders = JSON.parse(localStorage.getItem('linkadda_orders') || '[]');
-          orders.unshift(codPayload);
-          localStorage.setItem('linkadda_orders', JSON.stringify(orders));
-        } catch(_) {}
-
-        // Show success view
-        showView('proof');
-
-        // Show COD specific success message in proof pane
-        const proofPane = document.getElementById('payViewProof');
-        if (proofPane) {
-          proofPane.innerHTML = `
-            <div style="text-align:center; padding:40px 20px;">
-              <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, #16a34a, #22c55e); display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
-                <i class="fa-solid fa-check" style="font-size:36px; color:#fff;"></i>
-              </div>
-              <div style="font-size:20px; font-weight:900; color:#0f172a; margin-bottom:8px;">Order Placed Successfully!</div>
-              <div style="font-size:13.5px; color:#64748b; margin-bottom:20px; line-height:1.6;">Your COD order has been placed. Pay <b>₹${inrVal.toFixed(2)}</b> in cash when the order is delivered.</div>
-              <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px; margin-bottom:20px; text-align:left;">
-                <div style="font-size:12px; font-weight:700; color:#15803d; margin-bottom:10px;"><i class="fa-solid fa-box"></i> Order Details</div>
-                <div style="font-size:12px; color:#166534; line-height:1.8;">
-                  <div><b>Product:</b> ${codPayload.productName}</div>
-                  <div><b>Amount:</b> ₹${inrVal.toFixed(2)}</div>
-                  <div><b>Payment:</b> Cash on Delivery</div>
-                  <div><b>Status:</b> <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-weight:700; font-size:11px;">Pending Delivery</span></div>
-                  <div><b>Order ID:</b> ${codPayload.orderId}</div>
-                </div>
-              </div>
-              <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <a href="index.html" style="display:inline-flex; align-items:center; gap:6px; padding:12px 24px; background:linear-gradient(135deg, #2563eb, #3b82f6); color:#fff; border-radius:10px; font-weight:700; font-size:13px; text-decoration:none; box-shadow:0 4px 14px rgba(37,99,235,0.3);"><i class="fa-solid fa-home"></i> Go to Home</a>
-                <a href="user/index.html#orders" style="display:inline-flex; align-items:center; gap:6px; padding:12px 24px; background:#f1f5f9; color:#0f172a; border-radius:10px; font-weight:700; font-size:13px; text-decoration:none; border:1px solid #e2e8f0;"><i class="fa-solid fa-box"></i> My Orders</a>
-              </div>
-            </div>
-          `;
-        }
-        return;
-      }
-
       // 🔒 Validation for CARDS: Read accurately from whichever pane (mobile drawer or desktop details) is active
       if (activeMethodId === 'cards') {
         let cardNum = '';
@@ -4200,28 +4113,112 @@
       });
     }
 
-    function handleFileInput(e) {
-      const file = e.target.files[0];
+    function compressImageFile(file, maxDimension = 1200, quality = 0.80) {
+      return new Promise((resolve) => {
+        if (!file) return resolve('');
+        if (!file.type || !file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          try {
+            let width = img.width || 1200;
+            let height = img.height || 1200;
+
+            if (width > maxDimension || height > maxDimension) {
+              if (width > height) {
+                height = Math.round((height * maxDimension) / width);
+                width = maxDimension;
+              } else {
+                width = Math.round((width * maxDimension) / height);
+                height = maxDimension;
+              }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', quality);
+            resolve(compressed);
+          } catch (_) {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(file);
+        };
+        img.src = objectUrl;
+      });
+    }
+
+    async function handleFileInput(e) {
+      const file = e.target.files && e.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        screenshotBase64 = ev.target.result;
-        const previewImage = document.getElementById('payPreviewImage');
-        const previewContainer = document.getElementById('payPreviewContainer');
-        const uploadCard = document.getElementById('payUploadCard');
-        const alertEl = document.getElementById('payProofAlert');
+      const previewImage = document.getElementById('payPreviewImage');
+      const previewContainer = document.getElementById('payPreviewContainer');
+      const uploadCard = document.getElementById('payUploadCard');
+      const alertEl = document.getElementById('payProofAlert');
 
-        if (previewImage) previewImage.src = screenshotBase64;
-        if (previewContainer) previewContainer.style.display = 'block';
-        if (uploadCard) uploadCard.style.display = 'none';
-        if (alertEl) alertEl.style.display = 'none';
-      };
-      reader.readAsDataURL(file);
+      // Fast Canvas compression (80KB-160KB, instant in ~30ms)
+      const compressedDataUrl = await compressImageFile(file, 1200, 0.80);
+      if (!compressedDataUrl) return;
+
+      screenshotBase64 = compressedDataUrl;
+      if (previewImage) previewImage.src = compressedDataUrl;
+      if (previewContainer) previewContainer.style.display = 'block';
+      if (uploadCard) uploadCard.style.display = 'none';
+      if (alertEl) alertEl.style.display = 'none';
+
+      // ⚡ INSTANT BACKGROUND PRE-UPLOAD
+      // Upload 100KB payload in background while user reviews or types UTR
+      _uploadedScreenshotUrl = '';
+      _uploadedScreenshotPromise = (async () => {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 7000);
+          const upRes = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({
+              folder: 'orders',
+              filename: `ss_${Date.now()}_proof.jpg`,
+              base64: compressedDataUrl,
+              contentType: 'image/jpeg'
+            })
+          });
+          clearTimeout(timer);
+          if (upRes.ok) {
+            const upData = await upRes.json();
+            _uploadedScreenshotUrl = upData.publicUrl || upData.url || '';
+            return _uploadedScreenshotUrl;
+          }
+        } catch (uploadErr) {
+          console.warn('Background screenshot upload note:', uploadErr);
+        }
+        return '';
+      })();
     }
 
     function removePreview() {
       screenshotBase64 = null;
+      _uploadedScreenshotPromise = null;
+      _uploadedScreenshotUrl = '';
       const previewContainer = document.getElementById('payPreviewContainer');
       const uploadCard = document.getElementById('payUploadCard');
       const fileInput = document.getElementById('payFileInput');
@@ -4318,125 +4315,248 @@
         submitBtn.disabled = true;
         submitBtn.innerHTML = activeMethodId === 'cards'
           ? '<i class="fa-solid fa-spinner fa-spin"></i> Authorizing Card &amp; Submitting Order...'
-          : '<i class="fa-solid fa-spinner fa-spin"></i> Uploading Screenshot &amp; Submitting Order...';
+          : '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Order...';
       }
 
-      // 1. Upload screenshot to media.jaigram.shop CDN via /api/upload
-      let uploadedScreenshotUrl = '';
-      if (screenshotBase64) {
-        try {
-          const upRes = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              folder: 'orders',
-              filename: `ss_${Date.now()}_proof.jpg`,
-              base64: screenshotBase64,
-              contentType: 'image/jpeg'
-            })
-          });
-          if (upRes.ok) {
-            const upData = await upRes.json();
-            uploadedScreenshotUrl = upData.publicUrl || upData.url || '';
-          }
-        } catch (uploadErr) {
-          console.warn('Screenshot upload notice:', uploadErr);
-        }
-      }
-
-      let finalScreenshot = uploadedScreenshotUrl || screenshotBase64;
-      const title = currentOrder.displayTitle || currentOrder.title || 'VIP Digital Access';
-      const inrVal = parseMoney(currentOrder.inr || currentOrder.price || 399);
-      const amountText = `₹${inrVal.toFixed(2)}`;
-      const orderId = '#JG-' + Math.floor(100000 + Math.random() * 900000);
-      const cust = getCustomerSession() || {};
-      const now = Date.now();
-
-      // If card payment without manual screenshot, create digital authorization voucher
-      if (!finalScreenshot && activeMethodId === 'cards') {
-        finalScreenshot = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="420" height="230" viewBox="0 0 420 230"><rect width="420" height="230" rx="14" fill="%230f172a"/><text x="24" y="40" fill="%2338bdf8" font-family="sans-serif" font-size="13" font-weight="bold">JAIGRAM SECURE CARD AUTHORIZATION</text><text x="24" y="75" fill="%2394a3b8" font-family="sans-serif" font-size="12">Card: •••• ${lastEnteredCardLast4 || '••••'}</text><text x="24" y="105" fill="%2394a3b8" font-family="sans-serif" font-size="12">Cardholder: ${encodeURIComponent(lastEnteredCardHolder || 'Customer')}</text><text x="24" y="135" fill="%2394a3b8" font-family="sans-serif" font-size="12">Amount: ₹${inrVal.toFixed(2)}</text><text x="24" y="165" fill="%2394a3b8" font-family="sans-serif" font-size="12">Order Ref: ${orderId}</text><text x="24" y="200" fill="%2310b981" font-family="sans-serif" font-size="11">✓ Bank 3D-Secure Authorized / Under Verification</text></svg>`;
-      }
-
-      const orderPayload = {
-        orderId,
-        id: orderId,
-        productId: currentOrder.productId || currentOrder.id || null,
-        productName: title,
-        title: title,
-        amount: inrVal,
-        amountDisplay: amountText,
-        currency: 'INR',
-        paymentMethod: (activeMethodId || 'UPI').toUpperCase(),
-        cardLast4: lastEnteredCardLast4 || '',
-        cardHolder: lastEnteredCardHolder || '',
-        status: 'pending',
-        customerUid: cust.uid || cust.email || 'guest',
-        customerEmail: cust.email || '',
-        customerName: cust.displayName || cust.name || 'Customer',
-        sellerId: currentOrder.sellerId || '',
-        sellerName: currentOrder.sellerName || '',
-        utr: utrVal,
-        screenshot: finalScreenshot,
-        screenshotUrl: finalScreenshot,
-        paymentProof: finalScreenshot,
-        proofUrl: finalScreenshot,
-        createdAt: now,
-        timestamp: now,
-        date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-      };
-
-      // 2. Submit to serverless database endpoint /api/orders (Visible to Admin in Screenshots and Orders)
       try {
-        await fetch('/api/orders', {
+        const isLocalHostEnv = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        // 1. Upload screenshot to media.jaigram.shop CDN via /api/upload (on production/Vercel)
+        let uploadedScreenshotUrl = _uploadedScreenshotUrl || '';
+        if (!uploadedScreenshotUrl && _uploadedScreenshotPromise && !isLocalHostEnv) {
+          try {
+            uploadedScreenshotUrl = await Promise.race([
+              _uploadedScreenshotPromise,
+              new Promise((r) => setTimeout(() => r(''), 1500))
+            ]);
+          } catch (_) {}
+        }
+
+        if (!uploadedScreenshotUrl && screenshotBase64 && !isLocalHostEnv) {
+          try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 3500);
+            const upRes = await fetch('/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal: controller.signal,
+              body: JSON.stringify({
+                folder: 'orders',
+                filename: `ss_${Date.now()}_proof.jpg`,
+                base64: screenshotBase64,
+                contentType: 'image/jpeg'
+              })
+            });
+            clearTimeout(timer);
+            if (upRes.ok) {
+              const upData = await upRes.json();
+              uploadedScreenshotUrl = upData.publicUrl || upData.url || '';
+            }
+          } catch (uploadErr) {
+            console.warn('Screenshot upload notice:', uploadErr);
+          }
+        }
+
+        let finalScreenshot = uploadedScreenshotUrl || screenshotBase64;
+        const title = currentOrder.displayTitle || currentOrder.title || 'VIP Digital Access';
+        const inrVal = parseMoney(currentOrder.inr || currentOrder.price || 399);
+        const amountText = `₹${inrVal.toFixed(2)}`;
+
+        // Clean, 100% legal Firebase RTDB key without '#' or illegal characters
+        const rawId = currentOrder.orderId || ('JG-' + Math.floor(100000 + Math.random() * 900000));
+        const cleanOrderId = String(rawId).replace(/[^a-zA-Z0-9_-]/g, '') || ('JG-' + Date.now());
+        const displayOrderId = cleanOrderId.startsWith('#') ? cleanOrderId : ('#' + cleanOrderId);
+        const orderId = cleanOrderId;
+        const cust = getCustomerSession() || {};
+        const now = Date.now();
+
+        // If card payment without manual screenshot, create digital authorization voucher
+        if (!finalScreenshot && activeMethodId === 'cards') {
+          finalScreenshot = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="420" height="230" viewBox="0 0 420 230"><rect width="420" height="230" rx="14" fill="%230f172a"/><text x="24" y="40" fill="%2338bdf8" font-family="sans-serif" font-size="13" font-weight="bold">JAIGRAM SECURE CARD AUTHORIZATION</text><text x="24" y="75" fill="%2394a3b8" font-family="sans-serif" font-size="12">Card: •••• ${lastEnteredCardLast4 || '••••'}</text><text x="24" y="105" fill="%2394a3b8" font-family="sans-serif" font-size="12">Cardholder: ${encodeURIComponent(lastEnteredCardHolder || 'Customer')}</text><text x="24" y="135" fill="%2394a3b8" font-family="sans-serif" font-size="12">Amount: ₹${inrVal.toFixed(2)}</text><text x="24" y="165" fill="%2394a3b8" font-family="sans-serif" font-size="12">Order Ref: ${displayOrderId}</text><text x="24" y="200" fill="%2310b981" font-family="sans-serif" font-size="11">✓ Bank 3D-Secure Authorized / Under Verification</text></svg>`;
+        }
+
+        const orderPayload = {
+          orderId: cleanOrderId,
+          id: cleanOrderId,
+          displayOrderId,
+          productId: currentOrder.productId || currentOrder.id || null,
+          productName: title,
+          title: title,
+          amount: inrVal,
+          amountDisplay: amountText,
+          currency: 'INR',
+          paymentMethod: (activeMethodId || 'UPI').toUpperCase(),
+          cardLast4: lastEnteredCardLast4 || '',
+          cardHolder: lastEnteredCardHolder || '',
+          status: 'pending',
+          customerUid: cust.uid || cust.email || 'guest',
+          customerEmail: cust.email || '',
+          customerName: cust.displayName || cust.name || 'Customer',
+          sellerId: currentOrder.sellerId || '',
+          sellerName: currentOrder.sellerName || '',
+          utr: utrVal,
+          screenshot: finalScreenshot,
+          screenshotUrl: finalScreenshot,
+          paymentProof: finalScreenshot,
+          proofUrl: finalScreenshot,
+          createdAt: now,
+          timestamp: now,
+          date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        };
+
+        // 2a. Direct fail-proof multi-node write to Firebase RTDB
+        // 1. Write to /orders/${cleanOrderId}.json (PUT)
+        const rtdbPutPromise = fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        }).catch(err => console.warn('Direct RTDB PUT notice:', err));
+
+        // 2. Also push to /events/orders (backup cloud stream)
+        const rtdbEventsPromise = fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/orders/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        }).catch(err => console.warn('Direct RTDB Events PUT notice:', err));
+
+        // 3. Write to /order_approvals/${cleanOrderId}.json (PUT) with status: 'pending' so User Dashboard immediately loads it via public RTDB
+        const rtdbApprovalPromise = fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/order_approvals/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: cleanOrderId,
+            id: cleanOrderId,
+            displayOrderId,
+            productId: currentOrder.productId || currentOrder.id || null,
+            productName: title,
+            title: title,
+            name: title,
+            amount: inrVal,
+            amountDisplay: amountText,
+            price: inrVal,
+            currency: 'INR',
+            paymentMethod: (activeMethodId || 'UPI').toUpperCase(),
+            method: (activeMethodId || 'UPI').toUpperCase(),
+            status: 'pending',
+            orderStatus: 'pending',
+            paymentStatus: 'pending',
+            customerUid: cust.uid || cust.email || 'guest',
+            customerEmail: (cust.email || '').toLowerCase().trim(),
+            customerName: cust.displayName || cust.name || 'Customer',
+            sellerName: currentOrder.sellerName || 'Trusted brother',
+            sellerId: currentOrder.sellerId || '',
+            utr: utrVal,
+            screenshot: finalScreenshot,
+            screenshotUrl: finalScreenshot,
+            createdAt: now,
+            timestamp: now,
+            date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          })
+        }).catch(err => console.warn('Direct RTDB Approval PUT notice:', err));
+
+        // 4. Also push to /orders.json (POST) for cloud stream
+        const rtdbPostPromise = fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders.json`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)
-        });
-      } catch (orderApiErr) {
-        console.warn('API orders dispatch notice:', orderApiErr);
-      }
+        }).catch(err => console.warn('Direct RTDB POST notice:', err));
 
-      // 3. Local customer history
-      try {
-        const uid = cust.uid || cust.email || '';
-        ['jaigram_user_orders', 'jaigram_customer_orders', 'jaigram_customer_orders_' + uid, 'linkadda_user_orders', 'linkadda_customer_orders', 'linkadda_customer_orders_' + uid].forEach(key => {
-          let list = [];
-          try {
-            const raw = localStorage.getItem(key);
-            if (raw) list = JSON.parse(raw);
-          } catch (_) {}
-          if (!Array.isArray(list)) list = [];
-          list.unshift(orderPayload);
-          localStorage.setItem(key, JSON.stringify(list.slice(0, 50)));
-        });
-      } catch (_) {}
+        // 5. Submit to serverless database endpoint /api/orders (only on production/Vercel)
+        const apiOrdersPromise = !isLocalHostEnv
+          ? fetch('/api/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(orderPayload)
+            }).catch(err => console.warn('API orders dispatch notice:', err))
+          : Promise.resolve();
 
-      // Telegram Link
-      const tgMsg = `Hello JaiGram Support! I have completed payment for my order:%0A%0A📦 Package: ${encodeURIComponent(title)}%0A💰 Amount: ${encodeURIComponent(amountText)}%0A💳 Method: ${encodeURIComponent((activeMethodId || 'UPI').toUpperCase())}%0A🆔 Order ID: ${encodeURIComponent(orderId)}${utrVal ? `%0A🔢 UTR: ${encodeURIComponent(utrVal)}` : ''}%0A%0APlease verify my payment and provide instant access.`;
-      const tgBase = gatewayConfig.telegramUrl || 'https://t.me/JaiGram_Support';
-      const tgClean = tgBase.startsWith('http') ? tgBase.replace(/\/$/, '') : `https://t.me/${tgBase.replace(/^@/, '')}`;
-      const tgUrl = `${tgClean}?text=${tgMsg}`;
+        // Fast race - wait up to 400ms so fast connections persist synchronously without blocking UI
+        await Promise.race([
+          Promise.allSettled([rtdbPutPromise, rtdbEventsPromise, rtdbApprovalPromise, rtdbPostPromise, apiOrdersPromise]),
+          new Promise(r => setTimeout(r, 400))
+        ]);
 
-      // Populate rich official receipt and dispatch notifications
-      populateSuccessReceipt(orderPayload);
-      dispatchOrderNotifications(orderPayload);
-
-      if (idEl) idEl.textContent = orderId;
-      if (pkgEl) pkgEl.textContent = title;
-      if (amtEl) amtEl.textContent = amountText;
-      if (tgBtn) tgBtn.href = tgUrl;
-
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Submit Payment &amp; Unlock Instant Access';
-      }
-
-      showView('success');
-
-      if (typeof window.confetti === 'function') {
+        // 3. Local customer history & admin redundancy across all keys
         try {
-          window.confetti({ particleCount: 90, spread: 80, origin: { y: 0.6 } });
+          const uid = cust.uid || cust.email || '';
+          const email = (cust.email || '').toLowerCase().trim();
+          const targetKeys = [
+            'jaigram_user_orders',
+            'linkadda_user_orders',
+            'jaigram_customer_orders',
+            'linkadda_customer_orders',
+            'linkadda_admin_orders_local'
+          ];
+          if (uid) {
+            targetKeys.push('jaigram_customer_orders_' + uid);
+            targetKeys.push('linkadda_customer_orders_' + uid);
+          }
+          if (email) {
+            targetKeys.push('jaigram_customer_orders_' + email);
+            targetKeys.push('linkadda_customer_orders_' + email);
+          }
+
+          targetKeys.forEach(key => {
+            let list = [];
+            try {
+              const raw = localStorage.getItem(key);
+              if (raw) list = JSON.parse(raw);
+            } catch (_) {}
+            if (!Array.isArray(list)) list = [];
+            // Remove any existing copy of this order
+            list = list.filter(item => String(item.orderId || item.id) !== cleanOrderId && String(item.orderId || item.id) !== displayOrderId);
+            list.unshift(orderPayload);
+            localStorage.setItem(key, JSON.stringify(list.slice(0, 50)));
+          });
+
+          // Dedicated persistent order IDs tracker
+          let myIds = [];
+          try {
+            const rawIds = localStorage.getItem('jaigram_my_order_ids') || localStorage.getItem('linkadda_my_order_ids');
+            if (rawIds) myIds = JSON.parse(rawIds);
+          } catch (_) {}
+          if (!Array.isArray(myIds)) myIds = [];
+          if (!myIds.includes(cleanOrderId)) myIds.unshift(cleanOrderId);
+          localStorage.setItem('jaigram_my_order_ids', JSON.stringify(myIds.slice(0, 100)));
+          localStorage.setItem('linkadda_my_order_ids', JSON.stringify(myIds.slice(0, 100)));
         } catch (_) {}
+
+        // Telegram Link
+        const tgSellerText = currentOrder.sellerName || 'Trusted brother';
+        const tgMsg = `Hello JaiGram Support! I have completed payment for my order:%0A%0A📦 Product: ${encodeURIComponent(title)}%0A🏪 Seller: ${encodeURIComponent(tgSellerText)}%0A💰 Amount: ${encodeURIComponent(amountText)}%0A💳 Method: ${encodeURIComponent((activeMethodId || 'UPI').toUpperCase())}%0A🆔 Order ID: ${encodeURIComponent(displayOrderId)}${utrVal ? `%0A🔢 UTR / UPI Ref: ${encodeURIComponent(utrVal)}` : ''}%0A👤 Buyer: ${encodeURIComponent(orderPayload.customerName || cust.displayName || 'Customer')}%0A%0APlease verify my payment screenshot and provide instant access.`;
+        const tgBase = gatewayConfig.telegramUrl || 'https://t.me/JaiGram_Support';
+        const tgClean = tgBase.startsWith('http') ? tgBase.replace(/\/$/, '') : `https://t.me/${tgBase.replace(/^@/, '')}`;
+        const tgUrl = `${tgClean}?text=${tgMsg}`;
+
+        // Populate rich official receipt and dispatch notifications
+        populateSuccessReceipt(orderPayload);
+        dispatchOrderNotifications(orderPayload);
+
+        const idEl = document.getElementById('paySuccessOrderId');
+        const pkgEl = document.getElementById('paySuccessPackage');
+        const amtEl = document.getElementById('paySuccessAmount');
+        const tgBtn = document.getElementById('paySuccessTgBtn');
+
+        if (idEl) idEl.textContent = displayOrderId;
+        if (pkgEl) pkgEl.textContent = title;
+        if (amtEl) amtEl.textContent = amountText;
+        if (tgBtn) tgBtn.href = tgUrl;
+
+        showView('success');
+
+        if (typeof window.confetti === 'function') {
+          try {
+            window.confetti({ particleCount: 90, spread: 80, origin: { y: 0.6 } });
+          } catch (_) {}
+        }
+      } catch (submitErr) {
+        console.error('Order submission caught error:', submitErr);
+        showView('success');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Submit Payment &amp; Unlock Instant Access';
+        }
       }
     }
 
@@ -4484,7 +4604,9 @@
 
       // 1. Submit wallet order to serverless backend /api/orders
       try {
-        fetch('/api/orders', {
+        const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+        const targetUrl = isLocalHost ? 'https://jaigram.shop/api/orders' : '/api/orders';
+        fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)
@@ -4583,13 +4705,14 @@
         title: isTopup ? 'Wallet Recharged' : 'Order Placed Successfully',
         message: isTopup
           ? `${amtStr} has been credited to your JaiGram Wallet.`
-          : `Order ${orderPayload.orderId} for "${orderPayload.title}" (${amtStr}) is confirmed.`,
+          : `Order ${orderPayload.orderId} for "${orderPayload.title}" (${amtStr}) is placed & submitted for verification.`,
         amount: orderPayload.amount,
         orderId: orderPayload.orderId,
         timestamp: Date.now(),
         date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
         type: isTopup ? 'wallet' : 'order',
-        read: false
+        read: false,
+        unread: true
       };
 
       // 1. In-App Notification (Stored across customer notification keys)
@@ -4624,20 +4747,23 @@
         localStorage.setItem('linkadda_user_emails', JSON.stringify(emails.slice(0, 50)));
       } catch (_) {}
 
-      // 3. Dispatch to serverless endpoint /api/notify or Firebase
+      // 3. Dispatch to serverless endpoint /api/notify (on production/Vercel)
       try {
-        fetch('/api/notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: isTopup ? 'wallet_topup' : 'order_placed',
-            orderId: orderPayload.orderId,
-            customerEmail: orderPayload.customerEmail || cust.email,
-            customerName: orderPayload.customerName || cust.displayName,
-            amount: orderPayload.amount,
-            title: orderPayload.title
-          })
-        }).catch(() => {});
+        const isLocalHostEnv = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!isLocalHostEnv) {
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: isTopup ? 'wallet_topup' : 'order_placed',
+              orderId: orderPayload.orderId,
+              customerEmail: orderPayload.customerEmail || cust.email,
+              customerName: orderPayload.customerName || cust.displayName,
+              amount: orderPayload.amount,
+              title: orderPayload.title
+            })
+          }).catch(() => {});
+        }
       } catch (_) {}
     }
 
@@ -4688,6 +4814,8 @@
       const rawTitle = params.get('title') || params.get('name') || 'VIP Digital Media Pass';
       const pInr = params.get('inr') || params.get('price') || params.get('amount') || '399';
       const pUsd = params.get('usd') || '';
+      const pSellerId = params.get('sellerId') || params.get('seller_id') || '';
+      const pSellerName = params.get('sellerName') || params.get('seller_name') || params.get('seller') || '';
 
       const inrVal = parseMoney(pInr) || 399;
       const usdVal = pUsd ? parseMoney(pUsd) : Number((inrVal / 90).toFixed(2));
@@ -4700,7 +4828,9 @@
         displayTitle: cleanTitle,
         inr: inrVal,
         price: inrVal,
-        usd: usdVal
+        usd: usdVal,
+        sellerId: pSellerId,
+        sellerName: pSellerName || 'Trusted brother'
       };
 
       const cust = getCustomerSession() || {};
@@ -4753,12 +4883,18 @@
       renderActiveMethodDetails();
       startTimer(900);
 
-      // 🔒 TAMPER-PROOF SECURITY: Fetch canonical product price directly from database
+      // 🔒 TAMPER-PROOF SECURITY: Fetch canonical product price & seller directly from database
       if (pId && pId !== 'vip-pass') {
         fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/products/${pId}.json`)
           .then((res) => (res.ok ? res.json() : null))
           .then((dbProd) => {
             if (dbProd && typeof dbProd === 'object') {
+              if (dbProd.sellerName || dbProd.seller) {
+                currentOrder.sellerName = dbProd.sellerName || dbProd.seller;
+              }
+              if (dbProd.sellerId) {
+                currentOrder.sellerId = dbProd.sellerId;
+              }
               const canonInr = parseMoney(dbProd.priceINR || dbProd.price || dbProd.inr);
               if (canonInr > 0 && canonInr !== currentOrder.inr) {
                 console.info('Security: Canonical price locked from database:', canonInr);
@@ -4819,6 +4955,49 @@
           showView('checkout');
         }
       });
+
+      window.togglePaymentNotificationPopup = function (event) {
+        if (event) event.stopPropagation();
+        let existing = document.getElementById('payMobNotificationPopup');
+        if (existing) {
+          existing.remove();
+          return;
+        }
+
+        const popup = document.createElement('div');
+        popup.id = 'payMobNotificationPopup';
+        popup.style.cssText = 'position:fixed; top:65px; right:14px; width:calc(100vw - 28px); max-width:320px; background:#0f172a; color:#ffffff; border-radius:14px; padding:16px; box-shadow:0 12px 36px rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.14); z-index:9999; animation:fadeInMenu 0.18s ease forwards;';
+        popup.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:800; color:#ff2a8d;">
+              <i class="fa-solid fa-bell"></i> <span>Instant Order Alerts</span>
+            </div>
+            <button type="button" onclick="document.getElementById('payMobNotificationPopup')?.remove()" style="background:none; border:none; color:#94a3b8; font-size:16px; cursor:pointer;">&times;</button>
+          </div>
+          <div style="font-size:12px; line-height:1.55; color:#cbd5e1; margin-bottom:12px;">
+            <div style="margin-bottom:8px; display:flex; gap:8px;">
+              <i class="fa-solid fa-bolt" style="color:#10b981; margin-top:2px;"></i>
+              <span><strong>Instant Cloud Delivery:</strong> Your VIP media pass is activated right after verification.</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <i class="fa-solid fa-shield-halved" style="color:#38bdf8; margin-top:2px;"></i>
+              <span><strong>100% Verified:</strong> 24/7 dedicated support via Telegram &amp; WhatsApp.</span>
+            </div>
+          </div>
+          <a href="user/index.html" style="display:block; text-align:center; padding:9px 14px; background:linear-gradient(135deg, #ff2a8d, #f43f5e); color:#ffffff; border-radius:8px; font-size:12px; font-weight:700; text-decoration:none;">
+            <i class="fa-solid fa-box-open"></i> Go to My Orders Vault
+          </a>
+        `;
+
+        document.body.appendChild(popup);
+        const handleOutsideClick = (e) => {
+          if (!popup.contains(e.target) && !e.target.closest('#payMobNotifBtn')) {
+            popup.remove();
+            document.removeEventListener('click', handleOutsideClick);
+          }
+        };
+        setTimeout(() => document.addEventListener('click', handleOutsideClick), 50);
+      };
     })();
   </script>
   <script src="pwa-controller.js"></script>

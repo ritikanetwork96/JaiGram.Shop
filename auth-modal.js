@@ -2066,13 +2066,52 @@ export function formatOrderCardHtml(ord) {
 let syncOrdersInProgress = false;
 export async function syncUserOrdersWithFirebase() {
   if (syncOrdersInProgress) return;
-  const orders = getUserOrders();
-  if (!orders || !orders.length) return;
+  const user = getCustomerSession();
+  const userEmail = (user?.email || '').toLowerCase().trim();
+  const userUid = user?.uid || '';
+  let orders = getUserOrders();
+  if (!Array.isArray(orders)) orders = [];
 
   syncOrdersInProgress = true;
   let hasUpdates = false;
 
   try {
+    // 0. Check order_approvals for any remote approved orders matching this user
+    if (userEmail || userUid) {
+      try {
+        const appRes = await fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/order_approvals.json?_t=${Date.now()}`);
+        if (appRes.ok) {
+          const appDataMap = await appRes.json();
+          if (appDataMap && typeof appDataMap === 'object') {
+            Object.keys(appDataMap).forEach(k => {
+              const item = appDataMap[k];
+              if (!item || typeof item !== 'object') return;
+              const em = String(item.customerEmail || item.email || '').toLowerCase().trim();
+              const u = String(item.customerUid || item.uid || '').trim();
+              if ((userEmail && em && (em === userEmail || em.includes(userEmail) || userEmail.includes(em))) || (userUid && u && u === userUid)) {
+                const oid = String(item.orderId || item.id || k).trim();
+                const exists = orders.some(o => String(o.orderId || o.id || '').replace(/^#+/, '').toLowerCase() === oid.replace(/^#+/, '').toLowerCase());
+                if (!exists) {
+                  const link = item.downloadLink || item.telegramLink || item.channelLink || item.fileUrl || 'https://t.me/TRUSTED_BROTHER1234';
+                  orders.unshift({
+                    ...item,
+                    orderId: oid,
+                    id: oid,
+                    productName: item.productName || item.title || 'VIP Digital Media Pass',
+                    status: 'confirmed',
+                    downloadLink: link,
+                    fileUrl: link,
+                    orderLink: link
+                  });
+                  hasUpdates = true;
+                }
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
     for (const ord of orders) {
       if (!ord || !ord.orderId) continue;
       // Skip only if already confirmed AND link is resolved
@@ -2098,6 +2137,19 @@ export async function syncUserOrdersWithFirebase() {
                 remoteOrder = appData;
                 isApproved = true;
                 link = appData.telegramLink || appData.channelLink || appData.downloadLink || appData.orderLink || '';
+              }
+            }
+          } catch (_) {}
+        }
+
+        // Additional fallback: query secure /api/orders endpoint
+        if (!remoteOrder || (!remoteOrder.status && !remoteOrder.orderStatus)) {
+          try {
+            const apiRes = await fetch(`/api/orders?orderId=${encodeURIComponent(ord.orderId)}`);
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData?.order) {
+                remoteOrder = apiData.order;
               }
             }
           } catch (_) {}
@@ -2159,8 +2211,17 @@ export async function syncUserOrdersWithFirebase() {
     }
 
     if (hasUpdates) {
-      localStorage.setItem('jaigram_user_orders', JSON.stringify(orders));
-      localStorage.setItem('linkadda_user_orders', JSON.stringify(orders));
+      const serializedOrders = JSON.stringify(orders);
+      localStorage.setItem('jaigram_user_orders', serializedOrders);
+      localStorage.setItem('linkadda_user_orders', serializedOrders);
+      if (userUid) {
+        localStorage.setItem('jaigram_customer_orders_' + userUid, serializedOrders);
+        localStorage.setItem('linkadda_customer_orders_' + userUid, serializedOrders);
+      }
+      if (userEmail) {
+        localStorage.setItem('jaigram_customer_orders_' + userEmail, serializedOrders);
+        localStorage.setItem('linkadda_customer_orders_' + userEmail, serializedOrders);
+      }
       const listEl = document.getElementById('accountOrdersList');
       if (listEl) {
         listEl.innerHTML = orders.map(ord => formatOrderCardHtml(ord)).join('');
@@ -2917,16 +2978,48 @@ export function markNotificationsAsRead() {
   const key = `jaigram_notifs_${uid}`;
   const legacyKey = `linkadda_notifs_${uid}`;
   
-  const list = getUserNotifications().map(n => ({ ...n, unread: false }));
+  const list = getUserNotifications().map(n => ({ ...n, unread: false, read: true }));
   try {
     localStorage.setItem(key, JSON.stringify(list));
     localStorage.setItem(legacyKey, JSON.stringify(list));
     localStorage.setItem(NOTIFS_READ_KEY, 'true');
     localStorage.setItem(LEGACY_NOTIFS_READ_KEY, 'true');
+    localStorage.setItem('jaigram_notifications_all_read', 'true');
+
+    // Also sync all related notification keys
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && /^(jaigram|linkadda)_(user_notifications|notifs)/.test(k)) {
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              parsed.forEach(item => {
+                if (item && typeof item === 'object') {
+                  item.read = true;
+                  item.unread = false;
+                }
+              });
+              localStorage.setItem(k, JSON.stringify(parsed));
+            }
+          }
+        } catch (_) {}
+      }
+    }
   } catch (_) {}
   
+  const badge = document.getElementById('notifBadgeCount');
+  if (badge) {
+    badge.textContent = '0';
+    badge.style.display = 'none';
+  }
+
   updateNotificationsUI();
   renderNotificationsPage();
+  if (typeof window.loadUserNotifications === 'function') {
+    try { window.loadUserNotifications(); } catch (_) {}
+  }
   showAppToast('All notifications marked as read.');
 }
 

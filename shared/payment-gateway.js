@@ -12,6 +12,9 @@
 (function() {
   'use strict';
 
+  const isLocalEnv = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+  const API_BASE = isLocalEnv ? 'https://jaigram.shop' : '';
+
   // Ensure QRCode script is loaded
   function loadQrCodeLibrary(callback) {
     if (typeof window.QRCode === 'function') {
@@ -105,6 +108,8 @@
   let timerInterval = null;
   let remainingSecs = 900;
   let screenshotBase64 = null;
+  let _uploadedScreenshotPromise = null;
+  let _uploadedScreenshotUrl = '';
   let gatewayConfig = { ...DEFAULT_CONFIG };
 
   function parseMoney(val) {
@@ -1317,28 +1322,104 @@
       });
     },
 
-    handleFileInput: function(e) {
-      const file = e.target.files[0];
+    handleFileInput: async function(e) {
+      const file = e.target.files && e.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        screenshotBase64 = ev.target.result;
-        const previewImage = document.getElementById('lgwPreviewImage');
-        const previewContainer = document.getElementById('lgwPreviewContainer');
-        const uploadCard = document.getElementById('lgwUploadCard');
-        const alertEl = document.getElementById('lgwProofAlert');
+      const previewImage = document.getElementById('lgwPreviewImage');
+      const previewContainer = document.getElementById('lgwPreviewContainer');
+      const uploadCard = document.getElementById('lgwUploadCard');
+      const alertEl = document.getElementById('lgwProofAlert');
 
-        if (previewImage) previewImage.src = screenshotBase64;
-        if (previewContainer) previewContainer.style.display = 'block';
-        if (uploadCard) uploadCard.style.display = 'none';
-        if (alertEl) alertEl.style.display = 'none';
-      };
-      reader.readAsDataURL(file);
+      // Fast Canvas compression (80KB-160KB in ~30ms)
+      const compressedDataUrl = await new Promise((resolve) => {
+        if (!file.type || !file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target.result);
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(file);
+          return;
+        }
+        const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objUrl);
+          try {
+            let width = img.width || 1200;
+            let height = img.height || 1200;
+            const maxDimension = 1200;
+            if (width > maxDimension || height > maxDimension) {
+              if (width > height) {
+                height = Math.round((height * maxDimension) / width);
+                width = maxDimension;
+              } else {
+                width = Math.round((width * maxDimension) / height);
+                height = maxDimension;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.80));
+          } catch (_) {
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve(ev.target.result);
+            reader.readAsDataURL(file);
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objUrl);
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target.result);
+          reader.readAsDataURL(file);
+        };
+        img.src = objUrl;
+      });
+
+      if (!compressedDataUrl) return;
+
+      screenshotBase64 = compressedDataUrl;
+      if (previewImage) previewImage.src = compressedDataUrl;
+      if (previewContainer) previewContainer.style.display = 'block';
+      if (uploadCard) uploadCard.style.display = 'none';
+      if (alertEl) alertEl.style.display = 'none';
+
+      // ⚡ INSTANT BACKGROUND PRE-UPLOAD
+      _uploadedScreenshotUrl = '';
+      _uploadedScreenshotPromise = (async () => {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 7000);
+          const upRes = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({
+              folder: 'orders',
+              filename: `ss_${Date.now()}_proof.jpg`,
+              base64: compressedDataUrl,
+              contentType: 'image/jpeg'
+            })
+          });
+          clearTimeout(timer);
+          if (upRes.ok) {
+            const upData = await upRes.json();
+            _uploadedScreenshotUrl = upData.publicUrl || upData.url || '';
+            return _uploadedScreenshotUrl;
+          }
+        } catch (uploadErr) {
+          console.warn('Background screenshot upload note:', uploadErr);
+        }
+        return '';
+      })();
     },
 
     removePreview: function() {
       screenshotBase64 = null;
+      _uploadedScreenshotPromise = null;
+      _uploadedScreenshotUrl = '';
       const previewContainer = document.getElementById('lgwPreviewContainer');
       const uploadCard = document.getElementById('lgwUploadCard');
       const fileInput = document.getElementById('lgwFileInput');
@@ -1358,16 +1439,28 @@
       const submitBtn = document.getElementById('lgwSubmitProofBtn');
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading Screenshot & Submitting Order...';
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Order...';
       }
 
       // 1. Upload screenshot to media.jaigram.shop CDN via /api/upload
-      let uploadedScreenshotUrl = '';
-      if (screenshotBase64) {
+      let uploadedScreenshotUrl = _uploadedScreenshotUrl || '';
+      if (!uploadedScreenshotUrl && _uploadedScreenshotPromise) {
         try {
+          uploadedScreenshotUrl = await Promise.race([
+            _uploadedScreenshotPromise,
+            new Promise((r) => setTimeout(() => r(''), 1500))
+          ]);
+        } catch (_) {}
+      }
+
+      if (!uploadedScreenshotUrl && screenshotBase64) {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 3500);
           const upRes = await fetch('/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
             body: JSON.stringify({
               folder: 'orders',
               filename: `ss_${Date.now()}_proof.jpg`,
@@ -1375,6 +1468,7 @@
               contentType: 'image/jpeg'
             })
           });
+          clearTimeout(timer);
           if (upRes.ok) {
             const upData = await upRes.json();
             uploadedScreenshotUrl = upData.publicUrl || upData.url || '';
@@ -1389,14 +1483,18 @@
       const title = sanitizeProductTitle(rawTitle);
       const inrVal = parseMoney(currentOrder.inr || currentOrder.price || currentOrder.amount || 399);
       const amountText = `₹${inrVal.toFixed(2)}`;
-      const orderId = '#JG-' + Math.floor(100000 + Math.random() * 900000);
+      const rawId = currentOrder.orderId || ('JG-' + Math.floor(100000 + Math.random() * 900000));
+      const cleanOrderId = String(rawId).replace(/[^a-zA-Z0-9_-]/g, '') || ('JG-' + Date.now());
+      const displayOrderId = cleanOrderId.startsWith('#') ? cleanOrderId : ('#' + cleanOrderId);
+      const orderId = cleanOrderId;
       const cust = getCustomerSession() || {};
       const now = Date.now();
       const utrVal = document.getElementById('lgwUtrInput')?.value?.trim() || '';
 
       const orderPayload = {
-        orderId,
-        id: orderId,
+        orderId: cleanOrderId,
+        id: cleanOrderId,
+        displayOrderId,
         productId: currentOrder.productId || currentOrder.id || null,
         productName: title,
         title: title,
@@ -1424,28 +1522,107 @@
         date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
       };
 
-      // 1. Submit to localStorage
+      // 1. Submit to localStorage across all customer order keys
       try {
         const uid = cust.uid || cust.email || '';
-        ['jaigram_user_orders', 'jaigram_customer_orders', 'jaigram_customer_orders_' + uid, 'linkadda_user_orders', 'linkadda_customer_orders', 'linkadda_customer_orders_' + uid].forEach(key => {
+        const email = (cust.email || '').toLowerCase().trim();
+        const targetKeys = [
+          'jaigram_user_orders',
+          'linkadda_user_orders',
+          'jaigram_customer_orders',
+          'linkadda_customer_orders',
+          'linkadda_admin_orders_local'
+        ];
+        if (uid) {
+          targetKeys.push('jaigram_customer_orders_' + uid);
+          targetKeys.push('linkadda_customer_orders_' + uid);
+        }
+        if (email) {
+          targetKeys.push('jaigram_customer_orders_' + email);
+          targetKeys.push('linkadda_customer_orders_' + email);
+        }
+
+        targetKeys.forEach(key => {
           let list = [];
           try {
             const raw = localStorage.getItem(key);
             if (raw) list = JSON.parse(raw);
           } catch (_) {}
           if (!Array.isArray(list)) list = [];
+          list = list.filter(item => String(item.orderId || item.id) !== cleanOrderId && String(item.orderId || item.id) !== displayOrderId);
           list.unshift(orderPayload);
           localStorage.setItem(key, JSON.stringify(list.slice(0, 50)));
         });
+
+        // Dedicated persistent order IDs tracker
+        let myIds = [];
+        try {
+          const rawIds = localStorage.getItem('jaigram_my_order_ids') || localStorage.getItem('linkadda_my_order_ids');
+          if (rawIds) myIds = JSON.parse(rawIds);
+        } catch (_) {}
+        if (!Array.isArray(myIds)) myIds = [];
+        if (!myIds.includes(cleanOrderId)) myIds.unshift(cleanOrderId);
+        localStorage.setItem('jaigram_my_order_ids', JSON.stringify(myIds.slice(0, 100)));
+        localStorage.setItem('linkadda_my_order_ids', JSON.stringify(myIds.slice(0, 100)));
       } catch (_) {}
 
-      // 2. Submit to Firebase RTDB
+      // 2. Submit to Firebase RTDB (Orders, Events, and public Order Approvals)
+      try {
+        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        }).catch(() => {});
+        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/orders/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        }).catch(() => {});
+        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/order_approvals/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: cleanOrderId,
+            id: cleanOrderId,
+            displayOrderId,
+            productId: currentOrder.productId || currentOrder.id || null,
+            productName: title,
+            title: title,
+            name: title,
+            amount: inrVal,
+            amountDisplay: amountText,
+            price: inrVal,
+            currency: 'INR',
+            paymentMethod: (activeMethodId || 'UPI').toUpperCase(),
+            method: (activeMethodId || 'UPI').toUpperCase(),
+            status: 'pending',
+            orderStatus: 'pending',
+            paymentStatus: 'pending',
+            customerUid: cust.uid || cust.email || 'guest',
+            customerEmail: (cust.email || '').toLowerCase().trim(),
+            customerName: cust.displayName || cust.name || 'Customer',
+            sellerName: currentOrder.sellerName || 'Trusted brother',
+            sellerId: currentOrder.sellerId || '',
+            utr: utrVal,
+            screenshot: finalScreenshot,
+            screenshotUrl: finalScreenshot,
+            createdAt: now,
+            timestamp: now,
+            date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          })
+        }).catch(() => {});
+        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        }).catch(() => {});
+      } catch (_) {}
       try {
         if (window.__linkaddaDb && typeof window._fbRef === 'function' && typeof window._fbPush === 'function') {
           const ordersRef = window._fbRef(window.__linkaddaDb, 'orders');
           window._fbPush(ordersRef, orderPayload);
         }
-        await fetch('/api/orders', {
+        await fetch(`${API_BASE}/api/orders`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)
@@ -1453,7 +1630,8 @@
       } catch (_) {}
 
       // 3. Prepare Telegram direct contact link
-      const tgMsg = `Hello JaiGram Support! I have completed payment for my order:%0A%0A📦 Package: ${encodeURIComponent(title)}%0A💰 Amount: ${encodeURIComponent(amountText)}%0A💳 Method: ${encodeURIComponent((activeMethodId || 'UPI').toUpperCase())}%0A🆔 Order ID: ${encodeURIComponent(orderId)}${utrVal ? `%0A🔢 UTR: ${encodeURIComponent(utrVal)}` : ''}%0A%0APlease verify my screenshot and provide instant access.`;
+      const tgSellerText = currentOrder.sellerName || 'JaiGram Verified';
+      const tgMsg = `Hello JaiGram Support! I have completed payment for my order:%0A%0A📦 Product: ${encodeURIComponent(title)}%0A🏪 Seller: ${encodeURIComponent(tgSellerText)}%0A💰 Amount: ${encodeURIComponent(amountText)}%0A💳 Method: ${encodeURIComponent((activeMethodId || 'UPI').toUpperCase())}%0A🆔 Order ID: ${encodeURIComponent(orderId)}${utrVal ? `%0A🔢 UTR / UPI Ref: ${encodeURIComponent(utrVal)}` : ''}%0A👤 Buyer: ${encodeURIComponent(orderPayload.customerName || cust.displayName || 'Customer')}%0A%0APlease verify my screenshot and provide instant access.`;
       const tgBase = gatewayConfig.telegramUrl || 'https://t.me/TRUSTED_BROTHER1234';
       const tgClean = tgBase.startsWith('http') ? tgBase.replace(/\/$/, '') : `https://t.me/${tgBase.replace(/^@/, '')}`;
       const tgUrl = `${tgClean}?text=${tgMsg}`;
@@ -1553,7 +1731,7 @@
 
       // 1. Submit to /api/orders backend
       try {
-        fetch('/api/orders', {
+        fetch(`${API_BASE}/api/orders`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)

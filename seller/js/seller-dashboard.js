@@ -471,13 +471,61 @@ async function loadSellerFollowers() {
   try {
     const sId = currentSeller.id || '';
     const sName = currentSeller.storeName || '';
-    const res = await fetch(`/api/seller/auth?action=get_store_followers&sellerId=${encodeURIComponent(sId)}&storeName=${encodeURIComponent(sName)}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && typeof data.followerCount === 'number') {
-        currentSeller.followerCount = data.followerCount;
-        updateMetrics();
+    let count = 0;
+
+    // 1. Try serverless backend
+    try {
+      const res = await fetch(`/api/seller/auth?action=get_store_followers&sellerId=${encodeURIComponent(sId)}&storeName=${encodeURIComponent(sName)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data.followerCount === 'number') {
+          count = data.followerCount;
+        }
       }
+    } catch (_) {}
+
+    // 2. Direct RTDB fallback
+    if (count === 0) {
+      const cleanUnicode = String(sName || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\x00-\x7F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      const candidateKeys = new Set();
+      if (cleanUnicode) candidateKeys.add(cleanUnicode.replace(/[^a-z0-9_-]/g, '_'));
+      if (sName) candidateKeys.add(sName.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '_'));
+      if (sId) candidateKeys.add(sId.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '_'));
+      if (cleanUnicode.includes('trusted') && cleanUnicode.includes('brother') || sId === 'seller_6e2c36f417' || sId === 'seller_jaibajpai67') {
+        candidateKeys.add('trusted_brother');
+      }
+      if (cleanUnicode.includes('ghost') && cleanUnicode.includes('layer') || sId === 'seller_8f3baf766f') {
+        candidateKeys.add('ghost_layer_shop');
+      }
+
+      for (const k of candidateKeys) {
+        if (!k) continue;
+        try {
+          const r = await fetch(`${RTDB_URL}/store_followers/${encodeURIComponent(k)}.json`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d && typeof d === 'object') {
+              if (typeof d.count === 'number' && d.count > count) count = d.count;
+              if (d.followers && typeof d.followers === 'object') {
+                const fl = Object.keys(d.followers).length;
+                if (fl > count) count = fl;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (count > 0 || currentSeller.followerCount === undefined) {
+      currentSeller.followerCount = count;
+      updateMetrics();
     }
   } catch (_) {}
 }

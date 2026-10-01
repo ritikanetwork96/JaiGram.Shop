@@ -21,9 +21,12 @@ export async function getAdminTokenHeader() {
 }
 
 export async function sendAdminNotificationEmail(payload) {
+  if (!payload || !payload.to) return false;
   try {
     const authHeaders = await getAdminTokenHeader();
-    const res = await fetch('/api/mail/send', {
+    const isLocalOrFile = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const endpoint = isLocalOrFile ? 'https://jaigram.shop/api/mail/send' : '/api/mail/send';
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -33,7 +36,7 @@ export async function sendAdminNotificationEmail(payload) {
     });
     return res.ok;
   } catch (err) {
-    console.warn('sendAdminNotificationEmail notice:', err?.message);
+    console.warn('sendAdminNotificationEmail server notice:', err?.message);
     return false;
   }
 }
@@ -53,7 +56,7 @@ import {
   deleteRecord,
   duplicateRecord,
   getSnapshot,
-} from './state.js';
+} from './state.js?v=95';
 import { uploadAsset, deletePublicAsset } from './storage.js';
 import { fetchCurrentSiteCatalog, normalizeCatalogRecords } from './site-import.js';
 import {
@@ -3085,7 +3088,7 @@ function percentChange(current, previous) {
 
 function summarizeDashboard(range = ui.dashboardRange) {
   const rawVisitors = listCollection('visitors');
-  const orders = listCollection('orders');
+  const orders = getAllUnifiedOrders();
   const events = listCollection('events');
   const products = listCollection('products');
   const currentWindow = getRangeWindow(range);
@@ -5725,12 +5728,12 @@ function orderProductName(item = {}) {
 }
 
 function orderProductThumb(item = {}) {
-  if (item.image) return resolveMediaSource(item.image) || item.image;
-  if (item.productImage) return resolveMediaSource(item.productImage) || item.productImage;
-  if (item.cartItems && Array.isArray(item.cartItems) && item.cartItems[0]?.img) {
-    return item.cartItems[0].img;
-  }
-  return '';
+  const raw = item.image || item.productImage || (item.cartItems && Array.isArray(item.cartItems) ? item.cartItems[0]?.img : '');
+  if (!raw) return '';
+  if (raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.startsWith('/')) return raw;
+  if (raw.startsWith('images/')) return `/${raw}`;
+  return resolveMediaSource(raw) || (raw.startsWith('/') ? raw : `/${raw}`);
 }
 
 function orderCustomerLabel(item = {}) {
@@ -5743,6 +5746,83 @@ function orderCustomerLabel(item = {}) {
   return 'Web Checkout Buyer';
 }
 
+function isGenericSellerName(name) {
+  if (!name) return true;
+  const s = String(name).trim().toLowerCase();
+  return (
+    s === 'jaigram verified' ||
+    s === 'linkadda verified' ||
+    s === 'jaigram official' ||
+    s === 'linkadda official' ||
+    s === 'verified' ||
+    s === 'official' ||
+    s === 'jaigram' ||
+    s === 'linkadda' ||
+    s === 'verified partner' ||
+    s === 'creator partner'
+  );
+}
+
+function orderSellerName(item = {}) {
+  // 1. Check explicit non-generic seller
+  const explicit = pickFirstValue(item, ['sellerName', 'seller', 'sellerStoreName', 'storeName', 'creatorName'], '');
+  if (explicit && !isGenericSellerName(explicit)) {
+    return explicit;
+  }
+
+  // 2. Find product in catalog by ID or title
+  const allProds = listCollection('products') || [];
+  let found = null;
+  const pId = String(item.productId || item.product_id || item.pId || '').trim();
+  if (pId) {
+    found = allProds.find(p => String(p.id || p.key || '') === pId || String(p.productId || '') === pId);
+  }
+  if (!found) {
+    const targetTitle = String(item.productName || item.title || item.displayTitle || item.name || '').trim().toLowerCase();
+    if (targetTitle) {
+      found = allProds.find(p => {
+        const pTitle = String(p.title || p.name || p.productName || '').trim().toLowerCase();
+        return pTitle && (pTitle === targetTitle || pTitle.includes(targetTitle) || targetTitle.includes(pTitle));
+      });
+    }
+  }
+
+  // 3. Extract seller from matched product
+  if (found) {
+    const prodSeller = found.sellerStoreName || found.sellerName || found.storeName || found.seller || found.creatorName;
+    if (prodSeller && !isGenericSellerName(prodSeller)) {
+      return prodSeller;
+    }
+    const pSellerId = String(found.sellerId || found.storeId || '').trim();
+    if (pSellerId) {
+      const allSellers = listCollection('sellers') || [];
+      const matchedSeller = allSellers.find(s => String(s.id || s.sellerId || s.key || '') === pSellerId);
+      if (matchedSeller && (matchedSeller.storeName || matchedSeller.sellerName || matchedSeller.ownerName)) {
+        return matchedSeller.storeName || matchedSeller.sellerName || matchedSeller.ownerName;
+      }
+    }
+  }
+
+  // 4. Check order's sellerId if any
+  const ordSellerId = String(item.sellerId || '').trim();
+  if (ordSellerId) {
+    const allSellers = listCollection('sellers') || [];
+    const matchedSeller = allSellers.find(s => String(s.id || s.sellerId || s.key || '') === ordSellerId);
+    if (matchedSeller && (matchedSeller.storeName || matchedSeller.sellerName || matchedSeller.ownerName)) {
+      return matchedSeller.storeName || matchedSeller.sellerName || matchedSeller.ownerName;
+    }
+  }
+
+  // 5. Default catalog seller is "Trusted brother"
+  const allSellers = listCollection('sellers') || [];
+  const tb = allSellers.find(s => cleanStoreName(s.storeName || '') === 'trusted brother' || String(s.email || '').toLowerCase() === 'jaibajpai67@gmail.com');
+  if (tb && tb.storeName) {
+    return tb.storeName;
+  }
+
+  return 'Trusted brother';
+}
+
 function orderMethodLabel(item = {}) {
   const m = candidateText(item, ['paymentMethod', 'method', 'gateway', 'channel', 'provider'], '');
   if (!m || m.toLowerCase() === 'unknown' || m === '-') {
@@ -5753,7 +5833,8 @@ function orderMethodLabel(item = {}) {
 }
 
 function orderTransactionId(item = {}) {
-  return candidateText(item, ['transactionId', 'referenceId', 'txnId', 'paymentId', 'orderId', 'checkoutToken', 'id'], '-');
+  if (item.utr && String(item.utr).trim()) return String(item.utr).trim();
+  return candidateText(item, ['utr', 'transactionId', 'referenceId', 'txnId', 'paymentId', 'orderId', 'checkoutToken', 'id'], '-');
 }
 
 function orderStatusValue(item = {}) {
@@ -5761,7 +5842,12 @@ function orderStatusValue(item = {}) {
 }
 
 function orderPaymentProof(item = {}) {
-  return pickFirstValue(item, ['paymentProof', 'screenshotUrl', 'proofUrl', 'proof', 'screenshot', 'receiptUrl', 'receipt', 'image', 'screenshotBase64', 'payment_proof'], '');
+  const raw = pickFirstValue(item, ['paymentProof', 'screenshotUrl', 'proofUrl', 'proof', 'screenshot', 'receiptUrl', 'receipt', 'image', 'screenshotBase64', 'payment_proof'], '');
+  if (!raw) return '';
+  if (raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.startsWith('/')) return raw;
+  if (raw.startsWith('images/')) return `/${raw}`;
+  return resolveMediaSource(raw) || (raw.startsWith('/') ? raw : `/${raw}`);
 }
 
 function orderDeliveryInfo(item = {}) {
@@ -7361,6 +7447,8 @@ function renderOrderDetailsModal(item = {}) {
   const methodName = orderMethodLabel(item);
   const orderId = item.id || item.orderId || '-';
   const prodName = orderProductName(item);
+  const sellerName = orderSellerName(item);
+  const utrVal = item.utr || '';
 
   return `
     <div class="order-inspector-container" style="width: 100%; max-width: 960px; margin: 0 auto; padding: 4px 4px 30px 4px; box-sizing: border-box;">
@@ -7371,6 +7459,9 @@ function renderOrderDetailsModal(item = {}) {
           <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
             <span class="order-id-badge" data-action="copy-order-id" data-id="${escapeHtml(orderId)}" title="Click to copy Order ID" style="cursor: pointer;">
               <i data-lucide="copy" style="width: 12px; height: 12px;"></i> #${escapeHtml(orderId)}
+            </span>
+            <span style="font-size: 12px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="store" style="width: 12px; height: 12px;"></i> Seller: ${escapeHtml(sellerName)}
             </span>
             <span class="order-status-pill ${isPaid ? 'paid' : isFailed ? 'rejected' : 'pending'}">
               ${isPaid ? '🟢 Verified & Paid' : isFailed ? '🔴 Rejected' : '🟡 Pending Verification'}
@@ -7422,6 +7513,10 @@ function renderOrderDetailsModal(item = {}) {
 
           <div class="glass" style="padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px;">
             <div style="display: flex; justify-content: space-between; font-size: 12.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
+              <span style="color: var(--muted);">Creator / Seller:</span>
+              <strong style="color: #fbbf24; display: flex; align-items: center; gap: 5px;"><i data-lucide="store" style="width: 13px; height: 13px;"></i> ${escapeHtml(sellerName)} ${item.sellerId ? `<span style="font-size: 11px; opacity: 0.8; font-weight: normal; color: var(--muted);">(${escapeHtml(item.sellerId)})</span>` : ''}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
               <span style="color: var(--muted);">Buyer Details:</span>
               <strong style="color: #fff;">${escapeHtml(orderCustomerLabel(item))}</strong>
             </div>
@@ -7429,6 +7524,14 @@ function renderOrderDetailsModal(item = {}) {
               <span style="color: var(--muted);">Order Date:</span>
               <span style="color: #fff;">${escapeHtml(formatDateTime(orderDateValue(item)))} (${escapeHtml(formatRelativeTime(orderDateValue(item)))})</span>
             </div>
+            ${utrVal ? `
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding: 6px 8px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+              <span style="color: #93c5fd; font-weight: 700;">🔢 12-Digit UPI UTR:</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <code style="color: #ffffff; font-size: 13px; font-weight: 800; font-family: monospace;">${escapeHtml(utrVal)}</code>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="copyText('${escapeHtml(utrVal)}'); showToast('UTR copied!');" style="padding: 2px 6px; font-size: 10px;">Copy</button>
+              </div>
+            </div>` : ''}
             <div style="display: flex; justify-content: space-between; font-size: 12.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
               <span style="color: var(--muted);">Txn / Ref ID:</span>
               <code style="color: #818cf8; font-size: 11.5px;">${escapeHtml(orderTransactionId(item))}</code>
@@ -7473,8 +7576,12 @@ function renderOrderDetailsModal(item = {}) {
   `;
 }
 
+function getAllUnifiedOrders() {
+  return listCollection('orders');
+}
+
 function renderOrdersManagementView(data = {}, fullData = {}) {
-  const allOrders = listCollection('orders');
+  const allOrders = getAllUnifiedOrders();
   const items = sortManagementList(filterManagementList(allOrders, 'orders'));
   const totals = managementTotals(allOrders);
   const activeTab = ui.management.status || 'all';
@@ -7493,6 +7600,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
             <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 13px;">Manage real customer transactions, verify payment screenshot proofs, and approve orders.</p>
           </div>
           <div class="toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-ghost" type="button" data-action="sync-orders" title="Sync & Recover Orders"><i data-lucide="refresh-cw"></i> Sync Orders</button>
             <button class="btn btn-ghost" type="button" data-action="export-orders-csv" title="Export all orders to CSV"><i data-lucide="download"></i> Export CSV</button>
             <button class="btn btn-ghost" type="button" data-action="goto" data-route="payment"><i data-lucide="credit-card"></i> Payment Hub</button>
           </div>
@@ -7603,7 +7711,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                     <div class="order-product-cell">
                       <div class="order-proof-thumb-wrap" data-action="open-order" data-id="${escapeHtml(item.id)}" title="${proof ? 'View Payment Screenshot' : 'View Order Details'}">
                         ${proof ? `
-                          <img src="${escapeHtml(proof)}" alt="Proof" loading="lazy" />
+                          <img src="${escapeHtml(proof)}" alt="Proof" loading="lazy" onerror="this.onerror=null; this.style.opacity='0.6'; this.src='/favicon.svg';" />
                           <span class="order-proof-badge"><i data-lucide="image" style="width: 8px; height: 8px; vertical-align: middle;"></i> PROOF</span>
                         ` : `
                           <div style="width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; font-weight: 800; font-size: 16px;">
@@ -7615,9 +7723,15 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                         <strong style="display: block; font-size: 13.5px; color: var(--text); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="${escapeHtml(prodTitle)}">
                           ${escapeHtml(prodTitle)}
                         </strong>
-                        <span class="order-id-badge" onclick="copyText('${escapeHtml(orderId)}'); showToast('Order ID copied!');" title="Click to Copy #${escapeHtml(orderId)}">
-                          <i data-lucide="copy" style="width: 10px; height: 10px;"></i> #${escapeHtml(shortId)}
-                        </span>
+                        <div style="font-size: 11.5px; color: #fbbf24; font-weight: 600; display: flex; align-items: center; gap: 4px; margin: 1px 0;">
+                          <i data-lucide="store" style="width: 11px; height: 11px;"></i> ${escapeHtml(orderSellerName(item))}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+                          <span class="order-id-badge" onclick="copyText('${escapeHtml(orderId)}'); showToast('Order ID copied!');" title="Click to Copy #${escapeHtml(orderId)}">
+                            <i data-lucide="copy" style="width: 10px; height: 10px;"></i> #${escapeHtml(shortId)}
+                          </span>
+                          ${item.utr ? `<span style="font-size: 10px; color: #60a5fa; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); padding: 1px 5px; border-radius: 4px; font-family: monospace;">UTR: ${escapeHtml(item.utr)}</span>` : ''}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -7693,7 +7807,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
 }
 
 function renderScreenshotsGalleryView(data = {}, fullData = {}) {
-  const allOrders = listCollection('orders');
+  const allOrders = getAllUnifiedOrders();
   
   // Filter for orders that have screenshots
   const itemsWithScreenshot = allOrders.filter((item) => {
@@ -7719,6 +7833,8 @@ function renderScreenshotsGalleryView(data = {}, fullData = {}) {
     const name = orderProductName(item).toLowerCase();
     const txn = orderTransactionId(item).toLowerCase();
     const customer = orderCustomerLabel(item).toLowerCase();
+    const seller = orderSellerName(item).toLowerCase();
+    const utr = String(item.utr || item.utrNumber || item.upiRef || '').toLowerCase();
     const status = orderStatusValue(item);
     const method = orderMethodLabel(item);
     const dateValue = orderDateValue(item);
@@ -7729,6 +7845,8 @@ function renderScreenshotsGalleryView(data = {}, fullData = {}) {
       name.includes(search) || 
       txn.includes(search) || 
       customer.includes(search) || 
+      seller.includes(search) ||
+      utr.includes(search) ||
       String(item.id || '').toLowerCase().includes(search);
       
     // Status match
@@ -7879,6 +7997,19 @@ function renderScreenshotsGalleryView(data = {}, fullData = {}) {
                     <span style="color: var(--muted);">Customer:</span>
                     <strong style="color: var(--text);">${escapeHtml(orderCustomerLabel(item))}</strong>
                   </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--muted);">Seller / Creator:</span>
+                    <strong style="color: #60a5fa; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                      <i data-lucide="store" style="width: 12px; height: 12px;"></i>
+                      ${escapeHtml(orderSellerName(item))}
+                    </strong>
+                  </div>
+                  ${item.utr || item.utrNumber || item.upiRef ? `
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--muted);">UTR / Ref:</span>
+                    <code style="font-size: 11.5px; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px;">${escapeHtml(item.utr || item.utrNumber || item.upiRef)}</code>
+                  </div>
+                  ` : ''}
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--muted);">Amount Paid:</span>
                     <strong style="color: #10b981; font-size: 14px;">${escapeHtml(formatCurrencyCompact(item.amount))}</strong>
@@ -9232,6 +9363,46 @@ function formatSellerPayoutInfo(seller = {}) {
   };
 }
 
+function getFollowerCountForSeller(s = {}, storeFollowers = {}) {
+  let count = Number(s?.followerCount || s?.followers || 0);
+  const sName = cleanStoreName(s?.storeName || '');
+  const sId = String(s?.id || s?.sellerId || '').toLowerCase().trim();
+
+  const candidateKeys = new Set();
+  if (sName) {
+    candidateKeys.add(sName.replace(/[^a-z0-9_-]/g, '_'));
+    candidateKeys.add(sName.replace(/\s+/g, '_'));
+  }
+  if (s?.storeName) {
+    candidateKeys.add(String(s.storeName).toLowerCase().trim().replace(/[^a-z0-9_-]/g, '_'));
+  }
+  if (sId) candidateKeys.add(sId.replace(/[^a-z0-9_-]/g, '_'));
+
+  if (sName.includes('trusted') && sName.includes('brother') || sId === 'seller_6e2c36f417' || sId === 'seller_jaibajpai67') {
+    candidateKeys.add('trusted_brother');
+    candidateKeys.add('trustedbrother');
+  }
+  if (sName.includes('ghost') && sName.includes('layer') || sId === 'seller_8f3baf766f') {
+    candidateKeys.add('ghost_layer_shop');
+    candidateKeys.add('ghost_layer');
+  }
+
+  for (const k of candidateKeys) {
+    if (!k || !storeFollowers[k]) continue;
+    const entry = storeFollowers[k];
+    if (typeof entry === 'number' && entry > count) count = entry;
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.count === 'number' && entry.count > count) count = entry.count;
+      if (typeof entry.followerCount === 'number' && entry.followerCount > count) count = entry.followerCount;
+      if (entry.followers && typeof entry.followers === 'object') {
+        const fc = Object.keys(entry.followers).length;
+        if (fc > count) count = fc;
+      }
+    }
+  }
+  return count;
+}
+
 function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {}) {
   const sellerId = seller.id || '';
   const storeName = seller.storeName || 'Creator Store';
@@ -9245,6 +9416,9 @@ function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {})
   
   const tgClean = String(telegram).replace('@', '').trim();
   const tgUrl = tgClean.startsWith('http') ? tgClean : (tgClean ? `https://t.me/${tgClean}` : '');
+
+  const storeFollowers = (ui.data?.store_followers) || (window.STORE?.store_followers) || {};
+  const followerCount = getFollowerCountForSeller(seller, storeFollowers);
 
   // Filter products by this seller with robust multi-field matching
   const sellerProducts = Object.values(allProducts || {}).filter(p => {
@@ -9262,6 +9436,9 @@ function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {})
             <h2 class="seller-details-title">${escapeHtml(storeName)}</h2>
             <span class="badge success">✓ Verified Partner</span>
             <span class="badge category-pill">${escapeHtml(category)}</span>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="users" style="width: 12px; height: 12px;"></i> ${followerCount.toLocaleString('en-IN')} Followers
+            </span>
           </div>
           <p class="seller-details-meta">
             Seller ID: <code class="seller-id-code">${escapeHtml(sellerId)}</code> &bull; Joined: ${joinedDate}
@@ -9283,6 +9460,14 @@ function renderSellerDetailsModal(seller = {}, allProducts = {}, allOrders = {})
           <div class="seller-info-card">
             <div class="seller-info-label">Login Email</div>
             <div class="seller-info-val seller-email-val">${escapeHtml(email)}</div>
+          </div>
+
+          <div class="seller-info-card">
+            <div class="seller-info-label">Store Followers</div>
+            <div class="seller-info-val" style="color: #38bdf8; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="users" style="width: 14px; height: 14px;"></i>
+              ${followerCount.toLocaleString('en-IN')} Followers
+            </div>
           </div>
 
           <div class="seller-info-card">
@@ -9565,13 +9750,16 @@ function renderSellersManagementView(data = {}, fullData = {}) {
     ...app,
   })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
+  const storeFollowers = fullData.store_followers || data.store_followers || (window.STORE?.store_followers) || {};
   const sellersList = Object.values(unifiedSellers).map((s) => {
     const sId = s?.id || s?.sellerId;
     const sellerProds = Object.values(products).filter(p => matchProductToSeller(p, s));
+    const followerCount = getFollowerCountForSeller(s, storeFollowers);
     return {
       ...s,
       id: sId,
       productCount: sellerProds.length,
+      followerCount,
     };
   }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
@@ -9736,6 +9924,7 @@ function renderSellersManagementView(data = {}, fullData = {}) {
                     <th style="padding: 14px 18px; min-width: 200px;">Email &amp; Contact</th>
                     <th style="padding: 14px 18px; min-width: 100px;">Category</th>
                     <th style="padding: 14px 18px; min-width: 90px; text-align: center;">Packs</th>
+                    <th style="padding: 14px 18px; min-width: 105px; text-align: center;">Followers</th>
                     <th style="padding: 14px 18px; min-width: 90px;">Status</th>
                     <th style="padding: 14px 18px; min-width: 150px; white-space: nowrap;">Joined</th>
                     <th style="padding: 14px 18px; text-align: right; min-width: 200px; white-space: nowrap;">Action</th>
@@ -9770,6 +9959,11 @@ function renderSellersManagementView(data = {}, fullData = {}) {
                       </td>
                       <td style="padding: 14px 18px; text-align: center;">
                         <span style="font-weight: 700; color: #fff;">${s.productCount}</span> <span style="font-size: 11px; color: var(--muted);">packs</span>
+                      </td>
+                      <td style="padding: 14px 18px; text-align: center;">
+                        <span class="badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                          <i data-lucide="users" style="width: 12px; height: 12px;"></i> ${(s.followerCount || 0).toLocaleString('en-IN')}
+                        </span>
                       </td>
                       <td style="padding: 14px 18px;">
                         <span class="badge success" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 11px;">Active</span>
@@ -9856,6 +10050,12 @@ function renderSellersManagementView(data = {}, fullData = {}) {
                         <span class="seller-mobile-info-lbl">Catalog Packs</span>
                         <span class="seller-mobile-info-val" style="color: #38bdf8; font-weight: 700;">
                           📦 ${s.productCount} Published Packs
+                        </span>
+                      </div>
+                      <div class="seller-mobile-info-item">
+                        <span class="seller-mobile-info-lbl">Store Followers</span>
+                        <span class="seller-mobile-info-val" style="color: #38bdf8; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                          <i data-lucide="users" style="width: 12px; height: 12px;"></i> ${(s.followerCount || 0).toLocaleString('en-IN')} Followers
                         </span>
                       </div>
                       <div class="seller-mobile-info-item">
@@ -10162,7 +10362,11 @@ function renderReportsManagementView(reportsRaw = {}, data = {}) {
       String(r.reporterName || '').toLowerCase().includes(searchQuery) ||
       String(r.reporterEmail || '').toLowerCase().includes(searchQuery) ||
       String(r.reason || '').toLowerCase().includes(searchQuery) ||
-      String(r.details || '').toLowerCase().includes(searchQuery)
+      String(r.details || '').toLowerCase().includes(searchQuery) ||
+      String(r.sellerName || '').toLowerCase().includes(searchQuery) ||
+      String(r.sellerId || '').toLowerCase().includes(searchQuery) ||
+      String(r.productName || '').toLowerCase().includes(searchQuery) ||
+      String(r.productId || '').toLowerCase().includes(searchQuery)
     );
   }
 
@@ -10275,8 +10479,14 @@ function renderReportsManagementView(reportsRaw = {}, data = {}) {
                     <span class="badge" style="background: ${isSeller ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)'}; color: ${isSeller ? '#c084fc' : '#60a5fa'}; border: 1px solid ${isSeller ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}; font-size: 11px; font-weight: 700; text-transform: uppercase;">
                       ${isSeller ? '🏪 SELLER' : '📦 PRODUCT'}
                     </span>
-                    <strong style="font-size: 15px; color: var(--text);">${escapeHtml(r.targetName || 'Untitled Item')}</strong>
-                    ${r.targetId ? `<code style="font-size: 11px; color: var(--muted); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">ID: ${escapeHtml(r.targetId)}</code>` : ''}
+                    <strong style="font-size: 15px; color: var(--text);">${escapeHtml(r.targetName || r.productName || 'Untitled Item')}</strong>
+                    ${r.targetId || r.productId ? `<code style="font-size: 11px; color: var(--muted); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">ID: ${escapeHtml(r.targetId || r.productId)}</code>` : ''}
+                    ${(r.sellerName || r.sellerId) ? `
+                      <span class="badge" style="background: rgba(168, 85, 247, 0.12); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px;">
+                        <i data-lucide="store" style="width: 12px; height: 12px;"></i>
+                        Seller: <strong>${escapeHtml(r.sellerName || r.sellerId)}</strong>
+                      </span>
+                    ` : ''}
                     
                     ${isPending ? `
                       <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 11px;">
@@ -10294,6 +10504,13 @@ function renderReportsManagementView(reportsRaw = {}, data = {}) {
                   </div>
                   <div style="font-size: 12px; color: var(--muted);" title="${escapeHtml(fullDate)}">${escapeHtml(dateStr)}</div>
                 </div>
+
+                ${(r.sellerName || r.productName) ? `
+                  <div style="display: flex; gap: 14px; flex-wrap: wrap; background: rgba(255,255,255,0.02); padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04); font-size: 12px;">
+                    ${r.productName ? `<span>📦 <strong>Product:</strong> <span style="color: #60a5fa;">${escapeHtml(r.productName)}</span></span>` : ''}
+                    ${r.sellerName ? `<span>🏪 <strong>Seller:</strong> <span style="color: #c084fc;">${escapeHtml(r.sellerName)}</span> ${r.sellerId ? `<code style="font-size: 10.5px; opacity: 0.7;">(${escapeHtml(r.sellerId)})</code>` : ''}</span>` : ''}
+                  </div>
+                ` : ''}
 
                 <div style="background: rgba(0,0,0,0.25); border-radius: 12px; padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05);">
                   <div style="font-size: 13px; font-weight: 700; color: #fbbf24; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
@@ -11329,7 +11546,7 @@ function renderView(data) {
       if (current === 'analytics') mountAnalyticsCharts();
       if (notifyCount) {
         const pendingReps = Object.values(data.reports || {}).filter(r => (r.status || 'pending') === 'pending').length;
-        const pendingOrds = Object.values(data.orders || {}).filter(o => o.status === 'pending' || o.orderStatus === 'pending').length;
+        const pendingOrds = getAllUnifiedOrders().filter(o => o.status === 'pending' || o.orderStatus === 'pending').length;
         notifyCount.textContent = String(pendingReps + pendingOrds);
       }
     } catch (error) {
@@ -13122,24 +13339,125 @@ function attachGlobalHandlers() {
           reviewedBy: userEmail?.textContent || userName?.textContent || APP_CONFIG.appName,
         };
 
+        // Collect all ID variants so every client lookup variant succeeds
+        const idVariants = new Set();
+        if (id) idVariants.add(String(id).trim());
+        if (order.id) idVariants.add(String(order.id).trim());
+        if (order.orderId) idVariants.add(String(order.orderId).trim());
+        if (order.displayOrderId) idVariants.add(String(order.displayOrderId).trim());
+
+        Array.from(idVariants).forEach(raw => {
+          const stripped = raw.replace(/^#+/, '').trim();
+          if (stripped) {
+            idVariants.add(stripped);
+            if (stripped.toUpperCase().startsWith('JG-')) {
+              const d = stripped.slice(3).trim();
+              if (d) idVariants.add(d);
+            } else {
+              idVariants.add('JG-' + stripped);
+            }
+          }
+          const numMatch = raw.match(/\d{5,8}/);
+          if (numMatch) {
+            idVariants.add(numMatch[0]);
+            idVariants.add('JG-' + numMatch[0]);
+            idVariants.add('#JG-' + numMatch[0]);
+          }
+        });
+
+        // 1. Update primary order record in admin store & RTDB
         await updateRecord('orders', id, approvedPayload);
 
-        // Also write to order_approvals for instantaneous client-side notification sync
-        try {
-          await set(ref(db, `order_approvals/${id}`), {
-            orderId: id,
-            productName: orderTitle,
-            downloadLink: productLink,
-            telegramLink: productLink,
-            channelLink: productLink,
-            groupLink: productLink,
-            status: 'approved',
-            approvedAt: Date.now(),
-            customerEmail: order.customerEmail || order.email || order.buyerEmail || ''
-          });
-        } catch (syncErr) {
-          console.warn('order_approvals sync note:', syncErr);
+        // 2. Write to order_approvals and orders for all ID variants in RTDB
+        const approvalData = {
+          orderId: order.orderId || order.displayOrderId || id,
+          productName: orderTitle,
+          downloadLink: productLink,
+          telegramLink: productLink,
+          channelLink: productLink,
+          groupLink: productLink,
+          status: 'approved',
+          orderStatus: 'approved',
+          paymentStatus: 'approved',
+          verified: true,
+          approvedAt: Date.now(),
+          customerEmail: order.customerEmail || order.email || order.buyerEmail || ''
+        };
+
+        for (const k of idVariants) {
+          if (!k) continue;
+          try { await update(ref(db, `orders/${k}`), approvedPayload); } catch (_) {}
+          try { await update(ref(db, `events/orders/${k}`), approvedPayload); } catch (_) {}
+          try { await set(ref(db, `order_approvals/${k}`), { ...approvalData, orderId: k }); } catch (_) {}
         }
+
+        // 3. Immediately sync customer local storage if testing on same domain/browser
+        const custOrderStorageKeys = [
+          'jaigram_user_orders',
+          'linkadda_user_orders',
+          'jaigram_customer_orders',
+          'linkadda_customer_orders',
+          'linkadda_admin_orders_local'
+        ];
+        if (order.customerUid) {
+          custOrderStorageKeys.push('jaigram_customer_orders_' + order.customerUid);
+          custOrderStorageKeys.push('linkadda_customer_orders_' + order.customerUid);
+        }
+        custOrderStorageKeys.forEach(ck => {
+          try {
+            const raw = localStorage.getItem(ck);
+            if (!raw) return;
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              let changed = false;
+              list.forEach(item => {
+                const itemRaw = String(item.orderId || item.id || item.displayOrderId || '');
+                const itemNum = itemRaw.match(/\d{5,8}/)?.[0];
+                if (idVariants.has(itemRaw) || (itemNum && idVariants.has(itemNum))) {
+                  Object.assign(item, approvedPayload);
+                  changed = true;
+                }
+              });
+              if (changed) {
+                localStorage.setItem(ck, JSON.stringify(list));
+              }
+            }
+          } catch (_) {}
+        });
+
+        // 4. Write customer in-app notification in localStorage
+        const notifKeys = [
+          'jaigram_user_notifications',
+          'linkadda_user_notifications'
+        ];
+        if (order.customerUid) {
+          notifKeys.push('jaigram_notifs_' + order.customerUid);
+          notifKeys.push('linkadda_notifs_' + order.customerUid);
+        }
+        const apprvNotif = {
+          id: 'notif_order_' + (order.displayOrderId || id) + '_approved',
+          type: 'order_confirmed',
+          orderId: order.displayOrderId || order.orderId || id,
+          title: `Order #${String(order.displayOrderId || id).replace(/^#+/, '')} Approved! 🎉`,
+          message: `Your payment for "${orderTitle}" has been verified & approved. Tap to unlock access.`,
+          desc: `Your payment for "${orderTitle}" has been verified & approved. Tap to unlock access.`,
+          actionUrl: productLink,
+          actionText: 'Access Now (Telegram VIP)',
+          timestamp: Date.now(),
+          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          read: false,
+          unread: true
+        };
+        notifKeys.forEach(nk => {
+          try {
+            let nList = [];
+            const nRaw = localStorage.getItem(nk);
+            if (nRaw) nList = JSON.parse(nRaw);
+            if (!Array.isArray(nList)) nList = [];
+            nList.unshift(apprvNotif);
+            localStorage.setItem(nk, JSON.stringify(nList.slice(0, 50)));
+          } catch (_) {}
+        });
 
         // If order was a wallet top-up, credit the customer wallet balance in database and dispatch official receipt email!
         if (order.type === 'wallet_topup' || order.pkg === 'wallet_topup') {
@@ -13424,6 +13742,7 @@ function attachGlobalHandlers() {
       return;
     }
     if (action === 'reject-order') {
+      const cleanRejId = String(id || '').replace(/^#+/, '').trim();
       await updateRecord('orders', id, {
         status: 'rejected',
         orderStatus: 'rejected',
@@ -13431,6 +13750,21 @@ function attachGlobalHandlers() {
         reviewedAt: Date.now(),
         reviewedBy: userEmail?.textContent || userName?.textContent || APP_CONFIG.appName,
       });
+      if (cleanRejId && cleanRejId !== String(id)) {
+        try { await update(ref(db, `orders/${cleanRejId}`), { status: 'rejected', orderStatus: 'rejected' }); } catch (_) {}
+      }
+      try {
+        const rejData = {
+          orderId: cleanRejId || id,
+          status: 'rejected',
+          orderStatus: 'rejected',
+          reviewedAt: Date.now(),
+        };
+        if (cleanRejId) await set(ref(db, `order_approvals/${cleanRejId}`), rejData);
+        if (String(id).startsWith('#')) await set(ref(db, `order_approvals/${id}`), rejData);
+      } catch (rejSyncErr) {
+        console.warn('order_approvals rejection sync notice:', rejSyncErr);
+      }
       closeModal();
       showToast('Order rejected');
       return;
@@ -13440,6 +13774,30 @@ function attachGlobalHandlers() {
         await deleteRecord('orders', id);
         closeModal();
         showToast('Order deleted');
+      }
+      return;
+    }
+    if (action === 'sync-orders') {
+      actionBtn.disabled = true;
+      actionBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Syncing...';
+      try {
+        const unified = getAllUnifiedOrders();
+        if (auth && auth.currentUser) {
+          unified.forEach((ord) => {
+            const safePath = String(ord.id || ord.orderId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+            if (safePath) {
+              set(ref(db, `orders/${safePath}`), ord).catch(() => {});
+            }
+          });
+        }
+        renderView(ui.data || {});
+        showToast(`✅ Synced ${unified.length} orders successfully!`, 'success');
+      } catch (err) {
+        showToast('Sync error: ' + (err?.message || err), 'danger');
+      } finally {
+        actionBtn.disabled = false;
+        actionBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Sync Orders';
+        if (window.lucide) lucide.createIcons({ node: actionBtn });
       }
       return;
     }
@@ -14424,6 +14782,63 @@ function syncRealApprovedOrdersToSettings(data) {
   }, 1000);
 }
 
+let syncApprovalsPoolDebounce = null;
+function syncAllOrdersToOrderApprovalsPool(data) {
+  if (syncApprovalsPoolDebounce) return;
+  syncApprovalsPoolDebounce = setTimeout(async () => {
+    syncApprovalsPoolDebounce = null;
+    try {
+      const rawOrders = data.orders || {};
+      const entries = Object.entries(rawOrders);
+      if (!entries.length) return;
+
+      for (const [rawKey, ord] of entries) {
+        if (!ord || typeof ord !== 'object') continue;
+        const cleanId = String(ord.orderId || ord.id || rawKey).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+        if (!cleanId) continue;
+
+        const title = orderProductName(ord) || ord.productName || ord.title || ord.name || 'Digital VIP Pack';
+        const st = String(ord.status || ord.orderStatus || 'pending').toLowerCase();
+        const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(st) || ord.verified;
+        const computedStatus = isAppr ? 'approved' : (st === 'rejected' ? 'rejected' : 'pending');
+        const dl = isAppr ? (ord.downloadLink || ord.fileUrl || ord.orderLink || 'https://t.me/TRUSTED_BROTHER1234') : '';
+        const email = (ord.customerEmail || ord.buyerEmail || ord.email || '').toLowerCase().trim();
+
+        const approvalPayload = {
+          orderId: ord.orderId || cleanId,
+          id: ord.id || cleanId,
+          displayOrderId: ord.displayOrderId || ('#' + cleanId),
+          productName: title,
+          title: title,
+          name: title,
+          status: computedStatus,
+          orderStatus: computedStatus,
+          paymentStatus: computedStatus,
+          verified: isAppr,
+          customerName: ord.customerName || ord.buyerName || 'Customer',
+          customerEmail: email,
+          email: email,
+          amount: ord.amount || ord.price || 399,
+          amountDisplay: ord.amountDisplay || (ord.amount ? `₹${ord.amount}` : '₹399.00'),
+          paymentMethod: (ord.paymentMethod || ord.method || 'UPI').toUpperCase(),
+          utr: ord.utr || '',
+          downloadLink: dl,
+          fileUrl: dl,
+          orderLink: dl,
+          sellerName: ord.sellerName || '༒•*̥TRUSTED BROTHER•*̥',
+          createdAt: ord.createdAt || ord.timestamp || Date.now(),
+          timestamp: ord.timestamp || ord.createdAt || Date.now(),
+          date: ord.date || (ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently')
+        };
+
+        try {
+          await set(ref(db, `order_approvals/${cleanId}`), approvalPayload);
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }, 2000);
+}
+
 // Instant initial render from cache (0ms - data never disappears on refresh)
 initTheme();
 attachGlobalHandlers();
@@ -14436,6 +14851,7 @@ subscribe((data) => {
   if (!isInitialBoot) {
     renderView(data);
     syncRealApprovedOrdersToSettings(data);
+    syncAllOrdersToOrderApprovalsPool(data);
   }
 });
 

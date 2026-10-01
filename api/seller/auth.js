@@ -631,31 +631,57 @@ export default async function handler(req, res) {
     if (action === 'get_store_followers') {
       const sellerId = String(body.sellerId || req.query?.sellerId || '').trim();
       const storeName = String(body.storeName || req.query?.storeName || '').trim();
-      const cleanKey = sellerId || storeName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
 
-      if (!cleanKey) {
+      const cleanUnicode = String(storeName || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\x00-\x7F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      const candidateKeys = new Set();
+      if (cleanUnicode) candidateKeys.add(cleanUnicode.replace(/[^a-z0-9_-]/g, '_'));
+      if (storeName) candidateKeys.add(storeName.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '_'));
+      if (sellerId) candidateKeys.add(sellerId.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '_'));
+
+      if (cleanUnicode.includes('trusted') && cleanUnicode.includes('brother') || sellerId === 'seller_6e2c36f417' || sellerId === 'seller_jaibajpai67') {
+        candidateKeys.add('trusted_brother');
+        candidateKeys.add('trustedbrother');
+      }
+      if (cleanUnicode.includes('ghost') && cleanUnicode.includes('layer') || sellerId === 'seller_8f3baf766f') {
+        candidateKeys.add('ghost_layer_shop');
+        candidateKeys.add('ghost_layer');
+      }
+
+      if (candidateKeys.size === 0) {
         return res.status(400).json({ error: 'Missing seller identifier.' });
       }
 
       let count = 0;
-      try {
-        const fRes = await fetch(`${RTDB_URL}/store_followers/${encodeURIComponent(cleanKey)}.json`);
-        if (fRes.ok) {
-          const fData = await fRes.json();
-          if (fData && typeof fData === 'object') {
-            if (typeof fData.count === 'number') {
-              count = fData.count;
-            } else if (fData.followers && typeof fData.followers === 'object') {
-              count = Object.keys(fData.followers).length;
+      for (const k of candidateKeys) {
+        if (!k) continue;
+        try {
+          const fRes = await fetch(`${RTDB_URL}/store_followers/${encodeURIComponent(k)}.json`);
+          if (fRes.ok) {
+            const fData = await fRes.json();
+            if (fData && typeof fData === 'object') {
+              if (typeof fData.count === 'number' && fData.count > count) {
+                count = fData.count;
+              }
+              if (fData.followers && typeof fData.followers === 'object') {
+                const fLen = Object.keys(fData.followers).length;
+                if (fLen > count) count = fLen;
+              }
             }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
 
-      // Fallback: check seller's followerCount in memory or RTDB
-      if (count === 0 && sellerId) {
+      // Check seller's followerCount in memory or RTDB sellers
+      if (sellerId) {
         const mem = SELLER_MEMORY_STORE.sellers.get(sellerId);
-        if (mem && typeof mem.followerCount === 'number') {
+        if (mem && typeof mem.followerCount === 'number' && mem.followerCount > count) {
           count = mem.followerCount;
         }
       }
@@ -673,7 +699,23 @@ export default async function handler(req, res) {
       const customerId = String(body.customerId || req.query?.customerId || 'visitor').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
       const follow = body.follow === true || body.follow === 'true';
 
-      const cleanKey = sellerId || storeName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const cleanUnicode = String(storeName || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\x00-\x7F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      let cleanKey = cleanUnicode ? cleanUnicode.replace(/[^a-z0-9_-]/g, '_') : '';
+      if (cleanUnicode.includes('trusted') && cleanUnicode.includes('brother') || sellerId === 'seller_6e2c36f417' || sellerId === 'seller_jaibajpai67') {
+        cleanKey = 'trusted_brother';
+      } else if (cleanUnicode.includes('ghost') && cleanUnicode.includes('layer') || sellerId === 'seller_8f3baf766f') {
+        cleanKey = 'ghost_layer_shop';
+      } else if (!cleanKey) {
+        cleanKey = sellerId || storeName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      }
+
       if (!cleanKey) {
         return res.status(400).json({ error: 'Missing store identifier.' });
       }

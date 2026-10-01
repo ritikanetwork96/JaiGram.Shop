@@ -2,23 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <script>
-    (function() {
-      if (window.location.protocol === 'file:') return;
-      var isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      if (isLocal) return;
-      var path = window.location.pathname;
-      var cleanPath = null;
-      if (path.endsWith('/index.html')) {
-        cleanPath = path.substring(0, path.length - 10) || '/';
-      } else if (path.endsWith('.html')) {
-        cleanPath = path.substring(0, path.length - 5);
-      }
-      if (cleanPath !== null) {
-        window.history.replaceState(null, '', cleanPath + window.location.search + window.location.hash);
-      }
-    })();
-  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Login - JaiGram Shop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />

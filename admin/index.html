@@ -5,6 +5,8 @@
   <script>
     (function() {
       if (window.location.protocol === 'file:') return;
+      var isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isLocal) return;
       var path = window.location.pathname;
       var cleanPath = null;
       if (path.endsWith('/index.html')) {
@@ -164,6 +166,15 @@
     </div>
   </div>
 
-  <script type="module" src="/admin/js/app.js?v=45"></script>
+  <script>
+    window.addEventListener('error', function(e) {
+      console.error('Admin boot script error:', e);
+      var sub = document.querySelector('.view-loading-sub');
+      if (sub) {
+        sub.innerHTML = '<span style="color:#f87171;font-weight:600;">Browser Cache Hold detected</span><br><small style="color:#cbd5e1;font-size:12px;margin-top:4px;display:block;">Press <strong>Ctrl + Shift + R</strong> (or Ctrl + F5) to refresh cleanly.</small>';
+      }
+    });
+  </script>
+  <script type="module" src="/admin/js/app.js?v=95"></script>
 </body>
 </html>

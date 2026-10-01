@@ -50,8 +50,8 @@ function normalizeOrder(id, raw) {
     productTitle: title,
     productName: title,
     title,
-    sellerName: raw.sellerName || raw.seller || 'JaiGram Verified',
-    seller: raw.sellerName || raw.seller || 'JaiGram Verified',
+    sellerName: (raw.sellerName && raw.sellerName !== 'JaiGram Verified' && raw.sellerName !== 'LinkAdda Verified') ? raw.sellerName : (raw.seller && raw.seller !== 'JaiGram Verified' && raw.seller !== 'LinkAdda Verified' ? raw.seller : 'Trusted brother'),
+    seller: (raw.sellerName && raw.sellerName !== 'JaiGram Verified' && raw.sellerName !== 'LinkAdda Verified') ? raw.sellerName : (raw.seller && raw.seller !== 'JaiGram Verified' && raw.seller !== 'LinkAdda Verified' ? raw.seller : 'Trusted brother'),
     buyerEmail: email,
     email,
     customerName: buyerName,
@@ -154,28 +154,63 @@ export default async function handler(req, res) {
 
       let allOrders = Array.from(ordersMap.values());
 
-      // Filter by specific orderId if requested
+      const cleanLookup = (s) => String(s || '').replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
+
+      // Filter by specific orderId or orderIds list if requested
+      const orderIdsParam = String(query.orderIds || query.ids || '').trim();
+      const requestedIdSet = orderIdsParam 
+        ? new Set(orderIdsParam.split(',').map(cleanLookup).filter(Boolean))
+        : null;
+
       if (orderIdParam) {
-        const found = allOrders.find(o => o.orderId === orderIdParam || o.id === orderIdParam);
+        const targetClean = cleanLookup(orderIdParam);
+        let found = allOrders.find(o => cleanLookup(o.orderId) === targetClean || cleanLookup(o.id) === targetClean);
+        
+        // Direct RTDB fallback if not found in cache
+        if (!found && targetClean) {
+          try {
+            const rDirect = await fetch(`${RTDB_URL}/orders/${encodeURIComponent(targetClean)}.json${authQuery}`);
+            if (rDirect.ok) {
+              const dDirect = await rDirect.json();
+              if (dDirect) found = normalizeOrder(targetClean, dDirect);
+            }
+          } catch (_) {}
+        }
+
+        // Direct order_approvals fallback
+        if (!found && targetClean) {
+          try {
+            const rApp = await fetch(`${RTDB_URL}/order_approvals/${encodeURIComponent(targetClean)}.json`);
+            if (rApp.ok) {
+              const dApp = await rApp.json();
+              if (dApp) found = normalizeOrder(targetClean, dApp);
+            }
+          } catch (_) {}
+        }
+
         if (found) {
           const isAdmin = await verifyAdminRequest(req);
           const orderEmail = String(found.customerEmail || found.buyerEmail || '').toLowerCase().trim();
           const targetUid = found.customerUid || (orderEmail ? deriveCustomerId(orderEmail) : '');
           const isCustomer = Boolean(targetUid && (verifyCustomerToken(req, targetUid, orderEmail) || (emailParam && emailParam.toLowerCase() === orderEmail && verifyCustomerToken(req, targetUid, emailParam))));
 
-          // If neither admin nor authenticated customer, redact confidential fulfillment links & sensitive proofs
+          const orderStatus = String(found.status || found.orderStatus || '').toLowerCase();
+          const isApproved = ['approved', 'completed', 'paid', 'confirmed'].includes(orderStatus);
+
+          // If neither admin nor authenticated session token, redact sensitive payment proof screenshots
+          // but preserve fulfillment download link if approved
           if (!isAdmin && !isCustomer) {
-            const redactedOrder = {
+            const sanitizedOrder = {
               ...found,
-              downloadLink: undefined,
-              fileUrl: undefined,
-              orderLink: undefined,
               screenshot: undefined,
               screenshotUrl: undefined,
               paymentProof: undefined,
               proofUrl: undefined,
+              downloadLink: isApproved ? (found.downloadLink || found.fileUrl || found.orderLink || '') : undefined,
+              fileUrl: isApproved ? (found.fileUrl || found.downloadLink || '') : undefined,
+              orderLink: isApproved ? (found.orderLink || found.downloadLink || '') : undefined,
             };
-            return res.status(200).json({ success: true, count: 1, order: redactedOrder });
+            return res.status(200).json({ success: true, count: 1, order: sanitizedOrder });
           }
 
           return res.status(200).json({ success: true, count: 1, order: found });
@@ -183,29 +218,45 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, error: 'Order not found' });
       }
 
-      // Filter for customer by email or UID (Strict security: Requires valid Bearer session token or Admin)
-      if (emailParam || uidParam) {
+      // Filter for customer orders: match by specific order IDs OR customer email / UID
+      if ((requestedIdSet && requestedIdSet.size > 0) || emailParam || uidParam) {
         const computedUid = emailParam ? deriveCustomerId(emailParam) : '';
         const targetUid = uidParam || computedUid;
         const isAdmin = await verifyAdminRequest(req);
         const isCustomer = verifyCustomerToken(req, targetUid, emailParam);
 
-        if (!isAdmin && !isCustomer) {
-          return res.status(401).json({
-            success: false,
-            error: 'Unauthorized: Valid customer session token or administrator credentials required.',
-          });
-        }
-
         allOrders = allOrders.filter(ord => {
+          const oId = cleanLookup(ord.orderId || ord.id);
+          // If customer has the exact order ID from local storage, allow match!
+          if (requestedIdSet && requestedIdSet.has(oId)) return true;
+
+          // Or if order matches customer's email or UID
           const ordEmail = (ord.customerEmail || ord.buyerEmail || ord.email || '').toLowerCase().trim();
           const ordUid = ord.customerUid || ord.buyerUid || ord.uid || '';
-          
           if (emailParam && ordEmail === emailParam) return true;
           if (uidParam && ordUid === uidParam) return true;
           if (computedUid && ordUid === computedUid) return true;
           return false;
         });
+
+        // If not admin and not token authenticated, redact payment proof screenshots
+        // but ensure approved orders keep their download/access links!
+        if (!isAdmin && !isCustomer) {
+          allOrders = allOrders.map(ord => {
+            const orderStatus = String(ord.status || ord.orderStatus || '').toLowerCase();
+            const isApproved = ['approved', 'completed', 'paid', 'confirmed'].includes(orderStatus);
+            return {
+              ...ord,
+              screenshot: undefined,
+              screenshotUrl: undefined,
+              paymentProof: undefined,
+              proofUrl: undefined,
+              downloadLink: isApproved ? (ord.downloadLink || ord.fileUrl || ord.orderLink || '') : undefined,
+              fileUrl: isApproved ? (ord.fileUrl || ord.downloadLink || '') : undefined,
+              orderLink: isApproved ? (ord.orderLink || ord.downloadLink || '') : undefined,
+            };
+          });
+        }
       }
 
       // Enrich orders with product metadata (images, thumbnails, category, real download link) if missing
@@ -223,8 +274,8 @@ export default async function handler(req, res) {
                   if (!ord.thumbnail || ord.thumbnail === '') ord.thumbnail = p.thumbnail || p.image || '';
                   if (!ord.badge || ord.badge === 'Digital Content') ord.badge = p.badge || p.category || ord.badge;
                   if (!ord.category || ord.category === 'Digital Content') ord.category = p.category || p.badge || ord.category;
-                  if (!ord.sellerName || ord.sellerName === 'JaiGram Verified' || ord.sellerName === 'LinkAdda Verified') ord.sellerName = p.sellerName || ord.sellerName;
-                  if (!ord.seller || ord.seller === 'JaiGram Verified' || ord.seller === 'LinkAdda Verified') ord.seller = p.sellerName || ord.seller;
+                  if (!ord.sellerName || ord.sellerName === 'JaiGram Verified' || ord.sellerName === 'LinkAdda Verified') ord.sellerName = p.sellerStoreName || p.sellerName || p.storeName || 'Trusted brother';
+                  if (!ord.seller || ord.seller === 'JaiGram Verified' || ord.seller === 'LinkAdda Verified') ord.seller = p.sellerStoreName || p.sellerName || p.storeName || 'Trusted brother';
                   if (p.specDelivery) ord.specDelivery = p.specDelivery;
                   if (p.specAccess) ord.specAccess = p.specAccess;
                   const realLink = p.telegramLink || p.downloadLink || p.fileUrl || '';
@@ -284,10 +335,47 @@ export default async function handler(req, res) {
       // SECURITY: Only authorized Master Admin can mark an order as completed or approved
       const status = isAdminCaller ? (requestedStatus || 'pending') : 'pending';
 
+      let sellerId = String(body.sellerId || '').trim();
+      let sellerName = String(body.sellerName || body.seller || '').trim();
+      let productId = String(body.productId || '').trim();
+      let productTitle = String(body.productTitle || body.productName || body.title || body.name || '').trim();
+      let thumbnail = String(body.thumbnail || body.image || body.productImage || '').trim();
+      let downloadLink = String(body.downloadLink || body.fileUrl || body.orderLink || '').trim();
+
+      // If productId is provided, automatically enrich seller and product info from RTDB /products/${productId}.json
+      if (productId && (!sellerName || !sellerId || !productTitle || !downloadLink || !thumbnail)) {
+        try {
+          const pr = await fetch(`${RTDB_URL}/products/${encodeURIComponent(productId)}.json`, {
+            signal: AbortSignal.timeout(4000),
+          });
+          if (pr.ok) {
+            const p = await pr.json();
+            if (p && typeof p === 'object') {
+              if (!sellerName || sellerName === 'JaiGram Verified' || sellerName === 'LinkAdda Verified') sellerName = p.sellerStoreName || p.sellerName || p.storeName || p.seller || 'Trusted brother';
+              if (!sellerId) sellerId = p.sellerId || '';
+              if (!productTitle) productTitle = p.title || p.name || productTitle;
+              if (!thumbnail) thumbnail = p.thumbnail || p.image || '';
+              if (!downloadLink) downloadLink = p.telegramLink || p.downloadLink || p.fileUrl || '';
+            }
+          }
+        } catch (_) {}
+      }
+
       const orderPayload = {
         ...body,
         id: orderId,
         orderId,
+        productId,
+        productTitle: productTitle || 'VIP Digital Pass',
+        productName: productTitle || 'VIP Digital Pass',
+        title: productTitle || 'VIP Digital Pass',
+        sellerId: sellerId || '',
+        sellerName: (sellerName && sellerName !== 'JaiGram Verified' && sellerName !== 'LinkAdda Verified') ? sellerName : 'Trusted brother',
+        seller: (sellerName && sellerName !== 'JaiGram Verified' && sellerName !== 'LinkAdda Verified') ? sellerName : 'Trusted brother',
+        downloadLink: downloadLink || body.downloadLink || '',
+        fileUrl: downloadLink || body.fileUrl || '',
+        thumbnail: thumbnail || body.thumbnail || '',
+        image: thumbnail || body.image || '',
         customerEmail: email,
         buyerEmail: email,
         customerUid: uid,
@@ -318,9 +406,28 @@ export default async function handler(req, res) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload),
         });
-      } catch (_) {}
+      // 2b. Sync status changes to order_approvals node for real-time customer access
+      if (status === 'approved' || status === 'rejected' || status === 'completed' || status === 'paid') {
+        try {
+          const appPayload = {
+            orderId,
+            productName: productTitle || 'VIP Digital Pass',
+            downloadLink: (status === 'approved' || status === 'completed' || status === 'paid') ? (downloadLink || '') : '',
+            telegramLink: (status === 'approved' || status === 'completed' || status === 'paid') ? (downloadLink || '') : '',
+            channelLink: (status === 'approved' || status === 'completed' || status === 'paid') ? (downloadLink || '') : '',
+            status,
+            orderStatus: status,
+            reviewedAt: now,
+            customerEmail: email,
+          };
+          await fetch(`${RTDB_URL}/order_approvals/${encodeURIComponent(orderId)}.json${authQuery}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appPayload),
+          });
+        } catch (_) {}
+      }
 
-      // 3. Ensure customer profile is updated or registered in RTDB if email is provided
       if (email && isValidEmail(email) && uid) {
         try {
           // Fetch existing customer to preserve fields
@@ -449,6 +556,57 @@ export default async function handler(req, res) {
                 },
                 body: JSON.stringify(brevoPayload),
               }).catch((e) => console.warn('Brevo wallet receipt dispatch note:', e.message));
+            }
+          }
+
+          // If approved by admin for a regular digital product order, dispatch official access email to customer
+          if (isAdminCaller && (requestedStatus === 'completed' || requestedStatus === 'approved') && email && body.type !== 'wallet_topup') {
+            const brevoKey = (process.env.BREVO_API_KEY || '').trim();
+            if (brevoKey) {
+              const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'ritikanetwork96@gmail.com').trim();
+              const senderName = (process.env.BREVO_SENDER_NAME || 'JaiGram Shop').trim();
+              const finalTitle = productTitle || 'VIP Digital Pass';
+              const accessLink = downloadLink || body.fileUrl || body.orderLink || 'https://t.me/TRUSTED_BROTHER1234';
+
+              const brevoPayload = {
+                sender: { name: senderName, email: senderEmail },
+                to: [{ email, name: buyerName }],
+                subject: `✅ Payment Approved! Access Your Pack (${finalTitle})`,
+                htmlContent: `
+                  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #07060c; color: #ffffff; padding: 32px 24px; border-radius: 16px; max-width: 520px; margin: 0 auto; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                      <div style="font-size: 26px; font-weight: 800; color: #ffffff;">JaiGram <span style="color: #10b981;">&#9819;</span> Store</div>
+                      <div style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #10b981; font-weight: 700; margin-top: 4px;">Payment Verified &amp; Approved</div>
+                    </div>
+                    <h2 style="color: #ffffff; margin: 0 0 12px; font-size: 19px; text-align: center;">Hello ${buyerName}! 🎉</h2>
+                    <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin-bottom: 20px; text-align: center;">
+                      Your payment for <strong>${finalTitle}</strong> (Order <strong>#${orderId.replace(/^#+/, '')}</strong>) has been verified and approved by JaiGram Admin.
+                    </p>
+                    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 22px; border-radius: 14px; margin: 24px 0; text-align: center;">
+                      <p style="margin: 0 0 14px; font-size: 13px; color: #94a3b8; font-weight: 600;">Use the button below to join the VIP Telegram channel and access your pack:</p>
+                      <a href="${accessLink}" target="_blank" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; padding: 14px 28px; border-radius: 12px; font-weight: 850; font-size: 15px; text-decoration: none; display: inline-block; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45); letter-spacing: 0.3px;">
+                        🚀 Open Telegram VIP Link
+                      </a>
+                    </div>
+                    <p style="color: #64748b; font-size: 12px; margin-top: 24px; text-align: center;">
+                      Direct URL: <a href="${accessLink}" style="color: #38bdf8; word-break: break-all;">${accessLink}</a>
+                    </p>
+                    <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; text-align: center;">
+                      <p style="color: #64748b; font-size: 11px; margin: 0;">&copy; ${new Date().getFullYear()} JaiGram Shop &bull; 24/7 VIP Support: @JaiGram_Support</p>
+                    </div>
+                  </div>
+                `
+              };
+
+              fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: {
+                  'accept': 'application/json',
+                  'api-key': brevoKey,
+                  'content-type': 'application/json',
+                },
+                body: JSON.stringify(brevoPayload),
+              }).catch(e => console.warn('Brevo product approval dispatch note:', e.message));
             }
           }
         } catch (errCust) {

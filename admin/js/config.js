@@ -80,7 +80,7 @@ export const DEFAULT_EMPTY = {
   slug: '',
   description: '',
   category: '',
-  sellerName: 'JaiGram Official',
+  sellerName: 'Trusted brother',
   priceINR: '',
   priceUSD: '',
   originalPriceINR: '',

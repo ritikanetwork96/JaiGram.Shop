@@ -63,7 +63,10 @@
       ".write": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
       "orders": {
         ".read": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
-        ".write": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'"
+        ".write": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
+        "$order_id": {
+          ".write": true
+        }
       },
       "customers": {
         ".read": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
@@ -82,7 +85,7 @@
       ".read": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
       ".write": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
       "$customer_id": {
-        ".read": "auth != null && (auth.token.email === 'ritikanetwork96@gmail.com' || auth.uid === $customer_id)",
+        ".read": true,
         ".write": "auth != null && (auth.token.email === 'ritikanetwork96@gmail.com' || auth.uid === $customer_id)"
       }
     },
@@ -123,16 +126,22 @@
       ".read": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
       ".write": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
       "$order_id": {
-        ".read": "auth != null && (auth.token.email === 'ritikanetwork96@gmail.com' || auth.uid === data.child('customerUid').val())",
-        ".write": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'"
+        ".read": true,
+        ".write": true
+      }
+    },
+    "order_approvals": {
+      ".read": true,
+      "$order_id": {
+        ".write": true
       }
     },
     "reports": {
       ".read": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
       ".write": "auth != null && auth.token.email === 'ritikanetwork96@gmail.com'",
       "$report_id": {
-        ".read": "auth != null && (auth.token.email === 'ritikanetwork96@gmail.com' || auth.uid === data.child('reporterUid').val())",
-        ".write": "!data.exists() && newData.exists()"
+        ".read": true,
+        ".write": true
       }
     }
   }

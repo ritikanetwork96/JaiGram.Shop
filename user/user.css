@@ -2507,9 +2507,9 @@ body.dark-theme .dropdown-divider {
     letter-spacing: 0.2px !important;
   }
 
-  /* Uniform Circular Action Buttons on Mobile: Wishlist & Cart (33px Touch Target) */
+  /* Uniform Circular Action Buttons on Mobile: Wishlist & Notifications (33px Touch Target) */
   .nav-action-btn#navWishlistBtn,
-  .nav-action-btn#navCartBtn {
+  .nav-action-btn#navNotificationBtn {
     width: 33px !important;
     height: 33px !important;
     min-width: 33px !important;
@@ -2527,10 +2527,16 @@ body.dark-theme .dropdown-divider {
   }
 
   body.dark-theme .nav-action-btn#navWishlistBtn,
-  body.dark-theme .nav-action-btn#navCartBtn {
+  body.dark-theme .nav-action-btn#navNotificationBtn {
     background: rgba(255, 255, 255, 0.06) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
     color: #f1f5f9 !important;
+  }
+
+  /* Hide Cart button on mobile devices as requested */
+  .nav-action-btn#navCartBtn,
+  #navCartBtn {
+    display: none !important;
   }
 
   .nav-action-btn .nav-count-badge {
@@ -2556,11 +2562,27 @@ body.dark-theme .dropdown-divider {
     border-color: #0b0f19 !important;
   }
 
-  /* Hide empty notification bell on mobile so User Avatar Chip is guaranteed to fit */
+  /* Show and position notification bell & dropdown on mobile */
   .nav-action-btn#navNotificationBtn,
-  #navNotificationBtn,
+  #navNotificationBtn {
+    display: inline-flex !important;
+  }
+
   .nav-right-actions > div:has(#navNotificationBtn) {
-    display: none !important;
+    display: inline-flex !important;
+    position: relative !important;
+  }
+
+  #notificationDropdown {
+    position: fixed !important;
+    top: 65px !important;
+    right: 10px !important;
+    left: auto !important;
+    width: calc(100vw - 20px) !important;
+    max-width: 320px !important;
+    z-index: 9999 !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28) !important;
+    border-radius: 14px !important;
   }
 
   /* User Avatar Chip at Top Right - Sleek Glowing Ring Trigger (34px, comfortable 10px right margin) */

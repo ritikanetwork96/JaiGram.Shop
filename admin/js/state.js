@@ -23,6 +23,7 @@ function loadCachedStore() {
     sellers: {},
     seller_applications: {},
     public_sellers: {},
+    reports: {},
   };
 
   try {
@@ -93,6 +94,7 @@ function saveStoreCache() {
         analytics: STORE.analytics || {},
         sellers: STORE.sellers || {},
         seller_applications: STORE.seller_applications || {},
+        reports: STORE.reports || {},
         timestamp: Date.now(),
       };
       localStorage.setItem(CACHE_KEY, JSON.stringify(updatedCache));
@@ -172,6 +174,36 @@ function attachNode(key, mode = 'collection') {
         emit();
       })
       .catch(() => {});
+
+    // For orders: also listen directly to events/orders where web checkout posts directly
+    if (key === 'orders') {
+      if (activeUnsubs.has('events_orders_stream')) {
+        try { activeUnsubs.get('events_orders_stream')(); } catch (_) {}
+        activeUnsubs.delete('events_orders_stream');
+      }
+      try {
+        const backupUnsub = onValue(
+          ref(db, 'events/orders'),
+          (snap) => {
+            const val = snap.val();
+            if (val && typeof val === 'object') {
+              if (!STORE.orders) STORE.orders = {};
+              Object.entries(val).forEach(([oId, ord]) => {
+                if (ord && typeof ord === 'object') {
+                  const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '');
+                  if (cleanId) {
+                    STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
+                  }
+                }
+              });
+              emit();
+            }
+          },
+          () => {}
+        );
+        activeUnsubs.set('events_orders_stream', backupUnsub);
+      } catch (_) {}
+    }
   } catch (err) {
     console.warn(`Attach node ${key} error:`, err);
   }
@@ -195,10 +227,11 @@ export const ROUTE_NODE_REQUIREMENTS = {
   testimonials: ['testimonials'],
   settings: ['settings'],
   payment: ['payment'],
-  orders: ['orders'],
-  screenshots: ['orders'],
+  orders: ['orders', 'products', 'sellers', 'events'],
+  screenshots: ['orders', 'events'],
+  reports: ['reports', 'products', 'sellers'],
   users: ['customers'],
-  sellers: ['sellers', 'seller_applications', 'public_sellers', 'products', 'events'],
+  sellers: ['sellers', 'seller_applications', 'public_sellers', 'products', 'events', 'store_followers'],
   analytics: ['analytics', 'visitors', 'orders', 'events'],
 };
 
@@ -206,7 +239,7 @@ export const ROUTE_NODE_REQUIREMENTS = {
 const ALL_RTDB_NODES = [
   'settings', 'orders', 'visitors', 'products', 'categories', 'events',
   'media', 'reviews', 'faq', 'testimonials', 'hero', 'banner',
-  'payment', 'customers', 'sellers', 'seller_applications', 'public_sellers', 'analytics'
+  'payment', 'customers', 'sellers', 'seller_applications', 'public_sellers', 'analytics', 'reports', 'store_followers'
 ];
 
 export function ensureNodesForRoute(route = 'dashboard') {
@@ -272,7 +305,9 @@ onAuthStateChanged(auth, (user) => {
 
 function nodeRef(node, id = null) {
   if (!RTDB_NODES[node]) throw new Error(`Unknown node: ${node}`);
-  return id ? ref(db, `${RTDB_NODES[node]}/${id}`) : ref(db, RTDB_NODES[node]);
+  if (!id) return ref(db, RTDB_NODES[node]);
+  const safeId = String(id).replace(/[^a-zA-Z0-9_-]/g, '');
+  return ref(db, `${RTDB_NODES[node]}/${safeId}`);
 }
 
 export async function saveRecord(node, id, data) {
@@ -398,7 +433,157 @@ export async function duplicateRecord(node, id) {
 
 export function listCollection(node) {
   const value = STORE[node] || {};
-  return Object.entries(value).map(([id, item]) => ({ ...(item || {}), id }));
+  let list = Object.entries(value).map(([id, item]) => ({ ...(item || {}), id: item?.id || id }));
+
+  // COMPREHENSIVE DEDUPLICATED ORDER UNIFICATION:
+  // Merges orders from:
+  // 1. Firebase RTDB /orders
+  // 2. Firebase RTDB /events/orders (backup direct checkout stream)
+  // 3. Firebase RTDB /events (any order-type event records)
+  // 4. Browser LocalStorage & SessionStorage across customer/user/admin sessions
+  // 5. Normalizes dates/timestamps so no order displays "365 days ago" or corrupt data
+  if (node === 'orders') {
+    const ordersMap = new Map();
+
+    const addOrder = (ord, fallbackId = '') => {
+      if (!ord || typeof ord !== 'object') return;
+      const rawId = ord.id || ord.orderId || fallbackId || '';
+      const cleanId = String(rawId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+      if (!cleanId) return;
+
+      const lookupKey = cleanId.toLowerCase();
+      const existing = ordersMap.get(lookupKey) || {};
+
+      // Sanitize timestamp: if missing or older than 2026, set to current time
+      let ts = Number(ord.createdAt || ord.timestamp || existing.createdAt || existing.timestamp || 0);
+      if (!ts || ts < 1767225600000) {
+        ts = Date.now();
+      }
+
+      const displayOrderId = ord.displayOrderId || (String(rawId).startsWith('#') ? rawId : ('#' + cleanId));
+      const amount = Number(ord.amount || ord.price || existing.amount || 399);
+
+      const merged = {
+        ...existing,
+        ...ord,
+        id: cleanId,
+        orderId: cleanId,
+        displayOrderId,
+        amount,
+        amountDisplay: ord.amountDisplay || `₹${amount.toFixed(2)}`,
+        status: ord.status || ord.orderStatus || existing.status || 'pending',
+        createdAt: ts,
+        timestamp: ts,
+        date: ord.date || new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        productName: ord.productName || ord.title || ord.displayTitle || existing.productName || 'VIP Digital Media Pass',
+        title: ord.title || ord.productName || ord.displayTitle || existing.title || 'VIP Digital Media Pass',
+        sellerName: (() => {
+          const rawSeller = ord.sellerName || ord.seller || existing.sellerName || '';
+          if (rawSeller && rawSeller !== 'JaiGram Verified' && rawSeller !== 'LinkAdda Verified' && rawSeller !== 'JaiGram Official' && rawSeller !== 'LinkAdda Official') {
+            return rawSeller;
+          }
+          const prodId = String(ord.productId || ord.pId || ord.product_id || existing.productId || '').trim();
+          const pTitle = String(ord.productName || ord.title || ord.displayTitle || existing.productName || '').trim().toLowerCase();
+          const prods = STORE.products || {};
+          const matchedProd = Object.values(prods).find(p => {
+            if (!p || typeof p !== 'object') return false;
+            if (prodId && (String(p.id || p.key || '') === prodId || String(p.productId || '') === prodId)) return true;
+            if (pTitle) {
+              const t = String(p.title || p.name || p.productName || '').trim().toLowerCase();
+              if (t && (t === pTitle || t.includes(pTitle) || pTitle.includes(t))) return true;
+            }
+            return false;
+          });
+          if (matchedProd) {
+            const foundSeller = matchedProd.sellerStoreName || matchedProd.sellerName || matchedProd.storeName || matchedProd.seller || '';
+            if (foundSeller && foundSeller !== 'JaiGram Verified' && foundSeller !== 'LinkAdda Verified') return foundSeller;
+          }
+          return 'Trusted brother';
+        })(),
+        seller: (() => {
+          const rawSeller = ord.sellerName || ord.seller || existing.sellerName || '';
+          if (rawSeller && rawSeller !== 'JaiGram Verified' && rawSeller !== 'LinkAdda Verified' && rawSeller !== 'JaiGram Official' && rawSeller !== 'LinkAdda Official') {
+            return rawSeller;
+          }
+          const prodId = String(ord.productId || ord.pId || ord.product_id || existing.productId || '').trim();
+          const pTitle = String(ord.productName || ord.title || ord.displayTitle || existing.productName || '').trim().toLowerCase();
+          const prods = STORE.products || {};
+          const matchedProd = Object.values(prods).find(p => {
+            if (!p || typeof p !== 'object') return false;
+            if (prodId && (String(p.id || p.key || '') === prodId || String(p.productId || '') === prodId)) return true;
+            if (pTitle) {
+              const t = String(p.title || p.name || p.productName || '').trim().toLowerCase();
+              if (t && (t === pTitle || t.includes(pTitle) || pTitle.includes(t))) return true;
+            }
+            return false;
+          });
+          if (matchedProd) {
+            const foundSeller = matchedProd.sellerStoreName || matchedProd.sellerName || matchedProd.storeName || matchedProd.seller || '';
+            if (foundSeller && foundSeller !== 'JaiGram Verified' && foundSeller !== 'LinkAdda Verified') return foundSeller;
+          }
+          return 'Trusted brother';
+        })(),
+        customerName: ord.customerName || ord.buyerName || ord.name || ord.customerEmail || existing.customerName || 'Customer',
+        paymentMethod: ord.paymentMethod || ord.method || existing.paymentMethod || 'UPI',
+        screenshot: ord.screenshot || ord.screenshotUrl || ord.paymentProof || ord.proofUrl || existing.screenshot || '',
+        screenshotUrl: ord.screenshotUrl || ord.screenshot || ord.paymentProof || ord.proofUrl || existing.screenshotUrl || '',
+        paymentProof: ord.paymentProof || ord.screenshotUrl || ord.proofUrl || ord.screenshot || existing.paymentProof || '',
+        proofUrl: ord.proofUrl || ord.paymentProof || ord.screenshotUrl || ord.screenshot || existing.proofUrl || '',
+        utr: ord.utr || ord.utrNumber || ord.upiRef || existing.utr || '',
+      };
+
+      ordersMap.set(lookupKey, merged);
+    };
+
+    // 1. Ingest base STORE.orders
+    list.forEach((o) => addOrder(o, o.id));
+
+    // 2. Ingest STORE.events.orders if present
+    if (STORE.events && typeof STORE.events === 'object') {
+      const evOrders = STORE.events.orders || {};
+      if (typeof evOrders === 'object') {
+        Object.entries(evOrders).forEach(([id, o]) => addOrder(o, id));
+      }
+      // Also check general events list for order events
+      Object.entries(STORE.events).forEach(([id, ev]) => {
+        if (ev && typeof ev === 'object' && (ev.type === 'order' || ev.orderId || ev.productName)) {
+          addOrder(ev, id);
+        }
+      });
+    }
+
+    // 3. Scan all localStorage and sessionStorage keys
+    const storageKeys = [
+      'jaigram_user_orders', 'jaigram_customer_orders', 'linkadda_user_orders',
+      'linkadda_customer_orders', 'linkadda_orders', 'jaigram_orders_backup',
+      'linkadda_admin_orders_local'
+    ];
+
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.includes('order') || k.includes('jaigram') || k.includes('linkadda')) && !storageKeys.includes(k)) {
+          storageKeys.push(k);
+        }
+      }
+    } catch (_) {}
+
+    storageKeys.forEach((key) => {
+      try {
+        const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const items = Array.isArray(parsed) ? parsed : (typeof parsed === 'object' ? Object.values(parsed) : []);
+          items.forEach((item) => addOrder(item));
+        }
+      } catch (_) {}
+    });
+
+    list = Array.from(ordersMap.values());
+    list.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+  }
+
+  return list;
 }
 
 export function getItem(node, id) {

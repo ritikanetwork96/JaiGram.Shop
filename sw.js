@@ -1,5 +1,5 @@
 // JaiGram Shop — High-Performance Progressive Web App Service Worker (sw.js)
-const CACHE_NAME = 'jaigram-pwa-v2';
+const CACHE_NAME = 'jaigram-pwa-v5';
 
 const STATIC_ASSETS = [
   '/',
@@ -47,6 +47,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
+
+  // Bypass localhost / 127.0.0.1 to guarantee local development never serves stale scripts
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '') {
+    return;
+  }
 
   // Bypass non-GET requests and API/Firebase/WebSocket calls
   if (

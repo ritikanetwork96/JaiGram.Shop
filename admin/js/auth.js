@@ -288,12 +288,14 @@ export function mountLoginPage(root) {
 export function protectRoute(onReady) {
   let hasHandledAuth = false;
   const MASTER_ADMIN_EMAIL = 'ritikanetwork96@gmail.com';
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const adminLoginUrl = isLocal ? '/admin/login.html' : '/admin/login';
 
   onAuthStateChanged(auth, async (user) => {
-    const isLoginPath = /\/login(?:\.html)?\/?$/i.test(window.location.pathname);
+    const isLoginPath = window.location.pathname.toLowerCase().includes('/login');
     if (!user) {
       if (!isLoginPath) {
-        window.location.href = '/admin/login';
+        window.location.href = adminLoginUrl;
       }
       return;
     }
@@ -303,7 +305,7 @@ export function protectRoute(onReady) {
       console.warn('Unauthorized access to root admin blocked for user:', currentEmail);
       try { await signOut(auth); } catch (_) {}
       alert('Access Denied: You do not have master administrator privileges.');
-      window.location.href = '/admin/login';
+      window.location.href = adminLoginUrl;
       return;
     }
 
@@ -317,6 +319,8 @@ export function protectRoute(onReady) {
 }
 
 export async function logout() {
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const adminLoginUrl = isLocal ? '/admin/login.html' : '/admin/login';
   const currentSessId = localStorage.getItem('linkadda_admin_session_id');
   if (currentSessId) {
     try {
@@ -325,7 +329,7 @@ export async function logout() {
     localStorage.removeItem('linkadda_admin_session_id');
   }
   await signOut(auth);
-  window.location.href = '/admin/login';
+  window.location.href = adminLoginUrl;
 }
 
 export function whenAuthenticated(callback) {

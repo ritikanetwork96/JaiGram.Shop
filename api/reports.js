@@ -46,6 +46,43 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'A valid reason must be selected.' });
       }
 
+      let sellerId = String(body.sellerId || '').trim();
+      let sellerName = String(body.sellerName || body.seller || '').trim();
+      let productId = String(body.productId || (targetType === 'product' ? targetId : '')).trim();
+      let productName = String(body.productName || body.productTitle || (targetType === 'product' ? targetName : '')).trim();
+
+      // If target is a product and seller info is missing, enrich from RTDB product node
+      if (targetType === 'product' && targetId && (!sellerName || !sellerId)) {
+        try {
+          const pRes = await fetch(`${RTDB_URL}/products/${encodeURIComponent(targetId)}.json`, {
+            signal: AbortSignal.timeout(4000),
+          });
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            if (pData && typeof pData === 'object') {
+              if (!sellerName) sellerName = pData.sellerName || pData.seller || '';
+              if (!sellerId) sellerId = pData.sellerId || '';
+              if (!productName || productName === 'Untitled Item') productName = pData.title || pData.name || productName;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // If target is a seller and sellerName is missing, enrich from RTDB sellers node
+      if (targetType === 'seller' && targetId && !sellerName) {
+        try {
+          const sRes = await fetch(`${RTDB_URL}/events/sellers/${encodeURIComponent(targetId)}.json`, {
+            signal: AbortSignal.timeout(4000),
+          });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (sData && typeof sData === 'object') {
+              sellerName = sData.storeName || sData.sellerName || sData.name || '';
+            }
+          }
+        } catch (_) {}
+      }
+
       const reportId = `rep_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 6)}`;
       const now = Date.now();
 
@@ -53,7 +90,11 @@ export default async function handler(req, res) {
         id: reportId,
         targetType: targetType === 'seller' ? 'seller' : 'product',
         targetId,
-        targetName,
+        targetName: productName || targetName,
+        productId: productId || (targetType === 'product' ? targetId : ''),
+        productName: productName || (targetType === 'product' ? targetName : ''),
+        sellerId: sellerId || (targetType === 'seller' ? targetId : ''),
+        sellerName: sellerName || (targetType === 'seller' ? targetName : 'Trusted brother'),
         reporterName: reporterName || 'Guest User',
         reporterEmail: reporterEmail || 'N/A',
         reporterUid: String(body.reporterUid || body.uid || '').trim(),
@@ -79,6 +120,8 @@ export default async function handler(req, res) {
         throw new Error(`Failed to save report to database: ${saveRes.status}`);
       }
 
+
+
       return res.status(200).json({
         success: true,
         reportId,
@@ -102,14 +145,15 @@ export default async function handler(req, res) {
     }
   })();
 
+  const reportIdsParam = String(query.reportIds || query.ids || query.reportId || query.id || '').trim();
   const reporterUid = String(query.reporterUid || query.uid || '').trim();
   const reporterEmail = String(query.reporterEmail || query.email || '').toLowerCase().trim();
   const isAdmin = await verifyAdminRequest(req);
 
   // ━━ 2. GET REPORTS (ADMIN OR CURRENT REPORTER) ━━
   if (req.method === 'GET') {
-    if (!isAdmin && !reporterUid && !reporterEmail) {
-      return res.status(401).json({ error: 'Unauthorized: Master administrator credentials or reporter verification required.' });
+    if (!isAdmin && !reporterUid && !reporterEmail && !reportIdsParam) {
+      return res.status(401).json({ error: 'Unauthorized: Master administrator credentials, reporter verification, or report IDs required.' });
     }
 
     const adminToken = await getFirebaseAdminToken();
@@ -137,12 +181,19 @@ export default async function handler(req, res) {
         }
       }
 
-      // If caller is NOT master admin, strictly filter for only this reporter's submitted reports!
+      // If caller is NOT master admin, filter for only this reporter's submitted reports!
       if (!isAdmin) {
-        reports = reports.filter(r => 
-          (reporterUid && r.reporterUid === reporterUid) || 
-          (reporterEmail && String(r.reporterEmail || '').toLowerCase() === reporterEmail)
-        );
+        const idSet = reportIdsParam
+          ? new Set(reportIdsParam.split(',').map(s => s.trim().toLowerCase()).filter(Boolean))
+          : null;
+
+        reports = reports.filter(r => {
+          const rId = String(r.id || '').toLowerCase();
+          if (idSet && idSet.has(rId)) return true;
+          if (reporterUid && r.reporterUid === reporterUid) return true;
+          if (reporterEmail && String(r.reporterEmail || '').toLowerCase() === reporterEmail) return true;
+          return false;
+        });
       }
 
       // Sort newest first

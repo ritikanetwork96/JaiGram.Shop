@@ -4,6 +4,81 @@ import { safeJson, slugify, uid } from './utils.js';
 
 const CACHE_KEY = 'linkadda_admin_store_cache_v4';
 
+// Permanently purge any residual dummy/test order 153831 across all browser storage caches
+(function purgeDummyOrder153831() {
+  try {
+    const isTarget = (str) => {
+      if (!str) return false;
+      const s = String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
+      return s.includes('153831');
+    };
+
+    // 1. Purge from CACHE_KEY
+    const rawCache = localStorage.getItem(CACHE_KEY);
+    if (rawCache) {
+      const parsed = JSON.parse(rawCache);
+      if (parsed && typeof parsed === 'object') {
+        let dirty = false;
+        ['orders', 'order_approvals'].forEach((node) => {
+          if (parsed[node] && typeof parsed[node] === 'object') {
+            Object.keys(parsed[node]).forEach((k) => {
+              if (isTarget(k) || isTarget(parsed[node][k]?.id) || isTarget(parsed[node][k]?.orderId)) {
+                delete parsed[node][k];
+                dirty = true;
+              }
+            });
+          }
+        });
+        if (parsed.events && parsed.events.orders) {
+          Object.keys(parsed.events.orders).forEach((k) => {
+            if (isTarget(k) || isTarget(parsed.events.orders[k]?.id)) {
+              delete parsed.events.orders[k];
+              dirty = true;
+            }
+          });
+        }
+        if (dirty) localStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+      }
+    }
+
+    // 2. Purge from all known order storage keys
+    const orderStorageKeys = [
+      'jaigram_user_orders', 'jaigram_customer_orders', 'linkadda_user_orders',
+      'linkadda_customer_orders', 'linkadda_orders', 'jaigram_orders_backup',
+      'linkadda_admin_orders_local', 'jaigram_my_order_ids', 'linkadda_my_order_ids'
+    ];
+    orderStorageKeys.forEach((key) => {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(item => !isTarget(typeof item === 'string' ? item : (item?.id || item?.orderId)));
+          if (filtered.length !== parsed.length) localStorage.setItem(key, JSON.stringify(filtered));
+        } else if (parsed && typeof parsed === 'object') {
+          let dirty = false;
+          Object.keys(parsed).forEach(k => {
+            if (isTarget(k) || isTarget(parsed[k]?.id || parsed[k]?.orderId)) {
+              delete parsed[k];
+              dirty = true;
+            }
+          });
+          if (dirty) localStorage.setItem(key, JSON.stringify(parsed));
+        }
+      }
+    });
+
+    // 3. Ensure permanently in deleted blocklist
+    let delList = [];
+    const rawDel = localStorage.getItem('jaigram_deleted_order_ids');
+    if (rawDel) delList = JSON.parse(rawDel);
+    if (!Array.isArray(delList)) delList = [];
+    ['153831', 'jg-153831', 'jg153831', 'la-153831', '#153831', '#jg-153831'].forEach(id => {
+      if (!delList.includes(id)) delList.push(id);
+    });
+    localStorage.setItem('jaigram_deleted_order_ids', JSON.stringify(delList));
+  } catch (_) {}
+})();
+
 function loadCachedStore() {
   const initial = {
     hero: {},
@@ -43,6 +118,16 @@ function loadCachedStore() {
       }
     }
   } catch (_) {}
+
+  // Strip any dummy or blocked order keys from cached store
+  ['orders', 'order_approvals'].forEach((k) => {
+    if (initial[k]) {
+      Object.keys(initial[k]).forEach((id) => {
+        const s = String(id).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (s.includes('153831')) delete initial[k][id];
+      });
+    }
+  });
 
   return initial;
 }
@@ -456,9 +541,23 @@ export async function deleteOrders(ids) {
   const targetIds = ids.map((s) => String(s || '').replace(/[^a-zA-Z0-9_-]/g, '').trim()).filter(Boolean);
   if (targetIds.length === 0) return;
 
-  const targetSet = new Set(targetIds.map((id) => id.toLowerCase()));
+  const targetSet = new Set();
+  targetIds.forEach((id) => {
+    const lower = id.toLowerCase();
+    targetSet.add(lower);
+    const bareNum = lower.replace(/^(jg|la|ord)[_-]?/, '');
+    if (bareNum) {
+      targetSet.add(bareNum);
+      targetSet.add(`jg-${bareNum}`);
+      targetSet.add(`jg_${bareNum}`);
+      targetSet.add(`la-${bareNum}`);
+      targetSet.add(`ord-${bareNum}`);
+      targetSet.add(`#${bareNum}`);
+      targetSet.add(`#jg-${bareNum}`);
+    }
+  });
 
-  // 1. Remove from in-memory STORE.orders & STORE.events
+  // 1. Remove from in-memory STORE.orders, STORE.order_approvals & STORE.events
   if (STORE.orders) {
     Object.keys(STORE.orders).forEach((k) => {
       const cleanK = String(k).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
@@ -525,27 +624,54 @@ export async function deleteOrders(ids) {
     } catch (_) {}
   });
 
+  // Also purge from CACHE_KEY directly
+  try {
+    const rawCache = localStorage.getItem(CACHE_KEY);
+    if (rawCache) {
+      const parsed = JSON.parse(rawCache);
+      if (parsed && typeof parsed === 'object') {
+        let dirty = false;
+        ['orders', 'order_approvals'].forEach((node) => {
+          if (parsed[node] && typeof parsed[node] === 'object') {
+            Object.keys(parsed[node]).forEach((k) => {
+              const cleanK = String(k).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
+              if (targetSet.has(cleanK) || targetSet.has(String(parsed[node][k]?.id || '').toLowerCase())) {
+                delete parsed[node][k];
+                dirty = true;
+              }
+            });
+          }
+        });
+        if (dirty) localStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+      }
+    }
+  } catch (_) {}
+
   // Track deleted order IDs in a blocklist so listCollection never re-ingests them
   try {
     let deletedList = [];
     const rawDel = localStorage.getItem('jaigram_deleted_order_ids');
     if (rawDel) deletedList = JSON.parse(rawDel);
     if (!Array.isArray(deletedList)) deletedList = [];
-    targetIds.forEach((id) => {
+    targetSet.forEach((id) => {
       if (!deletedList.includes(id)) deletedList.push(id);
     });
-    localStorage.setItem('jaigram_deleted_order_ids', JSON.stringify(deletedList.slice(-300)));
+    localStorage.setItem('jaigram_deleted_order_ids', JSON.stringify(deletedList.slice(-500)));
   } catch (_) {}
 
   emit();
   saveStoreCache();
 
-  // 3. Delete from Firebase RTDB nodes directly via client SDK
+  // 3. Delete from Firebase RTDB nodes directly via client SDK (all prefix variants)
   targetIds.forEach((cleanId) => {
-    try { remove(ref(db, `orders/${cleanId}`)).catch(() => {}); } catch (_) {}
-    try { remove(ref(db, `events/orders/${cleanId}`)).catch(() => {}); } catch (_) {}
-    try { remove(ref(db, `order_approvals/${cleanId}`)).catch(() => {}); } catch (_) {}
-    try { remove(ref(db, `order_approvals/#${cleanId}`)).catch(() => {}); } catch (_) {}
+    const rawNum = cleanId.replace(/^(jg|la|ord)[_-]?/i, '');
+    const variants = [cleanId, rawNum, `JG-${rawNum}`, `LA-${rawNum}`, `ORD-${rawNum}`];
+    variants.forEach((v) => {
+      try { remove(ref(db, `orders/${v}`)).catch(() => {}); } catch (_) {}
+      try { remove(ref(db, `events/orders/${v}`)).catch(() => {}); } catch (_) {}
+      try { remove(ref(db, `order_approvals/${v}`)).catch(() => {}); } catch (_) {}
+      try { remove(ref(db, `order_approvals/#${v}`)).catch(() => {}); } catch (_) {}
+    });
   });
 
   // 4. Also call backend /api/orders with DELETE for server-side auth token cleanup
@@ -726,7 +852,7 @@ export function listCollection(node) {
       // Deduplicate prefixes: JG-153831, LA-153831, ORD-153831, 153831 all map to the exact same order
       const baseKey = lowerCleanId.replace(/^(jg|la|ord)[_-]?/, '');
       const lookupKey = (baseKey && baseKey.length >= 4) ? baseKey : lowerCleanId;
-      if (deletedBlocklist.has(lookupKey) || deletedBlocklist.has(lowerCleanId)) return;
+      if (deletedBlocklist.has(lookupKey) || deletedBlocklist.has(lowerCleanId) || lookupKey.includes('153831') || lowerCleanId.includes('153831') || String(rawId).includes('153831')) return;
 
       const existing = ordersMap.get(lookupKey) || {};
 

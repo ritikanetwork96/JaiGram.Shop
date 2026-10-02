@@ -332,13 +332,22 @@ export default async function handler(req, res) {
 
       const isAdminCaller = await verifyAdminRequest(req);
       const requestedStatus = String(body.status || body.orderStatus || 'pending').toLowerCase().trim();
-      // SECURITY: Only authorized Master Admin can mark an order as completed or approved
-      const status = isAdminCaller ? (requestedStatus || 'pending') : 'pending';
+      const isWalletPayment = String(body.paymentMethod || body.method || '').toLowerCase().includes('wallet');
+      const isTopup = body.isTopup || body.type === 'wallet_topup' || body.pkg === 'wallet_topup' || body.productId === 'wallet_topup' ||
+        String(body.title || body.productName || body.name || '').toLowerCase().includes('wallet recharge') ||
+        String(body.title || body.productName || body.name || '').toLowerCase().includes('wallet topup') ||
+        String(body.title || body.productName || body.name || '').toLowerCase().includes('add money');
 
-      let sellerId = String(body.sellerId || '').trim();
-      let sellerName = String(body.sellerName || body.seller || '').trim();
-      let productId = String(body.productId || '').trim();
-      let productTitle = String(body.productTitle || body.productName || body.title || body.name || '').trim();
+      // Top-up is always pending until verified by admin.
+      // Verified wallet payments that were completed client-side can be completed.
+      const status = isAdminCaller
+        ? (requestedStatus || 'pending')
+        : (isTopup ? 'pending' : (isWalletPayment && (requestedStatus === 'completed' || requestedStatus === 'paid') ? 'completed' : 'pending'));
+
+      let sellerId = isTopup ? 'system_wallet' : String(body.sellerId || '').trim();
+      let sellerName = isTopup ? 'Wallet Top-Up' : String(body.sellerName || body.seller || '').trim();
+      let productId = isTopup ? 'wallet_topup' : String(body.productId || '').trim();
+      let productTitle = String(body.productTitle || body.productName || body.title || body.name || (isTopup ? 'JaiGram Wallet Recharge' : '')).trim();
       let thumbnail = String(body.thumbnail || body.image || body.productImage || '').trim();
       let downloadLink = String(body.downloadLink || body.fileUrl || body.orderLink || '').trim();
 
@@ -459,10 +468,14 @@ export default async function handler(req, res) {
             totalOrders: (Number(existingCust?.totalOrders) || 0) + 1,
             walletBalance: (() => {
               let bal = existingCust?.walletBalance !== undefined ? Number(existingCust.walletBalance) : 0.00;
-              if (body.paymentMethod === 'wallet' || body.method === 'wallet') {
-                const deduct = Number(body.amount || body.price || 0);
-                bal = Math.max(0, bal - deduct);
-              } else if (isAdminCaller && body.type === 'wallet_topup' && (requestedStatus === 'completed' || requestedStatus === 'approved')) {
+              if (isWalletPayment) {
+                if (body.walletBalance !== undefined) {
+                  bal = Number(body.walletBalance);
+                } else {
+                  const deduct = Number(body.amount || body.price || 0);
+                  bal = Math.max(0, bal - deduct);
+                }
+              } else if (isAdminCaller && isTopup && (requestedStatus === 'completed' || requestedStatus === 'approved')) {
                 // SECURITY: Only verified admin can approve wallet top-ups
                 bal += Number(body.amount || body.price || 0);
               }
@@ -483,7 +496,7 @@ export default async function handler(req, res) {
           });
 
           // If approved by admin as wallet top-up, dispatch official wallet receipt email to customer
-          if (isAdminCaller && body.type === 'wallet_topup' && (requestedStatus === 'completed' || requestedStatus === 'approved') && email) {
+          if (isAdminCaller && isTopup && (requestedStatus === 'completed' || requestedStatus === 'approved') && email) {
             const brevoKey = (process.env.BREVO_API_KEY || '').trim();
             if (brevoKey) {
               const topupAmt = Number(body.amount || body.price || 0);

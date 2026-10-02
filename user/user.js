@@ -582,50 +582,130 @@
     return num;
   }
 
-  function loadUserWallet() {
-    const key = getWalletStorageKey();
-    const saved = localStorage.getItem(key);
-    const sanitizedSaved = sanitizeWalletFund(saved);
-    const sanitizedCust = sanitizeWalletFund(currentCustomer?.walletBalance);
+  async function loadUserWallet() {
+    const uid = currentCustomer?.uid || '';
+    const email = (currentCustomer?.email || '').toLowerCase().trim();
+    const primaryKey = 'jaigram_wallet_' + (uid || email || 'guest');
 
-    if (sanitizedCust > 0) {
-      userWallet = sanitizedCust;
-      localStorage.setItem(key, userWallet.toFixed(2));
-    } else if (sanitizedSaved > 0) {
-      userWallet = sanitizedSaved;
-      localStorage.setItem(key, userWallet.toFixed(2));
-    } else {
-      userWallet = 0.00;
-      localStorage.setItem(key, '0.00');
+    let maxRemoteBal = -1;
+
+    // 1. Check authoritative balance from Firebase RTDB (Anti-Tampering)
+    const uidsToCheck = new Set();
+    if (uid) uidsToCheck.add(uid);
+    if (email) {
+      uidsToCheck.add('cust_' + email.replace(/[^a-z0-9]/gi, '_'));
     }
 
-    // Also sanitize currentCustomer in memory and session
-    if (currentCustomer) {
-      if (currentCustomer.walletBalance !== undefined && Number(currentCustomer.walletBalance) !== userWallet) {
-        currentCustomer.walletBalance = userWallet;
-        localStorage.setItem(SESSION_KEY, JSON.stringify(currentCustomer));
+    for (const checkUid of uidsToCheck) {
+      try {
+        const snap = await fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(checkUid)}.json?_t=${Date.now()}`);
+        if (snap.ok) {
+          const custDb = await snap.json();
+          if (custDb && custDb.walletBalance !== undefined) {
+            const b = sanitizeWalletFund(custDb.walletBalance);
+            if (b > maxRemoteBal) maxRemoteBal = b;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Check all local storage keys
+    const candidateKeys = [
+      primaryKey,
+      'linkadda_wallet_' + (uid || email || 'guest'),
+      'jaigram_wallet_' + uid,
+      'linkadda_wallet_' + uid,
+      'jaigram_wallet_' + email,
+      'linkadda_wallet_' + email
+    ];
+    if (email) {
+      const sanitizedKey = 'cust_' + email.replace(/[^a-z0-9]/gi, '_');
+      candidateKeys.push('jaigram_wallet_' + sanitizedKey);
+      candidateKeys.push('linkadda_wallet_' + sanitizedKey);
+    }
+
+    let maxLocalBal = 0.00;
+    candidateKeys.forEach(k => {
+      if (!k) return;
+      const v = sanitizeWalletFund(localStorage.getItem(k));
+      if (v > maxLocalBal) maxLocalBal = v;
+    });
+
+    const custBal = sanitizeWalletFund(currentCustomer?.walletBalance);
+    if (custBal > maxLocalBal) maxLocalBal = custBal;
+
+    // 3. FAIL-PROOF LEDGER RECONCILIATION:
+    // Calculate total verified credits from approved wallet top-up orders minus wallet payment debits
+    let ledgerCredits = 0;
+    let ledgerDebits = 0;
+
+    // Collect all orders to inspect
+    const allOrdersToScan = new Map();
+    if (Array.isArray(userOrders)) {
+      userOrders.forEach(o => { if (o?.orderId || o?.id) allOrdersToScan.set(String(o.orderId || o.id), o); });
+    }
+    ['jaigram_user_orders', 'linkadda_user_orders', 'jaigram_customer_orders', 'linkadda_customer_orders'].forEach(storageKey => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) list.forEach(o => {
+            const k = String(o?.orderId || o?.id || '');
+            if (k && !allOrdersToScan.has(k)) allOrdersToScan.set(k, o);
+          });
+        }
+      } catch (_) {}
+    });
+
+    allOrdersToScan.forEach(ord => {
+      if (!ord || typeof ord !== 'object') return;
+      const ordStatus = String(ord.status || ord.orderStatus || '').toLowerCase();
+      const isApproved = ['approved', 'completed', 'paid', 'confirmed'].includes(ordStatus);
+      const isTopup = ord.type === 'wallet_topup' || ord.pkg === 'wallet_topup' || ord.productId === 'wallet_topup' ||
+        String(ord.title || ord.productName || '').toLowerCase().includes('wallet recharge') ||
+        String(ord.title || ord.productName || '').toLowerCase().includes('wallet topup');
+      const isWalletDebit = String(ord.paymentMethod || ord.method || '').toLowerCase().includes('wallet');
+      const amt = Number(ord.amount || ord.price || 0);
+
+      if (isTopup && isApproved && amt > 0) {
+        ledgerCredits += amt;
+      } else if (isWalletDebit && amt > 0) {
+        ledgerDebits += amt;
       }
+    });
+
+    const calculatedLedgerBalance = Math.max(0, Number((ledgerCredits - ledgerDebits).toFixed(2)));
+
+    // Select the most authoritative, up-to-date balance
+    let finalBalance = 0.00;
+    if (maxRemoteBal >= 0) {
+      finalBalance = maxRemoteBal;
+    } else {
+      finalBalance = maxLocalBal;
+    }
+
+    // If verified approved top-up orders exist that haven't been reflected yet, ensure balance is credited!
+    if (calculatedLedgerBalance > finalBalance) {
+      finalBalance = calculatedLedgerBalance;
+    }
+
+    userWallet = finalBalance;
+
+    // Persist across all candidate keys
+    candidateKeys.forEach(k => {
+      if (k) localStorage.setItem(k, userWallet.toFixed(2));
+    });
+
+    if (currentCustomer) {
+      currentCustomer.walletBalance = userWallet;
+      try {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(currentCustomer));
+        localStorage.setItem('jaigram_customer_session', JSON.stringify(currentCustomer));
+      } catch (_) {}
     }
 
     renderWalletDisplay();
-
-    // Live sync directly with RTDB so admin approval reflects immediately
-    if (currentCustomer?.uid) {
-      fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(currentCustomer.uid)}.json?_t=${Date.now()}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(custDb => {
-          if (custDb && custDb.walletBalance !== undefined) {
-            const bal = sanitizeWalletFund(custDb.walletBalance);
-            if (bal !== userWallet) {
-              userWallet = bal;
-              localStorage.setItem(key, userWallet.toFixed(2));
-              if (currentCustomer) currentCustomer.walletBalance = bal;
-              renderWalletDisplay();
-            }
-          }
-        })
-        .catch(() => {});
-    }
+    return userWallet;
   }
 
   function renderWalletDisplay() {
@@ -650,13 +730,226 @@
     if (mobTileWallet) mobTileWallet.textContent = formatted;
   }
 
-  function loadWalletTransactions() {
-    let txList = [];
+  async function loadWalletTransactions() {
+    const uid = currentCustomer?.uid || '';
+    const email = (currentCustomer?.email || '').toLowerCase().trim();
+    const map = new Map();
+
+    // 1. Fetch from Firebase RTDB customers/${uid}/wallet_transactions.json
+    if (uid) {
+      try {
+        const snap = await fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}/wallet_transactions.json?_t=${Date.now()}`);
+        if (snap.ok) {
+          const rtdbTxs = await snap.json();
+          if (rtdbTxs && typeof rtdbTxs === 'object') {
+            Object.entries(rtdbTxs).forEach(([k, tx]) => {
+              if (tx && typeof tx === 'object') {
+                const normId = String(tx.id || k).trim();
+                map.set(normId, { ...tx, id: normId });
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Read from localStorage
+    const localKeys = [
+      getWalletTxStorageKey(),
+      'jaigram_wallet_tx_' + (uid || email || 'guest'),
+      'linkadda_wallet_tx_' + (uid || email || 'guest')
+    ];
+    localKeys.forEach(key => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            list.forEach(tx => {
+              if (tx && typeof tx === 'object') {
+                const normId = String(tx.id || tx.orderId || Math.random()).trim();
+                if (!map.has(normId)) {
+                  map.set(normId, { ...tx, id: normId });
+                } else {
+                  const existing = map.get(normId);
+                  map.set(normId, { ...existing, ...tx });
+                }
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    });
+
+    // 3. Scan userOrders for wallet purchases and top-ups
+    const allOrdersToScan = new Map();
+    if (Array.isArray(userOrders)) {
+      userOrders.forEach(o => { if (o?.orderId || o?.id) allOrdersToScan.set(String(o.orderId || o.id), o); });
+    }
+    ['jaigram_user_orders', 'linkadda_user_orders'].forEach(storageKey => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) list.forEach(o => {
+            const k = String(o?.orderId || o?.id || '');
+            if (k && !allOrdersToScan.has(k)) allOrdersToScan.set(k, o);
+          });
+        }
+      } catch (_) {}
+    });
+
+    allOrdersToScan.forEach(ord => {
+      if (!ord || typeof ord !== 'object') return;
+      const ordId = String(ord.orderId || ord.id || '').trim();
+      const displayId = getCleanDisplayOrderId(ord);
+      const isTopup = ord.type === 'wallet_topup' || ord.pkg === 'wallet_topup' || ord.productId === 'wallet_topup' ||
+        String(ord.title || ord.productName || '').toLowerCase().includes('wallet recharge') ||
+        String(ord.title || ord.productName || '').toLowerCase().includes('wallet topup');
+      const isWalletDebit = String(ord.paymentMethod || ord.method || '').toLowerCase().includes('wallet');
+      const ordStatus = String(ord.status || ord.orderStatus || '').toLowerCase();
+      const isDone = ['approved', 'completed', 'paid', 'confirmed'].includes(ordStatus);
+      const isRej = ['rejected', 'failed', 'cancelled'].includes(ordStatus);
+
+      if (isTopup) {
+        const txId = `tx_topup_${getCanonicalOrderKey(ordId)}`;
+        const rejReason = ord.rejectionReason || ord.rejectReason || '';
+        const txStatus = isDone ? 'completed' : (isRej ? 'rejected' : 'pending');
+        const txDesc = isDone
+          ? `Wallet Top-up Approved (${displayId})`
+          : (isRej
+            ? (rejReason ? `Wallet Top-up Rejected (${displayId}) - ${rejReason}` : `Wallet Top-up Rejected (${displayId})`)
+            : `Wallet Top-up (${displayId}) - Verification Pending`);
+
+        const txObj = {
+          id: txId,
+          orderId: displayId,
+          type: 'topup',
+          amount: ord.amount || ord.price || 0,
+          desc: txDesc,
+          description: txDesc,
+          rejectionReason: rejReason,
+          date: ord.date || new Date(ord.createdAt || ord.timestamp || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          timestamp: Number(ord.createdAt || ord.timestamp || Date.now()),
+          status: txStatus
+        };
+
+        if (!map.has(txId)) {
+          map.set(txId, txObj);
+        } else {
+          const existing = map.get(txId);
+          map.set(txId, {
+            ...existing,
+            ...txObj,
+            status: isDone ? 'completed' : (isRej ? 'rejected' : (existing.status || 'pending')),
+            desc: txDesc,
+            description: txDesc,
+            rejectionReason: rejReason || existing.rejectionReason || ''
+          });
+        }
+
+        // Also update any pre-existing pending transaction that shares this order ID
+        map.forEach((existingTx) => {
+          const tOrderId = String(existingTx.orderId || existingTx.id || '').replace(/^#+/, '').trim();
+          const cleanOrdId = ordId.replace(/^#+/, '').trim();
+          if (tOrderId && cleanOrdId && (tOrderId === cleanOrdId || tOrderId.includes(cleanOrdId) || cleanOrdId.includes(tOrderId))) {
+            if (isDone) {
+              existingTx.status = 'completed';
+              existingTx.desc = `Wallet Top-up Approved (${displayId})`;
+              existingTx.description = `Wallet Top-up Approved (${displayId})`;
+            } else if (isRej) {
+              existingTx.status = 'rejected';
+              existingTx.rejectionReason = rejReason || existingTx.rejectionReason || '';
+              existingTx.desc = txDesc;
+              existingTx.description = txDesc;
+            }
+          }
+        });
+      } else if (isWalletDebit) {
+        const txId = `tx_debit_${getCanonicalOrderKey(ordId)}`;
+        if (!map.has(txId)) {
+          map.set(txId, {
+            id: txId,
+            orderId: displayId,
+            type: 'debit',
+            amount: ord.amount || ord.price || 0,
+            desc: `Purchased ${ord.productName || ord.title || 'Digital Pack'} (${displayId})`,
+            description: `Purchased ${ord.productName || ord.title || 'Digital Pack'} (${displayId})`,
+            date: ord.date || new Date(ord.createdAt || ord.timestamp || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            timestamp: Number(ord.createdAt || ord.timestamp || Date.now()),
+            status: 'completed'
+          });
+        }
+      }
+    });
+
+    // Deduplicate transactions by canonical orderId or unique tx ID
+    const dedupedTransactions = new Map();
+    Array.from(map.values()).forEach(tx => {
+      if (!tx || typeof tx !== 'object') return;
+      const rawOrd = String(tx.orderId || tx.id || '').replace(/^#+/, '').trim();
+      const numOnly = rawOrd.match(/\d{5,8}/)?.[0] || '';
+      const dedupKey = numOnly ? `ord_${numOnly}` : (rawOrd ? `ord_${getCanonicalOrderKey(rawOrd)}` : `tx_${tx.id || Math.random()}`);
+
+      const isCompleted = ['approved', 'completed', 'paid', 'confirmed'].includes(String(tx.status || '').toLowerCase());
+      const isRejected = ['rejected', 'failed', 'cancelled'].includes(String(tx.status || '').toLowerCase());
+      const txAmt = Number(tx.amount || 0);
+      const computedStatus = isCompleted ? 'completed' : (isRejected ? 'rejected' : (tx.status || 'pending'));
+
+      if (!dedupedTransactions.has(dedupKey)) {
+        dedupedTransactions.set(dedupKey, {
+          ...tx,
+          status: computedStatus
+        });
+      } else {
+        const existing = dedupedTransactions.get(dedupKey);
+        const isExistingCompleted = ['approved', 'completed', 'paid', 'confirmed'].includes(String(existing.status || '').toLowerCase());
+
+        if (isCompleted && !isExistingCompleted) {
+          dedupedTransactions.set(dedupKey, {
+            ...existing,
+            ...tx,
+            status: 'completed',
+            desc: tx.desc || existing.desc || `Wallet Top-up Approved (${existing.orderId || tx.orderId})`,
+            description: tx.description || existing.description || `Wallet Top-up Approved (${existing.orderId || tx.orderId})`
+          });
+        } else if (isRejected && !isExistingCompleted) {
+          dedupedTransactions.set(dedupKey, {
+            ...existing,
+            ...tx,
+            status: 'rejected',
+            rejectionReason: tx.rejectionReason || existing.rejectionReason || '',
+            desc: tx.desc || existing.desc || `Wallet Top-up Rejected (${existing.orderId || tx.orderId})`,
+            description: tx.description || existing.description || `Wallet Top-up Rejected (${existing.orderId || tx.orderId})`
+          });
+        } else if (!isCompleted && isExistingCompleted) {
+          // Keep existing approved
+        } else {
+          const curTs = Number(tx.timestamp || 0);
+          const existTs = Number(existing.timestamp || 0);
+          if (curTs >= existTs || (txAmt > 0 && !existing.amount)) {
+            dedupedTransactions.set(dedupKey, {
+              ...existing,
+              ...tx,
+              status: computedStatus,
+              rejectionReason: tx.rejectionReason || existing.rejectionReason || ''
+            });
+          }
+        }
+      }
+    });
+
+    const mergedList = Array.from(dedupedTransactions.values()).sort((a, b) => (Number(b.timestamp || 0) - Number(a.timestamp || 0)));
+
+    // Save back to local storage cache
     try {
-      const raw = localStorage.getItem(getWalletTxStorageKey());
-      if (raw) txList = JSON.parse(raw);
+      localStorage.setItem(getWalletTxStorageKey(), JSON.stringify(mergedList.slice(0, 50)));
+      if (uid) localStorage.setItem('jaigram_wallet_tx_' + uid, JSON.stringify(mergedList.slice(0, 50)));
+      if (email) localStorage.setItem('jaigram_wallet_tx_' + email, JSON.stringify(mergedList.slice(0, 50)));
     } catch (_) {}
-    renderWalletTransactions(txList);
+
+    renderWalletTransactions(mergedList);
+    return mergedList;
   }
 
   function renderWalletTransactions(txList) {
@@ -691,19 +984,30 @@
     if (tbody) {
       tbody.innerHTML = txList.map(tx => {
         const isCredit = tx.type === 'credit' || tx.type === 'recharge' || tx.type === 'topup' || tx.type === 'cashback';
-        const icon = isCredit ? 'fa-arrow-down-left' : 'fa-arrow-up-right';
-        const color = isCredit ? '#10b981' : '#ef4444';
+        const isPending = tx.status === 'pending';
+        const isRejected = tx.status === 'rejected' || tx.status === 'failed' || tx.status === 'cancelled';
+        const icon = isRejected ? 'fa-circle-xmark' : (isPending ? 'fa-clock' : (isCredit ? 'fa-arrow-down-left' : 'fa-arrow-up-right'));
+        const color = isRejected ? '#ef4444' : (isPending ? '#fbbf24' : (isCredit ? '#10b981' : '#ef4444'));
         const sign = isCredit ? '+' : '-';
         const typeLabel = isCredit ? (tx.type === 'cashback' ? 'Cashback' : 'Top-up') : 'Debit';
         const date = tx.date || (tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently');
         const amt = Number(tx.amount || 0).toFixed(2);
         const desc = escapeHtml(tx.desc || tx.description || (isCredit ? 'Wallet Recharge' : 'Product Purchase'));
-        const statusBadge = `<span class="activity-status-pill status-completed">Success</span>`;
+        const rejReason = tx.rejectionReason || '';
+        const reasonHtml = (isRejected && rejReason) ? `<div style="font-size: 11.5px; color: #f87171; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Reason: ${escapeHtml(rejReason)}</div>` : '';
+        const statusBadge = isRejected
+          ? `<span class="activity-status-pill status-rejected" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);" title="${escapeHtml(rejReason || 'Payment rejected')}"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>`
+          : (isPending
+            ? `<span class="activity-status-pill status-pending" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);"><i class="fa-solid fa-clock"></i> Verification Pending</span>`
+            : `<span class="activity-status-pill status-completed" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);"><i class="fa-solid fa-circle-check"></i> Success</span>`);
 
         return `
           <tr>
             <td><i class="fa-solid ${icon}" style="color: ${color};"></i> ${typeLabel}</td>
-            <td>${desc}</td>
+            <td>
+              <div>${desc}</div>
+              ${reasonHtml}
+            </td>
             <td>${date}</td>
             <td style="color: ${color}; font-weight: 700;">${sign} ₹${amt}</td>
             <td>${statusBadge}</td>
@@ -716,14 +1020,23 @@
     if (cardsList) {
       cardsList.innerHTML = txList.map(tx => {
         const isCredit = tx.type === 'credit' || tx.type === 'recharge' || tx.type === 'topup' || tx.type === 'cashback';
-        const icon = isCredit ? 'fa-arrow-down' : 'fa-arrow-up';
-        const color = isCredit ? '#10b981' : '#ef4444';
-        const bg = isCredit ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)';
+        const isPending = tx.status === 'pending';
+        const isRejected = tx.status === 'rejected' || tx.status === 'failed' || tx.status === 'cancelled';
+        const icon = isRejected ? 'fa-circle-xmark' : (isPending ? 'fa-clock' : (isCredit ? 'fa-arrow-down' : 'fa-arrow-up'));
+        const color = isRejected ? '#ef4444' : (isPending ? '#fbbf24' : (isCredit ? '#10b981' : '#ef4444'));
+        const bg = isRejected ? 'rgba(239, 68, 68, 0.12)' : (isPending ? 'rgba(245, 158, 11, 0.12)' : (isCredit ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)'));
         const sign = isCredit ? '+' : '-';
         const typeLabel = isCredit ? (tx.type === 'cashback' ? 'Cashback' : 'Top-up') : 'Order Debit';
         const date = tx.date || (tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently');
         const amt = Number(tx.amount || 0).toFixed(2);
         const desc = escapeHtml(tx.desc || tx.description || (isCredit ? 'Wallet Recharge' : 'Product Purchase'));
+        const rejReason = tx.rejectionReason || '';
+        const reasonHtml = (isRejected && rejReason) ? `<div style="font-size: 11px; color: #f87171; font-weight: 700; margin-top: 3px;"><i class="fa-solid fa-triangle-exclamation"></i> Reason: ${escapeHtml(rejReason)}</div>` : '';
+        const statusHtml = isRejected
+          ? `<span class="mtx-status" style="color: #ef4444;"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>`
+          : (isPending
+            ? `<span class="mtx-status" style="color: #fbbf24;"><i class="fa-solid fa-clock"></i> Verification Pending</span>`
+            : `<span class="mtx-status" style="color: #10b981;"><i class="fa-solid fa-circle-check"></i> Success</span>`);
 
         return `
           <div class="mobile-tx-card">
@@ -733,12 +1046,13 @@
               </div>
               <div class="mtx-meta">
                 <span class="mtx-desc">${desc}</span>
+                ${reasonHtml}
                 <span class="mtx-date">${date} • ${typeLabel}</span>
               </div>
             </div>
             <div class="mtx-right">
               <span class="mtx-amount" style="color: ${color};">${sign} ₹${amt}</span>
-              <span class="mtx-status"><i class="fa-solid fa-circle-check"></i> Success</span>
+              ${statusHtml}
             </div>
           </div>
         `;
@@ -747,6 +1061,7 @@
   }
 
   window.openAddMoneyModal = function () {
+    loadUserWallet();
     renderWalletDisplay();
     openModal('addMoneyModal');
   };
@@ -766,7 +1081,14 @@
   };
 
   // Secure Wallet Recharge: Routes user to real payment gateway (UPI or Crypto)
+  let _rechargeInProgress = false;
   window.executeRecharge = function () {
+    // ━━ DEBOUNCE: Prevent multiple orders on rapid/double clicks ━━
+    if (_rechargeInProgress) {
+      showAppToast('Recharge already in progress...', 'warning');
+      return;
+    }
+
     const input = document.getElementById('customAmountInput');
     const val = parseFloat(input ? input.value : 0);
 
@@ -779,6 +1101,14 @@
       return;
     }
 
+    // ━━ LOCK: Set processing flag and disable all recharge buttons ━━
+    _rechargeInProgress = true;
+    document.querySelectorAll('[onclick*="executeRecharge"], .virtual-pill-btn, .virtual-card-add-btn').forEach(btn => {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.pointerEvents = 'none';
+    });
+
     const selectedRadio = document.querySelector('input[name="rechargeMethod"]:checked');
     const method = selectedRadio ? selectedRadio.value : 'upi';
 
@@ -787,21 +1117,30 @@
 
     const email = (currentCustomer?.email || '').trim();
     const uid = currentCustomer?.uid || '';
+    const custName = currentCustomer?.displayName || currentCustomer?.name || 'Customer';
     const usdVal = Number((val / 90).toFixed(2));
+    const title = `JaiGram Wallet Recharge (₹${val})`;
+
+    // Note: Pending transaction record will be created by the payment gateway's submitOrder()
+    // to avoid duplicate pending entries. No need to create one here.
+
     const q = new URLSearchParams({
       pkg: 'wallet_topup',
       productId: 'wallet_topup',
       price: val,
       inr: val,
       usd: usdVal,
-      name: `JaiGram Wallet Recharge (₹${val})`,
-      title: `JaiGram Wallet Recharge (₹${val})`,
+      name: title,
+      title: title,
       type: 'wallet_topup',
       method: method,
       paymentMethod: method,
       customerUid: uid,
       customerEmail: email,
-      returnUrl: 'user/index.html'
+      customerName: custName,
+      sellerName: 'Wallet Top-Up',
+      sellerId: 'system_wallet',
+      returnUrl: 'user/index.html#wallet'
     });
 
     setTimeout(() => {
@@ -809,16 +1148,34 @@
         const gw = window.JaiGramGateway || window.LinkAddaGateway;
         gw.open({
           productId: 'wallet_topup',
-          title: `JaiGram Wallet Recharge (₹${val})`,
-          name: `JaiGram Wallet Recharge (₹${val})`,
+          type: 'wallet_topup',
+          pkg: 'wallet_topup',
+          isTopup: true,
+          title: title,
+          name: title,
           price: val,
           inr: val,
           usd: usdVal,
-          method: method
+          method: method,
+          sellerName: 'Wallet Top-Up',
+          sellerId: 'system_wallet',
+          customerUid: uid,
+          customerEmail: email,
+          customerName: custName
         });
       } else {
         window.location.href = `../payment.html?${q.toString()}`;
       }
+
+      // ━━ UNLOCK: Re-enable buttons after gateway opens (3s cooldown) ━━
+      setTimeout(() => {
+        _rechargeInProgress = false;
+        document.querySelectorAll('[onclick*="executeRecharge"], .virtual-pill-btn, .virtual-card-add-btn').forEach(btn => {
+          btn.disabled = false;
+          btn.style.opacity = '';
+          btn.style.pointerEvents = '';
+        });
+      }, 3000);
     }, 200);
   };
 
@@ -970,7 +1327,15 @@
         if (!ord) return;
         const rawId = String(ord.orderId || ord.id || ord.displayOrderId || '').trim();
         if (!rawId) return;
-        const canonicalKey = getCanonicalOrderKey(rawId);
+
+        // Security check: Ignore other users' orders if customerEmail exists and does not match current user
+        const ordEmail = String(ord.customerEmail || ord.buyerEmail || ord.email || '').toLowerCase().trim();
+        if (userEmail && ordEmail && ordEmail !== userEmail && !myKnownIds.has(rawId)) {
+          return;
+        }
+
+        const numOnly = rawId.match(/\d{5,8}/)?.[0] || '';
+        const canonicalKey = numOnly ? `ord_${numOnly}` : getCanonicalOrderKey(rawId);
         if (!canonicalKey) return;
 
         const existing = ordersMap.get(canonicalKey) || {};
@@ -1036,17 +1401,14 @@
           const admData = JSON.parse(adminOrdersRaw);
           const admList = Array.isArray(admData) ? admData : (admData?.orders ? Object.values(admData.orders) : []);
           admList.forEach(admOrd => {
-            const admId = String(admOrd?.orderId || admOrd?.id || admOrd?.displayOrderId || '').trim();
-            if (admId) myKnownIds.add(admId);
+            const admEmail = String(admOrd?.customerEmail || admOrd?.buyerEmail || admOrd?.email || '').toLowerCase().trim();
+            if (!userEmail || !admEmail || admEmail === userEmail) {
+              const admId = String(admOrd?.orderId || admOrd?.id || admOrd?.displayOrderId || '').trim();
+              if (admId) myKnownIds.add(admId);
+            }
           });
         }
       } catch (_) {}
-
-      if (userEmail === 'prince5643809@gmail.com' || userEmail.includes('prince5643809')) {
-        myKnownIds.add('JG-431920');
-        myKnownIds.add('#JG-431920');
-        myKnownIds.add('431920');
-      }
 
       Array.from(ordersMap.values()).forEach(o => {
         const oId = String(o.orderId || o.id || o.displayOrderId || '').trim();
@@ -1273,14 +1635,18 @@
               if ((admDigits && ordDigits && admDigits === ordDigits) || (admCanonical && ordCanonical && admCanonical === ordCanonical)) {
                 const admStatus = String(admOrd.status || admOrd.orderStatus || '').toLowerCase();
                 const isAppr = (admStatus === 'approved' || admStatus === 'completed' || admOrd.verified === true) && admStatus !== 'pending';
+                const isRej = ['rejected', 'failed', 'cancelled'].includes(admStatus);
                 const existing = ordersMap.get(ordCanonical) || ord;
                 const link = admOrd.downloadLink || admOrd.telegramLink || admOrd.fileUrl || existing.downloadLink || (isAppr ? 'https://t.me/TRUSTED_BROTHER1234' : '');
+                const rejReason = admOrd.rejectionReason || admOrd.rejectReason || existing.rejectionReason || '';
                 ordersMap.set(ordCanonical, {
                   ...existing,
                   ...admOrd,
-                  status: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
-                  orderStatus: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
-                  paymentStatus: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
+                  status: isAppr ? 'approved' : (isRej ? 'rejected' : 'pending'),
+                  orderStatus: isAppr ? 'approved' : (isRej ? 'rejected' : 'pending'),
+                  paymentStatus: isAppr ? 'approved' : (isRej ? 'rejected' : 'pending'),
+                  rejectionReason: isRej ? rejReason : (existing.rejectionReason || ''),
+                  rejectReason: isRej ? rejReason : (existing.rejectReason || ''),
                   verified: Boolean(isAppr),
                   downloadLink: link,
                   fileUrl: link,
@@ -1379,9 +1745,18 @@
                       orderLink: link
                     });
                     return;
-                  } else if (aStatus === 'rejected') {
+                  } else if (aStatus === 'rejected' || aStatus === 'failed' || aStatus === 'cancelled') {
                     const existing = ordersMap.get(canonicalKey) || ord;
-                    ordersMap.set(canonicalKey, { ...existing, status: 'rejected', orderStatus: 'rejected' });
+                    const rejReason = appData.rejectionReason || appData.rejectReason || existing.rejectionReason || '';
+                    ordersMap.set(canonicalKey, {
+                      ...existing,
+                      ...appData,
+                      status: 'rejected',
+                      orderStatus: 'rejected',
+                      paymentStatus: 'rejected',
+                      rejectionReason: rejReason,
+                      rejectReason: rejReason
+                    });
                     return;
                   }
                 }
@@ -1410,9 +1785,18 @@
                       orderLink: link
                     });
                     return;
-                  } else if (['rejected', 'failed'].includes(oStatus)) {
+                  } else if (['rejected', 'failed', 'cancelled'].includes(oStatus)) {
                     const existing = ordersMap.get(canonicalKey) || ord;
-                    ordersMap.set(canonicalKey, { ...existing, status: 'rejected', orderStatus: 'rejected' });
+                    const rejReason = ordData.rejectionReason || ordData.rejectReason || existing.rejectionReason || '';
+                    ordersMap.set(canonicalKey, {
+                      ...existing,
+                      ...ordData,
+                      status: 'rejected',
+                      orderStatus: 'rejected',
+                      paymentStatus: 'rejected',
+                      rejectionReason: rejReason,
+                      rejectReason: rejReason
+                    });
                     return;
                   }
                 }
@@ -1593,6 +1977,19 @@
       userOrders = updatedList;
       renderUserOrders();
 
+      // ━━ SYNC WALLET ON ANY APPROVED TOPUP ORDER ━━
+      const hasAnyApprovedTopup = userOrders.some(o => {
+        const isTop = o.type === 'wallet_topup' || o.pkg === 'wallet_topup' || o.productId === 'wallet_topup' ||
+          String(o.title || o.productName || '').toLowerCase().includes('wallet recharge') ||
+          String(o.title || o.productName || '').toLowerCase().includes('wallet topup');
+        const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(String(o.status || o.orderStatus || '').toLowerCase());
+        return isTop && isAppr;
+      });
+      if (hasAnyApprovedTopup) {
+        loadUserWallet().catch(() => {});
+        loadWalletTransactions().catch(() => {});
+      }
+
       // 6. Cache merged orders locally across all keys with cleaned metadata
       try {
         const serialized = JSON.stringify(userOrders.slice(0, 50));
@@ -1697,6 +2094,7 @@
           const status = (ord.status || ord.orderStatus || 'pending').toLowerCase();
           const isApproved = (status === 'approved' || status === 'completed' || ord.verified === true) && status !== 'pending' && status !== 'rejected';
           const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
+          const rejectionReason = ord.rejectionReason || ord.rejectReason || ord.adminRemarks || '';
 
           let actionBtn;
           if (isApproved) {
@@ -1706,7 +2104,7 @@
               actionBtn = `<button type="button" class="btn-access-now" onclick="openAccessModal('${escapeHtml(title)}', '${escapeHtml(badge)}', '${escapeHtml(seller)}', 'Verified Digital Product', '${escapeHtml(size)}', '${encodeURIComponent(dlLink)}')"><i class="fa-solid fa-play"></i> Access Now</button>`;
             }
           } else if (isRejected) {
-            actionBtn = `<button type="button" class="btn-access-now" style="background: #ef4444;" onclick="showAppToast('Payment proof was not verified. Please contact support or re-order.')"><i class="fa-solid fa-circle-xmark"></i> Rejected</button>`;
+            actionBtn = `<button type="button" class="btn-access-now" style="background: #ef4444;" onclick="showAppToast('Payment proof rejected: ${escapeHtml(rejectionReason || 'Screenshot/UTR invalid')}')" title="${escapeHtml(rejectionReason || 'Payment rejected')}"><i class="fa-solid fa-circle-xmark"></i> Rejected</button>`;
           } else {
             actionBtn = `<button type="button" class="btn-access-now" style="background: #f59e0b;" onclick="showAppToast('Order under verification. You will receive access once approved!')"><i class="fa-solid fa-clock"></i> Pending Review</button>`;
           }
@@ -1727,6 +2125,7 @@
               <div class="product-card-body">
                 <div class="product-info-top">
                   <h3 class="product-title" title="${escapeHtml(title)}">${escapeHtml(title)}</h3>
+                  ${isRejected && rejectionReason ? `<div style="font-size: 11.5px; color: #ef4444; font-weight: 600; margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Reason: ${escapeHtml(rejectionReason)}</div>` : ''}
                   <div class="product-seller">
                     <span>By ${escapeHtml(seller)}</span>
                     <i class="fa-solid fa-circle-check verified-icon"></i>
@@ -1788,23 +2187,31 @@
           const status = (ord.status || ord.orderStatus || 'pending').toLowerCase();
           const isApproved = (status === 'approved' || status === 'completed' || ord.verified === true) && status !== 'pending' && status !== 'rejected';
           const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
+          const rejectionReason = ord.rejectionReason || ord.rejectReason || ord.adminRemarks || '';
 
           const statusBadge = isApproved
             ? `<span class="activity-status-pill status-completed">Completed</span>`
             : isRejected
-            ? `<span class="activity-status-pill" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">Rejected</span>`
-            : `<span class="activity-status-pill" style="background: #fef3c7; color: #b45309;">Pending</span>`;
+            ? `<span class="activity-status-pill" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>`
+            : `<span class="activity-status-pill" style="background: #fef3c7; color: #b45309;"><i class="fa-solid fa-clock"></i> Pending</span>`;
 
           const btnAction = isApproved
             ? `<button type="button" class="section-action-btn-pink" onclick="openAccessModal('${escapeHtml(title)}', 'Product', '${escapeHtml(seller)}', 'Verified Digital Product', 'Direct Access', '${encodeURIComponent(dlLink)}')" style="padding: 5px 12px; font-size: 12px;"><i class="fa-solid fa-play"></i> Access</button>`
             : isRejected
-            ? `<button type="button" class="section-action-btn-pink" onclick="showAppToast('Order was rejected. Please contact support or re-order.')" style="background: #ef4444; padding: 5px 12px; font-size: 12px;"><i class="fa-solid fa-circle-xmark"></i> Rejected</button>`
+            ? `<button type="button" class="section-action-btn-pink" onclick="showAppToast('Order Rejected: ${escapeHtml(rejectionReason || 'Screenshot/UTR could not be verified')}')" style="background: #ef4444; padding: 5px 12px; font-size: 12px;" title="${escapeHtml(rejectionReason || 'Order rejected')}"><i class="fa-solid fa-circle-xmark"></i> Reason</button>`
             : `<button type="button" class="section-action-btn-pink" onclick="showAppToast('Verification in progress. Order will be confirmed shortly.')" style="background: #f59e0b; padding: 5px 12px; font-size: 12px;"><i class="fa-solid fa-clock"></i> In Review</button>`;
+
+          const reasonRow = (isRejected && rejectionReason)
+            ? `<div style="font-size: 11px; color: #ef4444; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Reason: ${escapeHtml(rejectionReason)}</div>`
+            : '';
 
           return `
             <tr>
               <td><strong>${escapeHtml(id)}</strong></td>
-              <td>${escapeHtml(title)}</td>
+              <td>
+                <div>${escapeHtml(title)}</div>
+                ${reasonRow}
+              </td>
               <td>${escapeHtml(seller)}</td>
               <td>${escapeHtml(date)}</td>
               <td><strong>${escapeHtml(amt)}</strong></td>
@@ -1834,6 +2241,7 @@
           const status = (ord.status || ord.orderStatus || 'pending').toLowerCase();
           const isApproved = (status === 'approved' || status === 'completed' || ord.verified === true) && status !== 'pending' && status !== 'rejected';
           const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
+          const rejectionReason = ord.rejectionReason || ord.rejectReason || ord.adminRemarks || '';
 
           const statusBadge = isApproved
             ? `<span class="moc-status-pill completed"><i class="fa-solid fa-circle-check"></i> Completed</span>`
@@ -1844,7 +2252,7 @@
           const actionBtn = isApproved
             ? `<button type="button" class="moc-action-btn primary" onclick="openAccessModal('${escapeHtml(title)}', 'Product', '${escapeHtml(seller)}', 'Verified Digital Product', 'Direct Access', '${encodeURIComponent(dlLink)}')"><i class="fa-solid fa-circle-play"></i> Access Now</button>`
             : isRejected
-            ? `<button type="button" class="moc-action-btn secondary" style="border-color: #ef4444; color: #ef4444;" onclick="showAppToast('Order rejected. Please contact support.')"><i class="fa-solid fa-circle-xmark"></i> Rejected</button>`
+            ? `<button type="button" class="moc-action-btn secondary" style="border-color: #ef4444; color: #ef4444;" onclick="showAppToast('Order Rejected: ${escapeHtml(rejectionReason || 'Screenshot/UTR could not be verified')}')"><i class="fa-solid fa-circle-xmark"></i> View Reason</button>`
             : `<button type="button" class="moc-action-btn secondary" onclick="showAppToast('Order under verification. You will receive access once approved!')"><i class="fa-solid fa-clock"></i> Under Verification</button>`;
 
           return `
@@ -1865,6 +2273,7 @@
                 `}
                 <div class="moc-info">
                   <h4 class="moc-title">${escapeHtml(title)}</h4>
+                  ${isRejected && rejectionReason ? `<div style="font-size: 11px; color: #ef4444; font-weight: 600; margin-top: 2px; margin-bottom: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Reason: ${escapeHtml(rejectionReason)}</div>` : ''}
                   <div class="moc-seller"><i class="fa-solid fa-circle-check"></i> ${escapeHtml(seller)}</div>
                   <div class="moc-meta-bottom">
                     <span class="moc-date">${escapeHtml(date)}</span>
@@ -1892,10 +2301,13 @@
         const img = (rawImg && !rawImg.includes('prod_indian_model') && !rawImg.includes('placeholder.svg')) ? rawImg : '';
         const status = (ord.status || ord.orderStatus || 'pending').toLowerCase();
         const isApproved = status === 'approved' || status === 'completed' || status === 'paid' || status === 'confirmed';
+        const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
 
         const statusBadge = isApproved
           ? `<span class="activity-status-pill status-completed">Completed</span>`
-          : `<span class="activity-status-pill" style="background: #fef3c7; color: #b45309;">Pending</span>`;
+          : isRejected
+          ? `<span class="activity-status-pill" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>`
+          : `<span class="activity-status-pill" style="background: #fef3c7; color: #b45309;"><i class="fa-solid fa-clock"></i> Pending</span>`;
 
         return `
           <div class="activity-item">
@@ -5068,12 +5480,19 @@
     closeAllDropdowns();
   };
 
-  // ━━ REAL-TIME PERIODIC AUTO-SYNC FOR PENDING ORDERS & REPORTS ━━
+  // ━━ REAL-TIME PERIODIC AUTO-SYNC FOR PENDING ORDERS, WALLET & NOTIFICATIONS ━━
   let autoSyncTimer = null;
   function startPendingOrderAutoSync() {
     if (autoSyncTimer) return;
     autoSyncTimer = setInterval(async () => {
       if (document.hidden) return;
+      
+      // 1. Silent live wallet balance & transaction sync
+      loadUserWallet().catch(() => {});
+      loadWalletTransactions().catch(() => {});
+      syncServerNotifications().catch(() => {});
+
+      // 2. Orders auto-sync
       const hasPendingOrders = Array.isArray(userOrders) && userOrders.some(o => {
         const st = String(o.status || o.orderStatus || 'pending').toLowerCase();
         return !['approved', 'completed', 'paid', 'confirmed', 'rejected', 'failed'].includes(st);
@@ -5082,7 +5501,7 @@
         await loadUserOrders(true);
       }
 
-      // Check if reports list has pending reports
+      // 3. User reports auto-sync
       try {
         const uReportsKey = 'jaigram_user_reports_' + (currentCustomer?.uid || 'guest');
         const raw = localStorage.getItem(uReportsKey) || localStorage.getItem('jaigram_user_reports');
@@ -5095,11 +5514,14 @@
           }
         }
       } catch (_) {}
-    }, 10000);
+    }, 6000);
   }
 
   // Window focus listener for instant updates when switching back to tab
   window.addEventListener('focus', () => {
+    loadUserWallet().catch(() => {});
+    loadWalletTransactions().catch(() => {});
+    syncServerNotifications().catch(() => {});
     if (typeof loadUserOrders === 'function') loadUserOrders(true).catch(() => {});
     if (typeof window.loadUserReports === 'function') window.loadUserReports(true).catch(() => {});
   });
@@ -5245,7 +5667,45 @@
     return result;
   }
 
-  function renderUserNotificationsDropdown() {
+  async function syncServerNotifications() {
+    const uid = currentCustomer?.uid || '';
+    if (!uid) return;
+    try {
+      const snap = await fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}/notifications.json?_t=${Date.now()}`);
+      if (snap.ok) {
+        const data = await snap.json();
+        if (data && typeof data === 'object') {
+          const list = Object.values(data).filter(Boolean);
+          if (list.length > 0) {
+            const targetKey = 'jaigram_user_notifications_' + uid;
+            let current = [];
+            try { const r = localStorage.getItem(targetKey); if (r) current = JSON.parse(r); } catch(_) {}
+            if (!Array.isArray(current)) current = [];
+            const map = new Map();
+            current.forEach(item => { if (item?.id) map.set(item.id, item); });
+            let hasNew = false;
+            list.forEach(item => {
+              if (item?.id) {
+                if (!map.has(item.id)) {
+                  map.set(item.id, item);
+                  hasNew = true;
+                }
+              }
+            });
+            if (hasNew) {
+              const merged = Array.from(map.values()).sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+              localStorage.setItem(targetKey, JSON.stringify(merged.slice(0, 50)));
+              localStorage.setItem('jaigram_user_notifications', JSON.stringify(merged.slice(0, 50)));
+              renderUserNotificationsDropdown(false);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  function renderUserNotificationsDropdown(triggerSync = true) {
+    if (triggerSync) syncServerNotifications().catch(() => {});
     const dropdown = document.getElementById('notificationDropdown');
     const badge = document.getElementById('notifBadgeCount');
     const notifs = getStoredNotifications();
@@ -5280,11 +5740,12 @@
     let itemsHtml = '';
     notifs.slice(0, 12).forEach(n => {
       const isUnread = isNotificationUnread(n);
+      const isRejected = n.type === 'order_rejected' || (n.title && n.title.toLowerCase().includes('rejected')) || (n.message && n.message.toLowerCase().includes('rejected'));
       const isWallet = n.type === 'wallet' || (n.title && n.title.includes('Wallet'));
       const isApproved = n.type === 'order_confirmed' || (n.title && n.title.includes('Approved')) || (n.message && n.message.includes('verified'));
-      const icon = isWallet ? 'fa-wallet' : (isApproved ? 'fa-circle-check' : 'fa-bag-shopping');
-      const iconColor = isWallet ? '#10b981' : (isApproved ? '#10b981' : '#2563eb');
-      const iconBg = isWallet ? '#ecfdf5' : (isApproved ? '#ecfdf5' : '#eff6ff');
+      const icon = isRejected ? 'fa-circle-xmark' : (isWallet ? 'fa-wallet' : (isApproved ? 'fa-circle-check' : 'fa-bag-shopping'));
+      const iconColor = isRejected ? '#ef4444' : (isWallet ? '#10b981' : (isApproved ? '#10b981' : '#2563eb'));
+      const iconBg = isRejected ? '#fef2f2' : (isWallet ? '#ecfdf5' : (isApproved ? '#ecfdf5' : '#eff6ff'));
 
       itemsHtml += `
         <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; background: ${isUnread ? 'rgba(37, 99, 235, 0.04)' : 'transparent'}; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${isUnread ? 'rgba(37, 99, 235, 0.04)' : 'transparent'}'">
@@ -6548,7 +7009,8 @@
       if (accessSec) accessSec.style.display = 'none';
       if (pendingSec) {
         pendingSec.style.display = 'block';
-        pendingSec.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color:#ef4444;"></i> <strong style="color:#ef4444;">Payment Verification Failed:</strong> Screenshot or reference could not be verified. Please contact support or place a new order.';
+        const rejReason = ord.rejectionReason || ord.rejectReason || ord.adminRemarks || 'Screenshot or reference could not be verified by Admin.';
+        pendingSec.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color:#ef4444;"></i> <strong style="color:#ef4444;">Payment Verification Failed:</strong> ${escapeHtml(rejReason)}<br><small style="color:var(--text-muted); margin-top:5px; display:inline-block;">If you believe this was an error, please reach out to admin support with your payment UTR reference.</small>`;
       }
     } else {
       if (statusIcon) statusIcon.className = 'fa-solid fa-clock';

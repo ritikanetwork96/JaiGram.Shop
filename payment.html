@@ -4228,7 +4228,11 @@
       if (fileInput) fileInput.value = '';
     }
 
+    let _orderSubmitting = false;
     async function submitOrder() {
+      // ━━ GUARD: Prevent duplicate submissions on rapid multiple clicks ━━
+      if (_orderSubmitting) return;
+
       const isUpiPayment = (activeMethodId === 'upi' || activeMethodId === 'qr' || activeMethodId === 'phonepe' || activeMethodId === 'gpay' || activeMethodId === 'paytm');
       const utrVal = document.getElementById('payUtrInput')?.value?.trim() || '';
       const alertEl = document.getElementById('payProofAlert');
@@ -4310,9 +4314,14 @@
         }
       }
 
+      // Lock submission
+      _orderSubmitting = true;
+
       const submitBtn = document.getElementById('paySubmitProofBtn');
       if (submitBtn) {
         submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.pointerEvents = 'none';
         submitBtn.innerHTML = activeMethodId === 'cards'
           ? '<i class="fa-solid fa-spinner fa-spin"></i> Authorizing Card &amp; Submitting Order...'
           : '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Order...';
@@ -4367,8 +4376,11 @@
         const amountText = `₹${inrVal.toFixed(2)}`;
         const orderImg = currentOrder.image || currentOrder.productImage || currentOrder.thumbnail || '';
 
-        // Clean, 100% legal Firebase RTDB key without '#' or illegal characters
-        const rawId = currentOrder.orderId || ('JG-' + Math.floor(100000 + Math.random() * 900000));
+        // Clean, 100% legal Firebase RTDB key without '#' or illegal characters (locked once generated)
+        if (!currentOrder._lockedOrderId) {
+          currentOrder._lockedOrderId = currentOrder.orderId || ('JG-' + Math.floor(100000 + Math.random() * 900000));
+        }
+        const rawId = currentOrder._lockedOrderId;
         const cleanOrderId = String(rawId).replace(/^#+/, '').replace(/[^a-zA-Z0-9_-]/g, '') || ('JG-' + Date.now());
         const displayOrderId = cleanOrderId.startsWith('JG-') ? ('#' + cleanOrderId) : ('#JG-' + cleanOrderId);
         const orderId = cleanOrderId;
@@ -4422,6 +4434,47 @@
           date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         };
 
+        // If this is a wallet top-up, record a pending transaction for customer visibility
+        if (isTopup) {
+          try {
+            const topupUid = cust.uid || cust.email || '';
+            const pendingTx = {
+              id: `tx_topup_${cleanOrderId}`,
+              orderId: displayOrderId,
+              type: 'topup',
+              amount: inrVal,
+              desc: `Wallet Top-up (${displayOrderId}) - Verification Pending`,
+              description: `Wallet Top-up (${displayOrderId}) - Verification Pending`,
+              date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+              timestamp: now,
+              status: 'pending'
+            };
+            if (topupUid) {
+              fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(topupUid)}/wallet_transactions/tx_topup_${cleanOrderId}.json`, {
+                method: 'PUT',
+                keepalive: true,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(pendingTx)
+              }).catch(() => {});
+              try {
+                fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/customers/${encodeURIComponent(topupUid)}/wallet_transactions/tx_topup_${cleanOrderId}.json`, {
+                  method: 'PUT',
+                  keepalive: true,
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(pendingTx)
+                }).catch(() => {});
+              } catch (_) {}
+              ['linkadda_wallet_tx_' + topupUid, 'jaigram_wallet_tx_' + topupUid].forEach(txKey => {
+                let txs = [];
+                try { const r = localStorage.getItem(txKey); if (r) txs = JSON.parse(r); } catch(_) {}
+                if (!Array.isArray(txs)) txs = [];
+                txs.unshift(pendingTx);
+                localStorage.setItem(txKey, JSON.stringify(txs.slice(0, 50)));
+              });
+            }
+          } catch (_) {}
+        }
+
         // 2a. Direct fail-proof multi-node write to Firebase RTDB with keepalive: true
         // 1. Write to /orders/${cleanOrderId}.json (PUT)
         const rtdbPutPromise = fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders/${encodeURIComponent(cleanOrderId)}.json`, {
@@ -4447,15 +4500,7 @@
           body: JSON.stringify(orderPayload)
         }).catch(err => console.warn('Direct RTDB Approval PUT notice:', err));
 
-        // 4. Also push to /orders.json (POST) for cloud stream
-        const rtdbPostPromise = fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders.json`, {
-          method: 'POST',
-          keepalive: true,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload)
-        }).catch(err => console.warn('Direct RTDB POST notice:', err));
-
-        // 5. Submit to serverless database endpoint /api/orders (only on production/Vercel)
+        // 4. Submit to serverless database endpoint /api/orders (only on production/Vercel)
         const apiOrdersPromise = !isLocalHostEnv
           ? fetch('/api/orders', {
               method: 'POST',
@@ -4464,10 +4509,10 @@
             }).catch(err => console.warn('API orders dispatch notice:', err))
           : Promise.resolve();
 
-        // Wait up to 1200ms so network requests complete reliably before showing receipt
+        // Wait up to 600ms so network requests begin before showing receipt
         await Promise.race([
-          Promise.allSettled([rtdbPutPromise, rtdbEventsPromise, rtdbApprovalPromise, rtdbPostPromise, apiOrdersPromise]),
-          new Promise(r => setTimeout(r, 1200))
+          Promise.allSettled([rtdbPutPromise, rtdbEventsPromise, rtdbApprovalPromise, apiOrdersPromise]),
+          new Promise(r => setTimeout(r, 600))
         ]);
 
         // 3. Local customer history & admin redundancy across all keys
@@ -4536,6 +4581,14 @@
         if (amtEl) amtEl.textContent = amountText;
         if (tgBtn) tgBtn.href = tgUrl;
 
+        // Keep button disabled after successful submission (prevent re-submit)
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.5';
+          submitBtn.style.pointerEvents = 'none';
+          submitBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Order Submitted Successfully';
+        }
+
         showView('success');
 
         if (typeof window.confetti === 'function') {
@@ -4545,38 +4598,49 @@
         }
       } catch (submitErr) {
         console.error('Order submission caught error:', submitErr);
-        showView('success');
-      } finally {
+        _orderSubmitting = false;
         if (submitBtn) {
           submitBtn.disabled = false;
+          submitBtn.style.opacity = '';
+          submitBtn.style.pointerEvents = '';
           submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Submit Payment &amp; Unlock Instant Access';
         }
+        showView('success');
       }
     }
 
-    function payWithWallet() {
+    async function payWithWallet() {
       const cust = getCustomerSession();
       if (!cust || !cust.email) {
         alert('Please login with your customer account to pay using wallet balance.');
         return;
       }
       const inrVal = parseMoney(currentOrder.inr || currentOrder.price || 399);
-      const currentBal = getCustomerWalletBalance();
+      const uid = cust.uid || cust.email || '';
 
-      if (currentBal < inrVal) {
-        alert(`Insufficient wallet balance. You have ₹${currentBal.toFixed(2)}, required ₹${inrVal.toFixed(2)}.`);
+      // Live Anti-Tampering Check: Verify authoritative balance directly from Firebase RTDB
+      let realServerBal = getCustomerWalletBalance();
+      if (uid) {
+        try {
+          const snap = await fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}.json?_t=${Date.now()}`);
+          if (snap.ok) {
+            const dbCust = await snap.json();
+            if (dbCust && dbCust.walletBalance !== undefined) {
+              realServerBal = parseFloat(dbCust.walletBalance) || 0;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (realServerBal < inrVal) {
+        alert(`Insufficient wallet balance.\n\nYour Verified Balance: ₹${realServerBal.toFixed(2)}\nRequired for Purchase: ₹${inrVal.toFixed(2)}\n\nPlease recharge your wallet to continue.`);
         return;
       }
 
-      const uid = cust.uid || cust.email || '';
-      const newBal = Math.max(0, currentBal - inrVal);
-      localStorage.setItem('jaigram_wallet_' + uid, newBal.toFixed(2));
-      localStorage.setItem('linkadda_wallet_' + uid, newBal.toFixed(2));
-      cust.walletBalance = newBal;
-      localStorage.setItem('jaigram_customer_session', JSON.stringify(cust));
-      localStorage.setItem('linkadda_customer_session', JSON.stringify(cust));
+      // Calculate exact balance after deduction (e.g. 500 - 300 = 200)
+      const newBal = Math.max(0, realServerBal - inrVal);
 
-      // Sync updated wallet balance to Firebase RTDB
+      // 1. Immediately sync updated balance to Firebase RTDB nodes
       if (uid) {
         try {
           fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}.json`, {
@@ -4594,12 +4658,61 @@
         } catch (_) {}
       }
 
+      // 2. Update local storage and session
+      localStorage.setItem('jaigram_wallet_' + uid, newBal.toFixed(2));
+      localStorage.setItem('linkadda_wallet_' + uid, newBal.toFixed(2));
+      cust.walletBalance = newBal;
+      localStorage.setItem('jaigram_customer_session', JSON.stringify(cust));
+      localStorage.setItem('linkadda_customer_session', JSON.stringify(cust));
+
       const orderId = '#JG-' + Math.floor(100000 + Math.random() * 900000);
       const cleanOrderId = orderId.replace(/^#+/, '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
       const title = currentOrder.displayTitle || currentOrder.title || 'VIP Digital Access';
       const productImg = currentOrder.image || currentOrder.thumb || currentOrder.productImage || '';
       const now = Date.now();
 
+      // 3. Record permanent DEBIT transaction in Firebase RTDB
+      const debitTxId = `tx_debit_${cleanOrderId}`;
+      const debitTx = {
+        id: debitTxId,
+        orderId: orderId,
+        type: 'debit',
+        amount: inrVal,
+        balanceAfter: newBal,
+        desc: `Purchase: ${title} (${orderId})`,
+        description: `Purchase: ${title} (${orderId})`,
+        date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        timestamp: now,
+        status: 'completed'
+      };
+
+      if (uid) {
+        try {
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}/wallet_transactions/${debitTxId}.json`, {
+            method: 'PUT',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(debitTx)
+          }).catch(() => {});
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/customers/${encodeURIComponent(uid)}/wallet_transactions/${debitTxId}.json`, {
+            method: 'PUT',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(debitTx)
+          }).catch(() => {});
+        } catch (_) {}
+      }
+
+      // 4. Update local transaction cache
+      ['linkadda_wallet_tx_' + uid, 'jaigram_wallet_tx_' + uid].forEach(txKey => {
+        let txs = [];
+        try { const raw = localStorage.getItem(txKey); if (raw) txs = JSON.parse(raw); } catch (_) {}
+        if (!Array.isArray(txs)) txs = [];
+        txs.unshift(debitTx);
+        localStorage.setItem(txKey, JSON.stringify(txs.slice(0, 50)));
+      });
+
+      // 5. Create instant PAID order (since wallet funds were verified and deducted)
       const orderPayload = {
         orderId: orderId,
         id: cleanOrderId,
@@ -4615,8 +4728,9 @@
         amountDisplay: `₹${inrVal.toFixed(2)}`,
         currency: 'INR',
         paymentMethod: 'JaiGram Wallet',
-        status: 'pending',
-        orderStatus: 'pending',
+        status: 'paid',
+        orderStatus: 'paid',
+        paymentStatus: 'paid',
         customerUid: uid,
         customerEmail: cust.email,
         customerName: cust.displayName || cust.name || 'Customer',
@@ -4655,12 +4769,7 @@
           body: JSON.stringify(orderPayload)
         }).catch(() => {});
 
-        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders.json`, {
-          method: 'POST',
-          keepalive: true,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload)
-        }).catch(() => {});
+        // Canonical order already saved above
       } catch (_) {}
 
       // 2. Submit wallet order to serverless backend /api/orders

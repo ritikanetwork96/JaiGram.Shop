@@ -5779,6 +5779,15 @@ function isGenericSellerName(name) {
 }
 
 function orderSellerName(item = {}) {
+  const isTopup = item.isTopup || item.type === 'wallet_topup' || item.pkg === 'wallet_topup' || item.productId === 'wallet_topup' ||
+    String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet recharge') ||
+    String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet topup') ||
+    String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet top-up') ||
+    String(item.title || item.productName || item.name || '').toLowerCase().includes('add money');
+  if (isTopup) {
+    return 'Wallet Top-Up';
+  }
+
   // 1. Check explicit non-generic seller
   const explicit = pickFirstValue(item, ['sellerName', 'seller', 'sellerStoreName', 'storeName', 'creatorName'], '');
   if (explicit && !isGenericSellerName(explicit)) {
@@ -7504,18 +7513,27 @@ function renderOrderDetailsModal(item = {}) {
   const sellerName = orderSellerName(item);
   const utrVal = orderUtr(item);
 
+  const isTopup = item.isTopup || item.type === 'wallet_topup' || item.pkg === 'wallet_topup' || item.productId === 'wallet_topup' ||
+    String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet recharge') ||
+    String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet topup') ||
+    String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet top-up') ||
+    String(item.title || item.productName || item.name || '').toLowerCase().includes('add money');
+
   return `
     <div class="order-inspector-container" style="width: 100%; max-width: 960px; margin: 0 auto; padding: 4px 4px 30px 4px; box-sizing: border-box;">
       <div class="panel-head management-modal-head" style="padding-bottom: 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
         <div style="min-width: 0; flex: 1;">
-          <div style="font-size: 11px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">Order & Payment Inspector</div>
+          <div style="font-size: 11px; font-weight: 800; color: ${isTopup ? '#34d399' : '#818cf8'}; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="${isTopup ? 'wallet' : 'shield-alert'}" style="width: 13px; height: 13px;"></i>
+            ${isTopup ? '💰 WALLET RECHARGE ORDER REQUEST' : 'Order & Payment Inspector'}
+          </div>
           <h2 class="section-title" style="font-size: 20px; font-weight: 800; color: #fff; line-height: 1.3; word-break: break-word;">${escapeHtml(prodName)}</h2>
           <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
             <span class="order-id-badge" data-action="copy-order-id" data-id="${escapeHtml(orderId)}" title="Click to copy Order ID" style="cursor: pointer;">
               <i data-lucide="copy" style="width: 12px; height: 12px;"></i> #${escapeHtml(orderId)}
             </span>
-            <span style="font-size: 12px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
-              <i data-lucide="store" style="width: 12px; height: 12px;"></i> Seller: ${escapeHtml(sellerName)}
+            <span style="font-size: 12px; font-weight: 700; color: ${isTopup ? '#34d399' : '#fbbf24'}; background: ${isTopup ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)'}; border: 1px solid ${isTopup ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="${isTopup ? 'wallet' : 'store'}" style="width: 12px; height: 12px;"></i> ${isTopup ? 'System Wallet Top-Up' : `Seller: ${escapeHtml(sellerName)}`}
             </span>
             <span class="order-status-pill ${isPaid ? 'paid' : isFailed ? 'rejected' : 'pending'}">
               ${isPaid ? '🟢 Verified & Paid' : isFailed ? '🔴 Rejected' : '🟡 Pending Verification'}
@@ -7599,6 +7617,12 @@ function renderOrderDetailsModal(item = {}) {
               <span style="color: var(--muted);">Payment State:</span>
               <strong style="color: ${isPaid ? '#34d399' : isFailed ? '#f87171' : '#fbbf24'};">${escapeHtml(orderStatusLabel(item))}</strong>
             </div>
+            ${(item.rejectionReason || item.rejectReason) ? `
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 8px 10px; margin-top: 6px;">
+              <div style="font-size: 11px; font-weight: 700; color: #f87171; text-transform: uppercase;">⚠️ Rejection Reason:</div>
+              <div style="font-size: 12px; color: #fff; margin-top: 2px;">${escapeHtml(item.rejectionReason || item.rejectReason)}</div>
+            </div>
+            ` : ''}
           </div>
 
           ${delivery ? `
@@ -7627,7 +7651,7 @@ function renderOrderDetailsModal(item = {}) {
             <i data-lucide="x-circle" style="width: 15px; height: 15px;"></i> Reject Payment
           </button>
           <button class="btn btn-primary" type="button" data-action="approve-order" data-id="${escapeHtml(item.id || '')}" style="font-size: 13px; padding: 8px 20px; font-weight: 700; background: linear-gradient(135deg, #10b981, #059669) !important; border: none !important; color: white !important; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
-            <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i> Approve & Verify Order
+            <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i> ${isTopup ? `Approve &amp; Credit ${escapeHtml(amountFormatted)} to Customer Wallet` : 'Approve &amp; Verify Order'}
           </button>
         </div>
       </div>
@@ -7649,7 +7673,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
   const methods = [...new Set(allOrders.map((item) => orderMethodLabel(item)).filter((value) => value && value !== 'Unknown'))];
 
   return `
-    <div class="page active management-page-shell" style="max-width: 1240px; margin: 0 auto; padding-bottom: 60px;">
+    <div class="page active management-page-shell" style="max-width: 1240px; width: 100%; min-width: 0; margin: 0 auto; padding-bottom: 60px;">
       
       <!-- Top Control Header -->
       <section class="panel glass" style="padding: 24px 28px; border-radius: 16px; margin-bottom: 24px; border: 1px solid var(--border);">
@@ -7760,41 +7784,26 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
       </div>
 
       <!-- Orders Display Container -->
-      <div class="orders-display-container ${ordersViewMode === 'cards' ? 'orders-view-cards' : (ordersViewMode === 'table' ? 'orders-view-table' : 'orders-view-auto')}">
+      <div class="orders-display-container ${ordersViewMode === 'cards' ? 'orders-view-cards' : (ordersViewMode === 'table' ? 'orders-view-table' : 'orders-view-auto')}" style="width: 100%; max-width: 100%; min-width: 0;">
         
-        <!-- Table Scroll Helper Bar -->
-        <div class="orders-scroll-helper-bar">
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); font-weight: 500;">
-            <i data-lucide="arrow-left-right" style="width: 15px; height: 15px; color: #818cf8;"></i>
-            <span><strong>Horizontal Scroll Active:</strong> Swipe table or use buttons to navigate all columns</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <button type="button" class="btn btn-ghost btn-sm" data-action="scroll-orders-left" title="Scroll Left" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: var(--text);">
-              <i data-lucide="chevron-left" style="width: 13px; height: 13px;"></i> Scroll Left
-            </button>
-            <button type="button" class="btn btn-ghost btn-sm" data-action="scroll-orders-right" title="Scroll Right to Actions" style="padding: 6px 14px; font-size: 12px; border-radius: 8px; border: 1px solid rgba(99, 102, 241, 0.35); background: rgba(99, 102, 241, 0.15); color: #818cf8; font-weight: 700;">
-              Scroll Right (Actions) <i data-lucide="chevron-right" style="width: 13px; height: 13px;"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Orders Table (Desktop) -->
-        <div class="orders-table-shell" id="ordersTableShell">
-          <table class="orders-table">
-            <thead>
-              <tr>
-                <th style="width: 44px; min-width: 44px; text-align: center;">
-                  <input type="checkbox" id="selectAllOrders" class="order-checkbox-custom" title="Select All Orders" ${items.length > 0 && selectedOrderIds.size === items.length ? 'checked' : ''} />
-                </th>
-              <th style="min-width: 240px;">Order & Proof</th>
-              <th style="min-width: 125px;">Customer</th>
-              <th style="min-width: 100px;">Amount</th>
-              <th style="min-width: 105px;">Method</th>
-              <th style="min-width: 120px;">Status</th>
-              <th style="min-width: 130px;">Date</th>
-              <th class="orders-col-actions" style="min-width: 175px; text-align: right;">Actions</th>
-            </tr>
-          </thead>
+        <!-- Orders Table (Desktop View like User section) -->
+        <section class="panel glass orders-desktop-table" style="border-radius: 16px; border: 1px solid var(--border); overflow: hidden; padding: 0; width: 100%; max-width: 100%; min-width: 0;">
+          <div class="table-wrap orders-table-shell" id="ordersTableShell" style="margin: 0; max-height: 720px; overflow-y: auto; overflow-x: hidden; width: 100%; max-width: 100%; min-width: 0;">
+            <table class="table orders-table" style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
+                  <th style="width: 44px; min-width: 44px; text-align: center; padding: 14px 16px;">
+                    <input type="checkbox" id="selectAllOrders" class="order-checkbox-custom" title="Select All Orders" ${items.length > 0 && selectedOrderIds.size === items.length ? 'checked' : ''} />
+                  </th>
+                  <th style="min-width: 250px; padding: 14px 18px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Order & Proof</th>
+                  <th style="min-width: 170px; padding: 14px 18px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Customer</th>
+                  <th style="min-width: 120px; padding: 14px 18px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Amount</th>
+                  <th style="min-width: 120px; padding: 14px 18px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Method</th>
+                  <th style="min-width: 130px; padding: 14px 18px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Status</th>
+                  <th style="min-width: 160px; padding: 14px 18px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Date</th>
+                  <th style="min-width: 180px; padding: 14px 18px; text-align: right; font-size: 11px; text-transform: uppercase; color: var(--muted);">Actions</th>
+                </tr>
+              </thead>
           <tbody>
             ${items.length ? items.map((item) => {
               const proof = orderPaymentProof(item);
@@ -7811,6 +7820,12 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
               const formattedAmt = item.amountDisplay || formatCurrencyCompact(item.amount || item.inr || 0);
               const itemUtr = orderUtr(item);
 
+              const isTopup = item.isTopup || item.type === 'wallet_topup' || item.pkg === 'wallet_topup' || item.productId === 'wallet_topup' ||
+                String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet recharge') ||
+                String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet topup') ||
+                String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet top-up') ||
+                String(item.title || item.productName || item.name || '').toLowerCase().includes('add money');
+
               return `
                 <tr class="${selectedOrderIds.has(String(item.id)) ? 'row-selected' : ''}">
                   <!-- Checkbox -->
@@ -7824,7 +7839,11 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                       <div class="order-proof-thumb-wrap" data-action="open-order" data-id="${escapeHtml(item.id)}" title="${proof ? 'View Payment Screenshot' : (prodImg ? 'View Product Media' : 'View Order Details')}">
                         ${displayThumb ? `
                           <img src="${escapeHtml(displayThumb)}" alt="Media" loading="lazy" onerror="this.onerror=null; this.style.opacity='0.6'; this.src='/favicon.svg';" />
-                          <span class="order-proof-badge"><i data-lucide="${proof ? 'image' : 'package'}" style="width: 8px; height: 8px; vertical-align: middle;"></i> ${proof ? 'PROOF' : 'ITEM'}</span>
+                          <span class="order-proof-badge" style="${isTopup ? 'background:#059669; color:#fff;' : ''}"><i data-lucide="${proof ? 'image' : (isTopup ? 'wallet' : 'package')}" style="width: 8px; height: 8px; vertical-align: middle;"></i> ${proof ? (isTopup ? 'TOP-UP PROOF' : 'PROOF') : (isTopup ? 'TOP-UP' : 'ITEM')}</span>
+                        ` : isTopup ? `
+                          <div style="width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, #059669, #10b981); color: #fff; border-radius: 10px;">
+                            <i data-lucide="wallet" style="width: 20px; height: 20px;"></i>
+                          </div>
                         ` : `
                           <div style="width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; font-weight: 800; font-size: 16px;">
                             ${escapeHtml((prodTitle[0] || 'O').toUpperCase())}
@@ -7835,9 +7854,15 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                         <strong style="display: block; font-size: 13.5px; color: var(--text); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="${escapeHtml(prodTitle)}">
                           ${escapeHtml(prodTitle)}
                         </strong>
-                        <div style="font-size: 11.5px; color: #fbbf24; font-weight: 600; display: flex; align-items: center; gap: 4px; margin: 1px 0;">
-                          <i data-lucide="store" style="width: 11px; height: 11px;"></i> ${escapeHtml(orderSellerName(item))}
-                        </div>
+                        ${isTopup ? `
+                          <div style="font-size: 11px; font-weight: 750; color: #34d399; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.28); padding: 2px 7px; border-radius: 5px; display: inline-flex; align-items: center; gap: 4px; margin: 2px 0;">
+                            <i data-lucide="wallet" style="width: 11px; height: 11px;"></i> 💰 WALLET TOP-UP
+                          </div>
+                        ` : `
+                          <div style="font-size: 11.5px; color: #fbbf24; font-weight: 600; display: flex; align-items: center; gap: 4px; margin: 1px 0;">
+                            <i data-lucide="store" style="width: 11px; height: 11px;"></i> ${escapeHtml(orderSellerName(item))}
+                          </div>
+                        `}
                         <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
                           <span class="order-id-badge" onclick="copyText('${escapeHtml(orderId)}'); showToast('Order ID copied!');" title="Click to Copy #${escapeHtml(orderId)}">
                             <i data-lucide="copy" style="width: 10px; height: 10px;"></i> #${escapeHtml(shortId)}
@@ -7882,7 +7907,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                   </td>
 
                   <!-- Col 7: Actions -->
-                  <td class="orders-col-actions" style="text-align: right;">
+                  <td style="text-align: right;">
                     <div class="order-actions-toolbar" style="justify-content: flex-end;">
                       <button class="order-quick-btn view" type="button" data-action="open-order" data-id="${escapeHtml(item.id)}" title="View Proof & Order">
                         <i data-lucide="eye" style="width: 13px; height: 13px;"></i> View
@@ -7916,6 +7941,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
           </tbody>
         </table>
         </div>
+      </section>
 
         <!-- Orders Mobile Select-All Bar -->
         <div class="orders-mobile-select-bar">
@@ -7945,6 +7971,12 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
           const formattedAmt = item.amountDisplay || formatCurrencyCompact(item.amount || item.inr || 0);
           const itemUtr = orderUtr(item);
 
+          const isTopup = item.isTopup || item.type === 'wallet_topup' || item.pkg === 'wallet_topup' || item.productId === 'wallet_topup' ||
+            String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet recharge') ||
+            String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet topup') ||
+            String(item.title || item.productName || item.name || '').toLowerCase().includes('wallet top-up') ||
+            String(item.title || item.productName || item.name || '').toLowerCase().includes('add money');
+
           return `
             <div class="order-mobile-card ${isPaid ? 'status-approved' : isFailed ? 'status-rejected' : 'status-pending'}">
               <div class="order-mobile-card-head">
@@ -7953,9 +7985,15 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                   <span class="order-id-badge" onclick="copyText('${escapeHtml(orderId)}'); showToast('Order ID copied!');" title="Tap to Copy #${escapeHtml(orderId)}">
                     <i data-lucide="copy" style="width: 10px; height: 10px;"></i> #${escapeHtml(shortId)}
                   </span>
-                  <span style="font-size: 11px; color: #fbbf24; font-weight: 600; display: flex; align-items: center; gap: 3px;">
-                    <i data-lucide="store" style="width: 10px; height: 10px;"></i> ${escapeHtml(orderSellerName(item))}
-                  </span>
+                  ${isTopup ? `
+                    <span style="font-size: 11px; color: #34d399; font-weight: 700; display: flex; align-items: center; gap: 3px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 1px 6px; border-radius: 4px;">
+                      <i data-lucide="wallet" style="width: 10px; height: 10px;"></i> TOP-UP
+                    </span>
+                  ` : `
+                    <span style="font-size: 11px; color: #fbbf24; font-weight: 600; display: flex; align-items: center; gap: 3px;">
+                      <i data-lucide="store" style="width: 10px; height: 10px;"></i> ${escapeHtml(orderSellerName(item))}
+                    </span>
+                  `}
                 </div>
                 <span class="order-status-pill ${isPaid ? 'approved' : isFailed ? 'rejected' : 'pending'}">
                   ${isPaid ? '🟢 Approved' : isFailed ? '🔴 Rejected' : '🟡 Pending'}
@@ -7966,7 +8004,11 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                 <div class="order-mobile-proof-wrap" data-action="open-order" data-id="${escapeHtml(item.id)}" title="View Proof & Order">
                   ${displayThumb ? `
                     <img src="${escapeHtml(displayThumb)}" alt="Media" loading="lazy" onerror="this.onerror=null; this.src='/favicon.svg';" />
-                    <span class="order-mobile-proof-tag"><i data-lucide="${proof ? 'image' : 'package'}" style="width: 8px; height: 8px;"></i> ${proof ? 'PROOF' : 'ITEM'}</span>
+                    <span class="order-mobile-proof-tag"><i data-lucide="${proof ? 'image' : (isTopup ? 'wallet' : 'package')}" style="width: 8px; height: 8px;"></i> ${proof ? (isTopup ? 'TOP-UP' : 'PROOF') : (isTopup ? 'WALLET' : 'ITEM')}</span>
+                  ` : isTopup ? `
+                    <div style="width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-size: 18px;">
+                      <i data-lucide="wallet" style="width: 20px; height: 20px;"></i>
+                    </div>
                   ` : `
                     <div style="width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; font-weight: 800; font-size: 16px;">
                       ${escapeHtml((prodTitle[0] || 'O').toUpperCase())}
@@ -9026,8 +9068,8 @@ function renderUsersManagementView(data = {}, fullData = {}) {
                 <th style="min-width: 240px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Email Address</th>
                 <th style="min-width: 170px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Joined Date</th>
                 <th style="min-width: 150px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Auth Method</th>
-                <th style="min-width: 180px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Account Status</th>
-                <th style="min-width: 180px; padding: 14px 20px; text-align: right; font-size: 11px; text-transform: uppercase; color: var(--muted);">Actions</th>
+                <th style="min-width: 250px; padding: 14px 20px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted);">Account Status</th>
+                <th style="min-width: 140px; padding: 14px 20px; text-align: right; font-size: 11px; text-transform: uppercase; color: var(--muted);">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -9091,27 +9133,27 @@ function renderUsersManagementView(data = {}, fullData = {}) {
                       </div>
                     </td>
                     <td style="padding: 16px 20px;">
-                      <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start;">
-                        <span class="user-status-pill ${status}">
+                      <div style="display: inline-flex; align-items: center; gap: 8px; flex-wrap: nowrap; white-space: nowrap;">
+                        <span class="user-status-pill ${status}" style="margin: 0; white-space: nowrap; flex-shrink: 0;">
                           ${status === 'active' ? '<i data-lucide="check-circle-2" style="width: 11px; height: 11px;"></i> Active Member' : ''}
                           ${status === 'pending' ? '<i data-lucide="clock" style="width: 11px; height: 11px;"></i> Pending Review' : ''}
                           ${status === 'banned' ? '<i data-lucide="shield-alert" style="width: 11px; height: 11px;"></i> Suspended / Banned' : ''}
                         </span>
                         
-                        <!-- Quick Status Switch Buttons -->
-                        <div style="display: flex; gap: 5px; align-items: center;">
+                        <!-- Quick Status Switch Buttons (Placed side-by-side / pass me) -->
+                        <div style="display: inline-flex; gap: 5px; align-items: center; flex-shrink: 0;">
                           ${status !== 'active' ? `
-                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #34d399; border: 1px solid rgba(16,185,129,0.3);" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="active" title="Set Active">
+                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #34d399; border: 1px solid rgba(16,185,129,0.3); white-space: nowrap;" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="active" title="Set Active">
                               <i data-lucide="check" style="width: 11px; height: 11px;"></i> Active
                             </button>
                           ` : ''}
                           ${status !== 'pending' ? `
-                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #fbbf24; border: 1px solid rgba(245,158,11,0.3);" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="pending" title="Set Pending">
+                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); white-space: nowrap;" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="pending" title="Set Pending">
                               <i data-lucide="clock" style="width: 11px; height: 11px;"></i> Pending
                             </button>
                           ` : ''}
                           ${status !== 'banned' ? `
-                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #f87171; border: 1px solid rgba(239,68,68,0.3);" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="banned" title="Ban User">
+                            <button type="button" class="btn btn-ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; color: #f87171; border: 1px solid rgba(239,68,68,0.3); white-space: nowrap;" data-action="set-user-status" data-uid="${u.uid}" data-email="${u.email}" data-status="banned" title="Ban User">
                               <i data-lucide="ban" style="width: 11px; height: 11px;"></i> Ban
                             </button>
                           ` : ''}
@@ -11769,16 +11811,7 @@ function initOrdersTableEnhancements() {
     shell.scrollLeft = scrollLeft - walk;
   });
 
-  shell.addEventListener('wheel', (e) => {
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-    if (shell.scrollWidth > shell.clientWidth) {
-      if (e.shiftKey) return;
-      if (shell.scrollHeight <= shell.clientHeight + 10 || e.altKey) {
-        e.preventDefault();
-        shell.scrollLeft += e.deltaY;
-      }
-    }
-  }, { passive: false });
+  // Allow natural vertical mouse wheel scrolling - do NOT hijack wheel events!
 }
 
 let _renderViewFrame = null;
@@ -13627,6 +13660,15 @@ function attachGlobalHandlers() {
         // 1. Update primary order record in admin store & RTDB (only on cleanId)
         await updateRecord('orders', cleanId, { ...approvedPayload, displayOrderId: displayId });
 
+        const orderTitleStr = String(order.title || order.productName || order.name || '').toLowerCase();
+        const isWalletTopup = order.isTopup || order.type === 'wallet_topup' || order.pkg === 'wallet_topup' || order.productId === 'wallet_topup' ||
+          orderTitleStr.includes('wallet recharge') ||
+          orderTitleStr.includes('wallet topup') ||
+          orderTitleStr.includes('wallet top-up') ||
+          orderTitleStr.includes('wallet fund') ||
+          orderTitleStr.includes('add money');
+        const topupAmount = Number(order.amount || order.amountINR || order.price || 0);
+
         // 2. Write to order_approvals and orders on canonical cleanId in RTDB
         const approvalData = {
           orderId: cleanId,
@@ -13643,6 +13685,13 @@ function attachGlobalHandlers() {
           paymentStatus: 'approved',
           verified: true,
           approvedAt: Date.now(),
+          type: isWalletTopup ? 'wallet_topup' : (order.type || 'product'),
+          pkg: isWalletTopup ? 'wallet_topup' : (order.pkg || 'product'),
+          isTopup: isWalletTopup,
+          amount: topupAmount,
+          price: topupAmount,
+          walletCredited: isWalletTopup,
+          creditedAmount: isWalletTopup ? topupAmount : 0,
           customerEmail: order.customerEmail || order.email || order.buyerEmail || ''
         };
 
@@ -13724,19 +13773,17 @@ function attachGlobalHandlers() {
         });
 
         // 5. If order was a wallet top-up, credit the customer wallet balance in database and dispatch official receipt email!
-        const isWalletTopup = order.type === 'wallet_topup' || order.pkg === 'wallet_topup' || order.productId === 'wallet_topup' ||
-          (order.productName && order.productName.toLowerCase().includes('wallet recharge')) ||
-          (order.title && order.title.toLowerCase().includes('wallet recharge'));
-
         if (isWalletTopup) {
           try {
             const bEmail = (order.customerEmail || order.email || order.buyerEmail || '').toLowerCase().trim();
-            const topupAmount = Number(order.amount || order.amountINR || order.price || 0);
 
             // Collect all matching customer UIDs
             const targetUids = new Set();
             if (order.customerUid && order.customerUid !== 'guest') {
               targetUids.add(order.customerUid);
+            }
+            if (order.uid && order.uid !== 'guest') {
+              targetUids.add(order.uid);
             }
             if (bEmail) {
               targetUids.add('cust_' + bEmail.replace(/[^a-z0-9]/gi, '_'));
@@ -13747,6 +13794,10 @@ function attachGlobalHandlers() {
                   if (cObj.uid) targetUids.add(cObj.uid);
                 }
               });
+            }
+            if (targetUids.size === 0 && (bEmail || order.customerUid)) {
+              const fallbackUid = (order.customerUid && order.customerUid !== 'guest') ? order.customerUid : ('cust_' + (bEmail || 'guest').replace(/[^a-z0-9]/gi, '_'));
+              targetUids.add(fallbackUid);
             }
 
             if (targetUids.size > 0 && topupAmount > 0) {
@@ -13775,19 +13826,115 @@ function attachGlobalHandlers() {
                   });
                 } catch (_) {}
 
+                // Write transaction record to Firebase RTDB for persistent client display
+                const txId = `tx_${Date.now()}_${cleanId}`;
+                const txRecord = {
+                  id: txId,
+                  orderId: displayId,
+                  type: 'topup',
+                  amount: topupAmount,
+                  balanceAfter: newBal,
+                  desc: `Wallet Top-up Approved (${displayId})`,
+                  description: `Wallet Top-up Approved (${displayId})`,
+                  date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                  timestamp: Date.now(),
+                  status: 'completed'
+                };
+                try {
+                  await set(ref(db, `customers/${cUid}/wallet_transactions/${txId}`), txRecord);
+                  await set(ref(db, `events/customers/${cUid}/wallet_transactions/${txId}`), txRecord);
+                } catch (_) {}
+
+                // Dispatch notification directly to customer profile in RTDB
+                const notifId = `notif_wallet_${cleanId}`;
+                const walletNotif = {
+                  id: notifId,
+                  type: 'wallet_credited',
+                  orderId: displayId,
+                  title: `💰 ₹${topupAmount} Added to Your Wallet!`,
+                  message: `Your wallet top-up order ${displayId} of ₹${topupAmount} has been verified and added to your wallet balance. New Balance: ₹${newBal.toFixed(2)}.`,
+                  desc: `Your wallet top-up order ${displayId} of ₹${topupAmount} has been verified and added to your wallet balance. New Balance: ₹${newBal.toFixed(2)}.`,
+                  actionUrl: 'user/index.html#wallet',
+                  actionText: 'View Wallet',
+                  timestamp: Date.now(),
+                  date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                  read: false,
+                  unread: true
+                };
+                try {
+                  await set(ref(db, `customers/${cUid}/notifications/${notifId}`), walletNotif);
+                  await set(ref(db, `events/customers/${cUid}/notifications/${notifId}`), walletNotif);
+                } catch (_) {}
+
                 // Sync locally if running on same client
                 try {
                   localStorage.setItem('jaigram_wallet_' + cUid, newBal.toFixed(2));
                   localStorage.setItem('linkadda_wallet_' + cUid, newBal.toFixed(2));
+                  ['linkadda_wallet_tx_' + cUid, 'jaigram_wallet_tx_' + cUid].forEach(txKey => {
+                    let txs = [];
+                    try { const rawTx = localStorage.getItem(txKey); if (rawTx) txs = JSON.parse(rawTx); } catch(_) {}
+                    if (!Array.isArray(txs)) txs = [];
+                    txs = txs.filter(t => t.orderId !== displayId);
+                    txs.unshift(txRecord);
+                    localStorage.setItem(txKey, JSON.stringify(txs.slice(0, 50)));
+                  });
                 } catch (_) {}
+
+                // Update in-memory STORE
+                if (STORE.customers && STORE.customers[cUid]) {
+                  STORE.customers[cUid].walletBalance = newBal;
+                }
               }
 
               if (bEmail) {
                 try {
                   localStorage.setItem('jaigram_wallet_' + bEmail, latestBalance.toFixed(2));
                   localStorage.setItem('linkadda_wallet_' + bEmail, latestBalance.toFixed(2));
+                  const txId = `tx_${Date.now()}_${cleanId}`;
+                  const txRecord = {
+                    id: txId,
+                    orderId: displayId,
+                    type: 'topup',
+                    amount: topupAmount,
+                    balanceAfter: latestBalance,
+                    desc: `Wallet Top-up Approved (${displayId})`,
+                    description: `Wallet Top-up Approved (${displayId})`,
+                    date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    timestamp: Date.now(),
+                    status: 'completed'
+                  };
+                  ['linkadda_wallet_tx_' + bEmail, 'jaigram_wallet_tx_' + bEmail].forEach(txKey => {
+                    let txs = [];
+                    try { const rawTx = localStorage.getItem(txKey); if (rawTx) txs = JSON.parse(rawTx); } catch(_) {}
+                    if (!Array.isArray(txs)) txs = [];
+                    txs = txs.filter(t => t.orderId !== displayId);
+                    txs.unshift(txRecord);
+                    localStorage.setItem(txKey, JSON.stringify(txs.slice(0, 50)));
+                  });
                 } catch (_) {}
               }
+
+              if (order.customerUid) {
+                try {
+                  localStorage.setItem('jaigram_wallet_' + order.customerUid, latestBalance.toFixed(2));
+                  localStorage.setItem('linkadda_wallet_' + order.customerUid, latestBalance.toFixed(2));
+                } catch (_) {}
+              }
+
+              try {
+                ['jaigram_customer_session', 'linkadda_customer_session'].forEach(sKey => {
+                  const rawS = localStorage.getItem(sKey);
+                  if (rawS) {
+                    const sObj = JSON.parse(rawS);
+                    const matchEmail = sObj?.email && bEmail && sObj.email.toLowerCase().trim() === bEmail;
+                    const matchUid = sObj?.uid && (sObj.uid === order.customerUid || targetUids.has(sObj.uid));
+                    if (matchEmail || matchUid) {
+                      sObj.walletBalance = latestBalance;
+                      localStorage.setItem(sKey, JSON.stringify(sObj));
+                    }
+                  }
+                });
+              } catch (_) {}
 
               // Also post to /api/orders so serverless database and Brevo email are triggered
               try {
@@ -14075,31 +14222,145 @@ function attachGlobalHandlers() {
       return;
     }
     if (action === 'reject-order') {
+      const defaultReason = 'Fake payment screenshot / Payment not received';
+      const promptText = `Specify Rejection Reason (shown to customer):\n\nExamples:\n1. Fake payment screenshot\n2. Invalid UTR / Reference number mismatch\n3. Payment not received in bank account\n4. Incorrect amount paid`;
+      const enteredReason = prompt(promptText, defaultReason);
+      if (enteredReason === null) return; // Admin cancelled
+      const finalReason = (enteredReason.trim() || defaultReason);
+
+      actionBtn.disabled = true;
       const cleanRejId = String(id || '').replace(/^#+/, '').trim();
-      await updateRecord('orders', id, {
+      const rawNum = cleanRejId.replace(/^JG-/, '');
+      const allOrders = listCollection('orders') || [];
+      const order = allOrders.find((o) => String(o.id) === String(id) || String(o.orderId) === String(id)) || {};
+      const displayId = order.displayOrderId || ('#JG-' + (rawNum || cleanRejId));
+      const bEmail = (order.customerEmail || order.email || order.buyerEmail || '').toLowerCase().trim();
+      const cUid = order.customerUid || order.uid || '';
+      const orderTitle = orderProductName(order) || order.productName || order.title || order.name || 'Digital Pack';
+
+      const rejPayload = {
         status: 'rejected',
         orderStatus: 'rejected',
         paymentStatus: 'rejected',
+        rejectionReason: finalReason,
+        rejectReason: finalReason,
         reviewedAt: Date.now(),
         reviewedBy: userEmail?.textContent || userName?.textContent || APP_CONFIG.appName,
-      });
+      };
+
+      await updateRecord('orders', id, rejPayload);
       if (cleanRejId && cleanRejId !== String(id)) {
-        try { await update(ref(db, `orders/${cleanRejId}`), { status: 'rejected', orderStatus: 'rejected' }); } catch (_) {}
+        try { await update(ref(db, `orders/${cleanRejId}`), rejPayload); } catch (_) {}
       }
+      if (rawNum && rawNum !== cleanRejId) {
+        try { await update(ref(db, `orders/${rawNum}`), rejPayload); } catch (_) {}
+      }
+
+      // Sync to order_approvals in RTDB
       try {
         const rejData = {
           orderId: cleanRejId || id,
+          displayOrderId: displayId,
           status: 'rejected',
           orderStatus: 'rejected',
+          paymentStatus: 'rejected',
+          rejectionReason: finalReason,
+          rejectReason: finalReason,
           reviewedAt: Date.now(),
+          customerEmail: bEmail
         };
         if (cleanRejId) await set(ref(db, `order_approvals/${cleanRejId}`), rejData);
         if (String(id).startsWith('#')) await set(ref(db, `order_approvals/${id}`), rejData);
+        if (rawNum && rawNum !== cleanRejId) await set(ref(db, `order_approvals/${rawNum}`), rejData);
       } catch (rejSyncErr) {
         console.warn('order_approvals rejection sync notice:', rejSyncErr);
       }
+
+      // Sync customer wallet transactions & notifications in RTDB
+      const targetCustomerUids = new Set();
+      if (cUid && cUid !== 'guest') targetCustomerUids.add(cUid);
+      if (bEmail) targetCustomerUids.add('cust_' + bEmail.replace(/[^a-z0-9]/gi, '_'));
+
+      for (const targetUid of targetCustomerUids) {
+        // Update wallet transaction node in RTDB if it was a top-up
+        try {
+          const txId = `tx_topup_${cleanRejId}`;
+          await update(ref(db, `customers/${targetUid}/wallet_transactions/${txId}`), {
+            status: 'rejected',
+            rejectionReason: finalReason,
+            desc: `Wallet Top-up Rejected (${displayId}) - ${finalReason}`,
+            description: `Wallet Top-up Rejected (${displayId}) - ${finalReason}`,
+            updatedAt: Date.now()
+          });
+        } catch (_) {}
+
+        // Send in-app notification to customer
+        try {
+          const notifId = `notif_rej_${cleanRejId}`;
+          await set(ref(db, `customers/${targetUid}/notifications/${notifId}`), {
+            id: notifId,
+            type: 'order_rejected',
+            orderId: displayId,
+            title: `❌ Payment Rejected (${displayId})`,
+            message: `Reason: ${finalReason}. Your payment for "${orderTitle}" could not be verified.`,
+            desc: `Reason: ${finalReason}. Your payment for "${orderTitle}" could not be verified.`,
+            actionUrl: 'user/index.html#orders',
+            actionText: 'View Orders',
+            timestamp: Date.now(),
+            date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            read: false,
+            unread: true
+          });
+        } catch (_) {}
+      }
+
+      // Update local storage customer orders
+      const custOrderStorageKeys = [
+        'jaigram_user_orders',
+        'linkadda_user_orders',
+        'jaigram_customer_orders',
+        'linkadda_customer_orders'
+      ];
+      if (cUid) {
+        custOrderStorageKeys.push('jaigram_customer_orders_' + cUid);
+        custOrderStorageKeys.push('linkadda_customer_orders_' + cUid);
+      }
+      custOrderStorageKeys.forEach(ck => {
+        try {
+          const raw = localStorage.getItem(ck);
+          if (!raw) return;
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            let changed = false;
+            list.forEach(item => {
+              const itemRaw = String(item.orderId || item.id || item.displayOrderId || '').replace(/^#+/, '');
+              if (itemRaw === cleanRejId || itemRaw === rawNum || itemRaw.includes(rawNum)) {
+                Object.assign(item, rejPayload);
+                changed = true;
+              }
+            });
+            if (changed) localStorage.setItem(ck, JSON.stringify(list));
+          }
+        } catch (_) {}
+      });
+
+      // Submit to serverless API endpoint
+      try {
+        fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: cleanRejId,
+            status: 'rejected',
+            rejectionReason: finalReason,
+            customerEmail: bEmail
+          })
+        }).catch(() => {});
+      } catch (_) {}
+
       closeModal();
-      showToast('Order rejected');
+      showToast(`Order rejected (Reason: ${finalReason})`, 'warning');
+      renderView(ui.data || {});
       return;
     }
     if (action === 'delete-order') {
@@ -14143,16 +14404,6 @@ function attachGlobalHandlers() {
       renderView(ui.data || {});
       const label = next === 'cards' ? '📱 Mobile App Cards' : next === 'table' ? '📋 Desktop Table' : '🔄 Auto Responsive';
       showToast(`Orders layout: ${label}`, 'info');
-      return;
-    }
-    if (action === 'scroll-orders-left') {
-      const shell = document.getElementById('ordersTableShell');
-      if (shell) shell.scrollBy({ left: -320, behavior: 'smooth' });
-      return;
-    }
-    if (action === 'scroll-orders-right') {
-      const shell = document.getElementById('ordersTableShell');
-      if (shell) shell.scrollBy({ left: 320, behavior: 'smooth' });
       return;
     }
     if (action === 'sync-orders') {

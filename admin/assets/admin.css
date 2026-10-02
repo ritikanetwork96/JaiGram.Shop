@@ -230,7 +230,7 @@ button {
 
 .admin-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   min-height: 100vh;
   position: relative;
 }
@@ -388,6 +388,8 @@ button {
 
 .main {
   min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   display: grid;
   grid-template-rows: var(--topbar-h) 1fr;
 }
@@ -558,6 +560,9 @@ button {
 
 /* ─── Smooth View Root Transition ─── */
 .view-root {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
   transition: opacity 80ms ease;
 }
 
@@ -605,6 +610,9 @@ button {
 
 .page.active {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
 }
 
 @keyframes fadeUp {
@@ -6791,119 +6799,54 @@ button {
 }
 
 /* ===== MODERN ORDERS MANAGEMENT REDESIGN ===== */
-.orders-table-shell {
-  display: block;
+.orders-desktop-table {
   width: 100%;
-  max-width: 100%;
-  overflow-x: auto !important;
-  overflow-y: auto !important;
-  max-height: calc(100vh - 290px);
-  min-height: 440px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--th-bg);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-  scrollbar-width: thin;
-  scrollbar-color: #6366f1 rgba(255, 255, 255, 0.08);
+}
+
+.orders-table-shell {
+  width: 100%;
+  margin: 0;
+  max-height: 720px;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-  position: relative;
-  cursor: default;
-}
-
-.orders-table-shell.is-dragging {
-  cursor: grabbing;
-  user-select: none;
-}
-
-.orders-table-shell::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-  display: block !important;
-}
-
-.orders-table-shell::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.95);
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.orders-table-shell::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, #6366f1, #ec4899);
-  border-radius: 999px;
-  border: 2px solid rgba(15, 23, 42, 0.95);
-  cursor: pointer;
-}
-
-.orders-table-shell::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(90deg, #818cf8, #f472b6);
 }
 
 .orders-table {
   width: 100%;
-  min-width: 950px;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   table-layout: auto;
 }
 
 .orders-table thead th {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 5;
+  background: rgba(15, 23, 42, 0.98);
+}
+
+.orders-table th {
   padding: 12px 14px;
-  font-size: 0.74rem;
-  font-weight: 700;
+  font-size: 0.72rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
-  background: #0f172a !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--th-bg);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
-/* Sticky Actions Column on Desktop Table */
-.orders-table th.orders-col-actions {
-  position: sticky;
-  right: 0;
-  top: 0;
-  z-index: 25;
-  background: #0f172a !important;
-  box-shadow: -10px 0 20px rgba(0, 0, 0, 0.6);
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  text-align: right;
-  min-width: 175px;
-}
-
-.orders-table td.orders-col-actions {
-  position: sticky;
-  right: 0;
-  z-index: 8;
-  background: #0b0f19 !important;
-  box-shadow: -10px 0 20px rgba(0, 0, 0, 0.6);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  text-align: right;
-  min-width: 175px;
-}
-
-.orders-table tbody tr:hover td.orders-col-actions {
-  background: #141c2e !important;
-}
-
-.orders-table tbody tr.row-selected td.orders-col-actions {
-  background: #1e1b4b !important;
-}
-
 .orders-table td {
-  padding: 14px 16px;
+  padding: 13px 14px;
   vertical-align: middle;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   font-size: 0.86rem;
   background: var(--panel-solid);
+  white-space: nowrap;
 }
 
 .orders-table tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .order-product-cell {
@@ -12731,20 +12674,6 @@ button {
 /* ==========================================================================
    ORDERS MANAGEMENT: APP-LIKE MOBILE CARDS & BULK ACTIONS
    ========================================================================== */
-.orders-scroll-helper-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding: 10px 16px;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  flex-wrap: wrap;
-}
-
 .orders-mobile-cards {
   display: none;
 }
@@ -12912,6 +12841,7 @@ button {
   display: none;
 }
 
+.orders-view-cards .orders-desktop-table,
 .orders-view-cards .orders-table-shell {
   display: none !important;
 }
@@ -12924,6 +12854,41 @@ button {
   display: flex !important;
 }
 
+.orders-display-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.orders-desktop-table {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.orders-table-shell {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  max-height: 720px !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  box-sizing: border-box !important;
+}
+
+.orders-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+.orders-view-table .orders-desktop-table,
 .orders-view-table .orders-table-shell {
   display: block !important;
 }
@@ -12945,6 +12910,7 @@ button {
 }
 
 @media (max-width: 860px) {
+  .orders-view-auto .orders-desktop-table,
   .orders-view-auto .orders-table-shell {
     display: none !important;
   }

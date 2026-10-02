@@ -124,6 +124,9 @@
   function sanitizeProductTitle(rawTitle) {
     if (!rawTitle || typeof rawTitle !== 'string') return 'VIP Digital Media Pass';
     const lower = rawTitle.toLowerCase();
+    if (lower.includes('wallet recharge') || lower.includes('wallet topup') || lower.includes('wallet top-up') || lower.includes('add money')) {
+      return rawTitle.trim();
+    }
     const adultTerms = [
       'desi', 'mal', 'maal', 'mom', 'son', 'bhabhi', 'aunty', 'mms', 'sex', 
       'sexy', 'hot', 'nude', 'nudes', 'porn', 'xxx', 'adult', 'nsfw', 'leak', 
@@ -144,7 +147,7 @@
 
   function getCustomerSession() {
     try {
-      const raw = localStorage.getItem('linkadda_customer_session');
+      const raw = localStorage.getItem('jaigram_customer_session') || localStorage.getItem('linkadda_customer_session');
       return raw ? JSON.parse(raw) : null;
     } catch (_) {
       return null;
@@ -155,7 +158,7 @@
     const cust = getCustomerSession();
     if (!cust) return 0;
     const uid = cust.uid || cust.email || '';
-    const saved = localStorage.getItem('linkadda_wallet_' + uid);
+    const saved = localStorage.getItem('jaigram_wallet_' + uid) || localStorage.getItem('linkadda_wallet_' + uid);
     if (saved !== null) {
       const num = parseFloat(saved);
       return (!isNaN(num) && num > 0) ? num : 0;
@@ -1107,6 +1110,15 @@
       refreshGatewayConfig();
       createModalDOM();
 
+      this._orderSubmitting = false;
+      const submitBtn = document.getElementById('lgwSubmitProofBtn');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '';
+        submitBtn.style.pointerEvents = '';
+        submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Payment Verification';
+      }
+
       currentOrder = options || {};
       screenshotBase64 = null;
       activeMethodId = options.method || 'upi';
@@ -1154,6 +1166,7 @@
     },
 
     close: function() {
+      this._orderSubmitting = false;
       const backdrop = document.getElementById('linkaddaGatewayBackdrop');
       if (backdrop) {
         backdrop.style.display = 'none';
@@ -1436,54 +1449,70 @@
         return;
       }
 
+      // ━━ GUARD: Prevent duplicate submissions on multiple clicks ━━
+      if (this._orderSubmitting) return;
+      this._orderSubmitting = true;
+
       const submitBtn = document.getElementById('lgwSubmitProofBtn');
       if (submitBtn) {
         submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.pointerEvents = 'none';
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Order...';
       }
 
-      // 1. Upload screenshot to media.jaigram.shop CDN via /api/upload
+      // 1. Upload screenshot to media.jaigram.shop CDN via /api/upload (fast non-blocking)
       let uploadedScreenshotUrl = _uploadedScreenshotUrl || '';
       if (!uploadedScreenshotUrl && _uploadedScreenshotPromise) {
         try {
           uploadedScreenshotUrl = await Promise.race([
             _uploadedScreenshotPromise,
-            new Promise((r) => setTimeout(() => r(''), 1500))
+            new Promise((r) => setTimeout(() => r(''), 600))
           ]);
         } catch (_) {}
       }
 
+      // If CDN url not immediately ready, use local base64 immediately for 0ms delay and let background upload proceed
       if (!uploadedScreenshotUrl && screenshotBase64) {
         try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 3500);
-          const upRes = await fetch('/api/upload', {
+          fetch('/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
             body: JSON.stringify({
               folder: 'orders',
               filename: `ss_${Date.now()}_proof.jpg`,
               base64: screenshotBase64,
               contentType: 'image/jpeg'
             })
-          });
-          clearTimeout(timer);
-          if (upRes.ok) {
-            const upData = await upRes.json();
-            uploadedScreenshotUrl = upData.publicUrl || upData.url || '';
-          }
-        } catch (uploadErr) {
-          console.warn('Screenshot upload notice:', uploadErr);
-        }
+          }).then(res => res.ok ? res.json() : null).then(upData => {
+            if (upData && (upData.publicUrl || upData.url)) {
+              _uploadedScreenshotUrl = upData.publicUrl || upData.url;
+              // Update screenshot URL in RTDB asynchronously
+              try {
+                fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders/${encodeURIComponent(cleanOrderId)}/screenshot.json`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(_uploadedScreenshotUrl)
+                }).catch(() => {});
+                fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/order_approvals/${encodeURIComponent(cleanOrderId)}/screenshot.json`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(_uploadedScreenshotUrl)
+                }).catch(() => {});
+              } catch (_) {}
+            }
+          }).catch(() => {});
+        } catch (_) {}
       }
 
       const finalScreenshot = uploadedScreenshotUrl || screenshotBase64;
       const rawTitle = currentOrder.title || currentOrder.name || currentOrder.productName || 'VIP Digital Access';
-      const title = sanitizeProductTitle(rawTitle);
       const inrVal = parseMoney(currentOrder.inr || currentOrder.price || currentOrder.amount || 399);
       const amountText = `₹${inrVal.toFixed(2)}`;
-      const rawId = currentOrder.orderId || ('JG-' + Math.floor(100000 + Math.random() * 900000));
+      if (!currentOrder._lockedOrderId) {
+        currentOrder._lockedOrderId = currentOrder.orderId || ('JG-' + Math.floor(100000 + Math.random() * 900000));
+      }
+      const rawId = currentOrder._lockedOrderId;
       const cleanOrderId = String(rawId).replace(/[^a-zA-Z0-9_-]/g, '') || ('JG-' + Date.now());
       const displayOrderId = cleanOrderId.startsWith('#') ? cleanOrderId : ('#' + cleanOrderId);
       const orderId = cleanOrderId;
@@ -1491,27 +1520,44 @@
       const now = Date.now();
       const utrVal = document.getElementById('lgwUtrInput')?.value?.trim() || '';
 
+      const isTopup = currentOrder.type === 'wallet_topup' || currentOrder.pkg === 'wallet_topup' || currentOrder.productId === 'wallet_topup' ||
+        String(rawTitle).toLowerCase().includes('wallet recharge') ||
+        String(rawTitle).toLowerCase().includes('wallet topup') ||
+        String(rawTitle).toLowerCase().includes('wallet top-up') ||
+        String(currentOrder.name || '').toLowerCase().includes('wallet recharge');
+
+      const title = isTopup ? (rawTitle.trim() || `JaiGram Wallet Recharge (₹${inrVal.toFixed(2)})`) : sanitizeProductTitle(rawTitle);
+      const sellerName = isTopup ? 'Wallet Top-Up' : (currentOrder.sellerName || 'Trusted brother');
+      const sellerId = isTopup ? 'system_wallet' : (currentOrder.sellerId || '');
+      const custUid = cust.uid || cust.email || currentOrder.customerUid || 'guest';
+      const custEmail = (cust.email || currentOrder.customerEmail || '').toLowerCase().trim();
+      const custName = cust.displayName || cust.name || currentOrder.customerName || 'Customer';
+
       const orderPayload = {
         orderId: cleanOrderId,
         id: cleanOrderId,
         displayOrderId,
-        productId: currentOrder.productId || currentOrder.id || null,
+        productId: isTopup ? 'wallet_topup' : (currentOrder.productId || currentOrder.id || null),
         productName: title,
         title: title,
         name: title,
+        type: isTopup ? 'wallet_topup' : (currentOrder.type || 'order'),
+        pkg: isTopup ? 'wallet_topup' : (currentOrder.pkg || 'digital_pack'),
+        isTopup: isTopup,
         amount: inrVal,
         amountDisplay: amountText,
+        price: inrVal,
         currency: 'INR',
         paymentMethod: (activeMethodId || 'UPI').toUpperCase(),
         method: (activeMethodId || 'UPI').toUpperCase(),
         status: 'pending',
         orderStatus: 'pending',
         paymentStatus: 'pending',
-        customerUid: cust.uid || cust.email || 'guest',
-        customerEmail: cust.email || '',
-        customerName: cust.displayName || cust.name || 'Customer',
-        sellerId: currentOrder.sellerId || '',
-        sellerName: currentOrder.sellerName || '',
+        customerUid: custUid,
+        customerEmail: custEmail,
+        customerName: custName,
+        sellerId: sellerId,
+        sellerName: sellerName,
         utr: utrVal,
         screenshot: finalScreenshot,
         screenshotUrl: finalScreenshot,
@@ -1524,8 +1570,8 @@
 
       // 1. Submit to localStorage across all customer order keys
       try {
-        const uid = cust.uid || cust.email || '';
-        const email = (cust.email || '').toLowerCase().trim();
+        const uid = custUid !== 'guest' ? custUid : '';
+        const email = custEmail;
         const targetKeys = [
           'jaigram_user_orders',
           'linkadda_user_orders',
@@ -1566,29 +1612,64 @@
         localStorage.setItem('linkadda_my_order_ids', JSON.stringify(myIds.slice(0, 100)));
       } catch (_) {}
 
-      // 2. Submit to Firebase RTDB (Orders, Events, and public Order Approvals)
+      // If this is a wallet top-up, immediately record a pending transaction
+      if (isTopup && custUid && custUid !== 'guest') {
+        try {
+          const pendingTxId = `tx_topup_${cleanOrderId}`;
+          const pendingTx = {
+            id: pendingTxId,
+            orderId: displayOrderId,
+            type: 'topup',
+            amount: inrVal,
+            desc: `Wallet Top-up (${displayOrderId}) - Verification Pending`,
+            description: `Wallet Top-up (${displayOrderId}) - Verification Pending`,
+            date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            timestamp: now,
+            status: 'pending'
+          };
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(custUid)}/wallet_transactions/${pendingTxId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pendingTx)
+          }).catch(() => {});
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/customers/${encodeURIComponent(custUid)}/wallet_transactions/${pendingTxId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pendingTx)
+          }).catch(() => {});
+          ['linkadda_wallet_tx_' + custUid, 'jaigram_wallet_tx_' + custUid].forEach(txKey => {
+            let txs = [];
+            try { const r = localStorage.getItem(txKey); if (r) txs = JSON.parse(r); } catch(_) {}
+            if (!Array.isArray(txs)) txs = [];
+            txs = txs.filter(t => t.id !== pendingTxId && t.orderId !== displayOrderId);
+            txs.unshift(pendingTx);
+            localStorage.setItem(txKey, JSON.stringify(txs.slice(0, 50)));
+          });
+        } catch (_) {}
+      }
+
+      // 2. Submit canonically to Firebase RTDB (Orders & public Order Approvals)
       try {
         fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders/${encodeURIComponent(cleanOrderId)}.json`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload)
-        }).catch(() => {});
-        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/orders/${encodeURIComponent(cleanOrderId)}.json`, {
-          method: 'PUT',
+          keepalive: true,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)
         }).catch(() => {});
         fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/order_approvals/${encodeURIComponent(cleanOrderId)}.json`, {
           method: 'PUT',
+          keepalive: true,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             orderId: cleanOrderId,
             id: cleanOrderId,
             displayOrderId,
-            productId: currentOrder.productId || currentOrder.id || null,
+            productId: isTopup ? 'wallet_topup' : (currentOrder.productId || currentOrder.id || null),
             productName: title,
             title: title,
             name: title,
+            type: isTopup ? 'wallet_topup' : 'order',
+            isTopup: isTopup,
             amount: inrVal,
             amountDisplay: amountText,
             price: inrVal,
@@ -1598,11 +1679,11 @@
             status: 'pending',
             orderStatus: 'pending',
             paymentStatus: 'pending',
-            customerUid: cust.uid || cust.email || 'guest',
-            customerEmail: (cust.email || '').toLowerCase().trim(),
-            customerName: cust.displayName || cust.name || 'Customer',
-            sellerName: currentOrder.sellerName || 'Trusted brother',
-            sellerId: currentOrder.sellerId || '',
+            customerUid: custUid,
+            customerEmail: custEmail,
+            customerName: custName,
+            sellerName: sellerName,
+            sellerId: sellerId,
             utr: utrVal,
             screenshot: finalScreenshot,
             screenshotUrl: finalScreenshot,
@@ -1611,27 +1692,23 @@
             date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
           })
         }).catch(() => {});
-        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders.json`, {
+      } catch (_) {}
+
+      // 3. Fire to serverless backend asynchronously (keeps submission under 200ms)
+      try {
+        fetch(`${API_BASE}/api/orders`, {
           method: 'POST',
+          keepalive: true,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)
         }).catch(() => {});
       } catch (_) {}
-      try {
-        if (window.__linkaddaDb && typeof window._fbRef === 'function' && typeof window._fbPush === 'function') {
-          const ordersRef = window._fbRef(window.__linkaddaDb, 'orders');
-          window._fbPush(ordersRef, orderPayload);
-        }
-        await fetch(`${API_BASE}/api/orders`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload)
-        });
-      } catch (_) {}
 
       // 3. Prepare Telegram direct contact link
-      const tgSellerText = currentOrder.sellerName || 'JaiGram Verified';
-      const tgMsg = `Hello JaiGram Support! I have completed payment for my order:%0A%0A📦 Product: ${encodeURIComponent(title)}%0A🏪 Seller: ${encodeURIComponent(tgSellerText)}%0A💰 Amount: ${encodeURIComponent(amountText)}%0A💳 Method: ${encodeURIComponent((activeMethodId || 'UPI').toUpperCase())}%0A🆔 Order ID: ${encodeURIComponent(orderId)}${utrVal ? `%0A🔢 UTR / UPI Ref: ${encodeURIComponent(utrVal)}` : ''}%0A👤 Buyer: ${encodeURIComponent(orderPayload.customerName || cust.displayName || 'Customer')}%0A%0APlease verify my screenshot and provide instant access.`;
+      const tgSellerText = isTopup ? 'JaiGram Support' : (currentOrder.sellerName || 'JaiGram Verified');
+      const tgMsg = isTopup
+        ? `Hello JaiGram Support! I have requested a Wallet Recharge:%0A%0A💰 Amount: ${encodeURIComponent(amountText)}%0A💳 Method: ${encodeURIComponent((activeMethodId || 'UPI').toUpperCase())}%0A🆔 Top-up Order: ${encodeURIComponent(orderId)}${utrVal ? `%0A🔢 UTR / UPI Ref: ${encodeURIComponent(utrVal)}` : ''}%0A👤 Account: ${encodeURIComponent(custName)} (${encodeURIComponent(custEmail)})%0A%0APlease verify my screenshot and approve funds to my wallet balance.`
+        : `Hello JaiGram Support! I have completed payment for my order:%0A%0A📦 Product: ${encodeURIComponent(title)}%0A🏪 Seller: ${encodeURIComponent(tgSellerText)}%0A💰 Amount: ${encodeURIComponent(amountText)}%0A💳 Method: ${encodeURIComponent((activeMethodId || 'UPI').toUpperCase())}%0A🆔 Order ID: ${encodeURIComponent(orderId)}${utrVal ? `%0A🔢 UTR / UPI Ref: ${encodeURIComponent(utrVal)}` : ''}%0A👤 Buyer: ${encodeURIComponent(orderPayload.customerName || cust.displayName || 'Customer')}%0A%0APlease verify my screenshot and provide instant access.`;
       const tgBase = gatewayConfig.telegramUrl || 'https://t.me/TRUSTED_BROTHER1234';
       const tgClean = tgBase.startsWith('http') ? tgBase.replace(/\/$/, '') : `https://t.me/${tgBase.replace(/^@/, '')}`;
       const tgUrl = `${tgClean}?text=${tgMsg}`;
@@ -1647,9 +1724,12 @@
       if (amtEl) amtEl.textContent = amountText;
       if (tgBtn) tgBtn.href = tgUrl;
 
+      // Keep button disabled after successful submission (prevent re-submit)
       if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Submit Payment &amp; Unlock Instant Access';
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.pointerEvents = 'none';
+        submitBtn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Order Submitted Successfully';
       }
 
       this.showView('success');
@@ -1664,51 +1744,158 @@
       window.dispatchEvent(new CustomEvent('linkadda:order-placed', { detail: orderPayload }));
     },
 
-    payWithWallet: function() {
+    payWithWallet: async function() {
       const cust = getCustomerSession();
       if (!cust || !cust.email) {
         alert('Please login with your customer account to pay using wallet balance.');
         return;
       }
       const inrVal = parseMoney(currentOrder.inr || currentOrder.price || currentOrder.amount || 399);
-      const currentBal = getCustomerWalletBalance();
+      const uid = cust.uid || cust.email || '';
 
-      if (currentBal < inrVal) {
-        alert(`Insufficient wallet balance. You have ₹${currentBal.toFixed(2)}, required ₹${inrVal.toFixed(2)}.`);
+      // Live Anti-Tampering Check: Verify authoritative balance directly from Firebase RTDB
+      let realServerBal = getCustomerWalletBalance();
+      if (uid) {
+        try {
+          const snap = await fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}.json?_t=${Date.now()}`);
+          if (snap.ok) {
+            const dbCust = await snap.json();
+            if (dbCust && dbCust.walletBalance !== undefined) {
+              realServerBal = parseFloat(dbCust.walletBalance) || 0;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (realServerBal < inrVal) {
+        alert(`Insufficient wallet balance.\n\nYour Verified Balance: ₹${realServerBal.toFixed(2)}\nRequired for Purchase: ₹${inrVal.toFixed(2)}\n\nPlease recharge your wallet to continue.`);
+        // Sync local storage back to real server balance so client cannot fake balance
+        localStorage.setItem('jaigram_wallet_' + uid, realServerBal.toFixed(2));
+        localStorage.setItem('linkadda_wallet_' + uid, realServerBal.toFixed(2));
+        cust.walletBalance = realServerBal;
+        localStorage.setItem('jaigram_customer_session', JSON.stringify(cust));
+        localStorage.setItem('linkadda_customer_session', JSON.stringify(cust));
         return;
       }
 
-      const uid = cust.uid || cust.email || '';
-      const newBal = Math.max(0, currentBal - inrVal);
+      // Calculate exact balance after deduction (e.g. 500 - 300 = 200)
+      const newBal = Number(Math.max(0, realServerBal - inrVal).toFixed(2));
+
+      // 1. Immediately sync updated balance to Firebase RTDB nodes
+      if (uid) {
+        try {
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ walletBalance: newBal, updatedAt: Date.now() })
+          }).catch(() => {});
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/customers/${encodeURIComponent(uid)}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ walletBalance: newBal, updatedAt: Date.now() })
+          }).catch(() => {});
+        } catch (_) {}
+      }
+
+      // 2. Update local storage and session
+      localStorage.setItem('jaigram_wallet_' + uid, newBal.toFixed(2));
       localStorage.setItem('linkadda_wallet_' + uid, newBal.toFixed(2));
       cust.walletBalance = newBal;
+      localStorage.setItem('jaigram_customer_session', JSON.stringify(cust));
       localStorage.setItem('linkadda_customer_session', JSON.stringify(cust));
 
-      // Record transaction
-      try {
-        const txKey = 'linkadda_wallet_tx_' + uid;
-        let txs = [];
-        const raw = localStorage.getItem(txKey);
-        if (raw) txs = JSON.parse(raw);
-        if (!Array.isArray(txs)) txs = [];
-        txs.unshift({
-          id: 'TX-' + Date.now(),
-          type: 'debit',
-          amount: inrVal,
-          desc: 'Purchased ' + sanitizeProductTitle(currentOrder.title || currentOrder.name || currentOrder.productName || 'VIP Digital Access'),
-          timestamp: Date.now(),
-          status: 'completed'
-        });
-        localStorage.setItem(txKey, JSON.stringify(txs.slice(0, 50)));
-      } catch (_) {}
-
       // Create instant completed order
-      const orderId = '#LA-' + Math.floor(100000 + Math.random() * 900000);
+      const orderId = '#JG-' + Math.floor(100000 + Math.random() * 900000);
+      const cleanOrderId = orderId.replace(/^#+/, '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
       const rawTitle = currentOrder.title || currentOrder.name || currentOrder.productName || 'VIP Digital Access';
       const title = sanitizeProductTitle(rawTitle);
+      const now = Date.now();
+
+      // 3. Record permanent DEBIT transaction in Firebase RTDB
+      const debitTxId = `tx_debit_${cleanOrderId}`;
+      const debitTx = {
+        id: debitTxId,
+        orderId: orderId,
+        type: 'debit',
+        amount: inrVal,
+        balanceAfter: newBal,
+        desc: `Purchased ${title} (${orderId})`,
+        description: `Purchased ${title} (${orderId})`,
+        date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        timestamp: now,
+        status: 'completed'
+      };
+
+      if (uid) {
+        try {
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}/wallet_transactions/${debitTxId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(debitTx)
+          }).catch(() => {});
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/customers/${encodeURIComponent(uid)}/wallet_transactions/${debitTxId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(debitTx)
+          }).catch(() => {});
+        } catch (_) {}
+      }
+
+      // Record transaction locally
+      try {
+        ['linkadda_wallet_tx_' + uid, 'jaigram_wallet_tx_' + uid].forEach(txKey => {
+          let txs = [];
+          const raw = localStorage.getItem(txKey);
+          if (raw) txs = JSON.parse(raw);
+          if (!Array.isArray(txs)) txs = [];
+          txs = txs.filter(t => t.id !== debitTxId);
+          txs.unshift(debitTx);
+          localStorage.setItem(txKey, JSON.stringify(txs.slice(0, 50)));
+        });
+      } catch (_) {}
+
+      // 4. Record customer notification in RTDB
+      const notifId = `notif_order_${cleanOrderId}`;
+      const orderNotif = {
+        id: notifId,
+        type: 'wallet_debited',
+        orderId: orderId,
+        title: `🛍️ Order Placed via Wallet (₹${inrVal.toFixed(2)})`,
+        message: `₹${inrVal.toFixed(2)} debited for "${title}". Remaining wallet balance: ₹${newBal.toFixed(2)}.`,
+        desc: `₹${inrVal.toFixed(2)} debited for "${title}". Remaining wallet balance: ₹${newBal.toFixed(2)}.`,
+        actionUrl: 'user/index.html#orders',
+        actionText: 'View Order',
+        timestamp: now,
+        date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        read: false,
+        unread: true
+      };
+      if (uid) {
+        try {
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}/notifications/${notifId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderNotif)
+          }).catch(() => {});
+          fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/customers/${encodeURIComponent(uid)}/notifications/${notifId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderNotif)
+          }).catch(() => {});
+          ['jaigram_user_notifications', 'linkadda_user_notifications', 'jaigram_user_notifications_' + uid, 'linkadda_user_notifications_' + uid].forEach(nk => {
+            let nList = [];
+            try { const r = localStorage.getItem(nk); if (r) nList = JSON.parse(r); } catch(_) {}
+            if (!Array.isArray(nList)) nList = [];
+            nList.unshift(orderNotif);
+            localStorage.setItem(nk, JSON.stringify(nList.slice(0, 50)));
+          });
+        } catch (_) {}
+      }
+
       const orderPayload = {
         orderId,
-        id: orderId,
+        id: cleanOrderId,
+        displayOrderId: orderId,
         productId: currentOrder.productId || currentOrder.id || null,
         productName: title,
         title: title,
@@ -1724,21 +1911,38 @@
         customerUid: uid,
         customerEmail: cust.email,
         customerName: cust.displayName || cust.name || 'Customer',
-        createdAt: Date.now(),
-        timestamp: Date.now(),
-        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        sellerId: currentOrder.sellerId || '',
+        sellerName: currentOrder.sellerName || 'Trusted brother',
+        createdAt: now,
+        timestamp: now,
+        date: new Date(now).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
       };
 
-      // 1. Submit to /api/orders backend
+      // Submit completed order to RTDB
       try {
+        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/orders/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        }).catch(() => {});
+        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/orders/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        }).catch(() => {});
+        fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/order_approvals/${encodeURIComponent(cleanOrderId)}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        }).catch(() => {});
         fetch(`${API_BASE}/api/orders`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)
-        }).catch(err => console.warn('Shared wallet order API dispatch notice:', err));
+        }).catch(() => {});
       } catch (_) {}
 
-      // 2. Local customer history
+      // Save to customer order history
       try {
         ['jaigram_user_orders', 'jaigram_customer_orders', 'jaigram_customer_orders_' + uid, 'linkadda_user_orders', 'linkadda_customer_orders', 'linkadda_customer_orders_' + uid].forEach(key => {
           let list = [];

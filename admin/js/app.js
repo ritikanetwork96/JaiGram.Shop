@@ -7761,21 +7761,38 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
 
       <!-- Orders Display Container -->
       <div class="orders-display-container ${ordersViewMode === 'cards' ? 'orders-view-cards' : (ordersViewMode === 'table' ? 'orders-view-table' : 'orders-view-auto')}">
+        
+        <!-- Table Scroll Helper Bar -->
+        <div class="orders-scroll-helper-bar">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); font-weight: 500;">
+            <i data-lucide="arrow-left-right" style="width: 15px; height: 15px; color: #818cf8;"></i>
+            <span><strong>Horizontal Scroll Active:</strong> Swipe table or use buttons to navigate all columns</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="scroll-orders-left" title="Scroll Left" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: var(--text);">
+              <i data-lucide="chevron-left" style="width: 13px; height: 13px;"></i> Scroll Left
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="scroll-orders-right" title="Scroll Right to Actions" style="padding: 6px 14px; font-size: 12px; border-radius: 8px; border: 1px solid rgba(99, 102, 241, 0.35); background: rgba(99, 102, 241, 0.15); color: #818cf8; font-weight: 700;">
+              Scroll Right (Actions) <i data-lucide="chevron-right" style="width: 13px; height: 13px;"></i>
+            </button>
+          </div>
+        </div>
+
         <!-- Orders Table (Desktop) -->
-        <div class="orders-table-shell">
+        <div class="orders-table-shell" id="ordersTableShell">
           <table class="orders-table">
             <thead>
               <tr>
-                <th style="width: 44px; text-align: center;">
+                <th style="width: 44px; min-width: 44px; text-align: center;">
                   <input type="checkbox" id="selectAllOrders" class="order-checkbox-custom" title="Select All Orders" ${items.length > 0 && selectedOrderIds.size === items.length ? 'checked' : ''} />
                 </th>
-              <th style="min-width: 280px;">Order & Proof</th>
-              <th style="min-width: 140px;">Customer</th>
-              <th style="min-width: 120px;">Amount</th>
-              <th style="min-width: 130px;">Method</th>
-              <th style="min-width: 140px;">Status</th>
-              <th style="min-width: 140px;">Date</th>
-              <th style="min-width: 180px; text-align: right;">Actions</th>
+              <th style="min-width: 240px;">Order & Proof</th>
+              <th style="min-width: 125px;">Customer</th>
+              <th style="min-width: 100px;">Amount</th>
+              <th style="min-width: 105px;">Method</th>
+              <th style="min-width: 120px;">Status</th>
+              <th style="min-width: 130px;">Date</th>
+              <th class="orders-col-actions" style="min-width: 175px; text-align: right;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -7865,7 +7882,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                   </td>
 
                   <!-- Col 7: Actions -->
-                  <td style="text-align: right;">
+                  <td class="orders-col-actions" style="text-align: right;">
                     <div class="order-actions-toolbar" style="justify-content: flex-end;">
                       <button class="order-quick-btn view" type="button" data-action="open-order" data-id="${escapeHtml(item.id)}" title="View Proof & Order">
                         <i data-lucide="eye" style="width: 13px; height: 13px;"></i> View
@@ -11720,6 +11737,50 @@ function renderAnalyticsView(data) {
   `;
 }
 
+function initOrdersTableEnhancements() {
+  const shell = document.getElementById('ordersTableShell');
+  if (!shell) return;
+
+  let isDown = false;
+  let startX = 0;
+  let scrollLeft = 0;
+
+  shell.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button, input, select, a, .order-id-badge, [data-action], .order-proof-thumb-wrap')) return;
+    isDown = true;
+    shell.classList.add('is-dragging');
+    startX = e.pageX - shell.offsetLeft;
+    scrollLeft = shell.scrollLeft;
+  });
+
+  const stopDrag = () => {
+    isDown = false;
+    shell.classList.remove('is-dragging');
+  };
+
+  shell.addEventListener('mouseleave', stopDrag);
+  shell.addEventListener('mouseup', stopDrag);
+
+  shell.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - shell.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    shell.scrollLeft = scrollLeft - walk;
+  });
+
+  shell.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    if (shell.scrollWidth > shell.clientWidth) {
+      if (e.shiftKey) return;
+      if (shell.scrollHeight <= shell.clientHeight + 10 || e.altKey) {
+        e.preventDefault();
+        shell.scrollLeft += e.deltaY;
+      }
+    }
+  }, { passive: false });
+}
+
 let _renderViewFrame = null;
 function renderView(data) {
   ui.data = data;
@@ -11758,6 +11819,7 @@ function renderView(data) {
         if (window.lucide) lucide.createIcons({ node: viewRoot });
       }, 0);
       initCatalogDragAndDrop();
+      if (current === 'orders') initOrdersTableEnhancements();
       if (current === 'analytics') mountAnalyticsCharts();
       if (notifyCount) {
         const pendingReps = Object.values(data.reports || {}).filter(r => (r.status || 'pending') === 'pending').length;
@@ -14081,6 +14143,16 @@ function attachGlobalHandlers() {
       renderView(ui.data || {});
       const label = next === 'cards' ? '📱 Mobile App Cards' : next === 'table' ? '📋 Desktop Table' : '🔄 Auto Responsive';
       showToast(`Orders layout: ${label}`, 'info');
+      return;
+    }
+    if (action === 'scroll-orders-left') {
+      const shell = document.getElementById('ordersTableShell');
+      if (shell) shell.scrollBy({ left: -320, behavior: 'smooth' });
+      return;
+    }
+    if (action === 'scroll-orders-right') {
+      const shell = document.getElementById('ordersTableShell');
+      if (shell) shell.scrollBy({ left: 320, behavior: 'smooth' });
       return;
     }
     if (action === 'sync-orders') {

@@ -175,7 +175,7 @@ function attachNode(key, mode = 'collection') {
       })
       .catch(() => {});
 
-    // For orders: also listen directly to events/orders where web checkout posts directly
+    // For orders: also listen directly to events/orders and order_approvals where web checkout posts directly
     if (key === 'orders') {
       if (activeUnsubs.has('events_orders_stream')) {
         try { activeUnsubs.get('events_orders_stream')(); } catch (_) {}
@@ -202,6 +202,33 @@ function attachNode(key, mode = 'collection') {
           () => {}
         );
         activeUnsubs.set('events_orders_stream', backupUnsub);
+      } catch (_) {}
+
+      if (activeUnsubs.has('order_approvals_stream')) {
+        try { activeUnsubs.get('order_approvals_stream')(); } catch (_) {}
+        activeUnsubs.delete('order_approvals_stream');
+      }
+      try {
+        const appUnsub = onValue(
+          ref(db, 'order_approvals'),
+          (snap) => {
+            const val = snap.val();
+            if (val && typeof val === 'object') {
+              if (!STORE.orders) STORE.orders = {};
+              Object.entries(val).forEach(([oId, ord]) => {
+                if (ord && typeof ord === 'object') {
+                  const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '');
+                  if (cleanId) {
+                    STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
+                  }
+                }
+              });
+              emit();
+            }
+          },
+          () => {}
+        );
+        activeUnsubs.set('order_approvals_stream', appUnsub);
       } catch (_) {}
     }
   } catch (err) {
@@ -406,12 +433,162 @@ export async function deleteRecord(node, id) {
     await set(nodeRef(node), null);
     return;
   }
+
+  if (node === 'orders') {
+    await deleteOrders([id]);
+    return;
+  }
+
   if (STORE[node] && STORE[node][id]) {
     delete STORE[node][id];
     emit();
     syncWebsiteCache();
   }
   await remove(nodeRef(node, id));
+}
+
+export async function deleteOrders(ids) {
+  if (!Array.isArray(ids)) ids = [ids];
+  const targetIds = ids.map((s) => String(s || '').replace(/[^a-zA-Z0-9_-]/g, '').trim()).filter(Boolean);
+  if (targetIds.length === 0) return;
+
+  const targetSet = new Set(targetIds.map((id) => id.toLowerCase()));
+
+  // 1. Remove from in-memory STORE.orders & STORE.events
+  if (STORE.orders) {
+    Object.keys(STORE.orders).forEach((k) => {
+      const cleanK = String(k).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
+      if (targetSet.has(cleanK) || targetSet.has(String(STORE.orders[k]?.id || '').toLowerCase()) || targetSet.has(String(STORE.orders[k]?.orderId || '').toLowerCase())) {
+        delete STORE.orders[k];
+      }
+    });
+  }
+  if (STORE.events && STORE.events.orders) {
+    Object.keys(STORE.events.orders).forEach((k) => {
+      const cleanK = String(k).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
+      if (targetSet.has(cleanK) || targetSet.has(String(STORE.events.orders[k]?.id || '').toLowerCase())) {
+        delete STORE.events.orders[k];
+      }
+    });
+  }
+
+  // 2. Remove from LocalStorage & SessionStorage cache so listCollection won't resurrect them
+  const storageKeys = [
+    'jaigram_user_orders', 'jaigram_customer_orders', 'linkadda_user_orders',
+    'linkadda_customer_orders', 'linkadda_orders', 'jaigram_orders_backup',
+    'linkadda_admin_orders_local', 'jaigram_my_order_ids', 'linkadda_my_order_ids',
+  ];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.includes('order') || k.includes('jaigram') || k.includes('linkadda')) && !storageKeys.includes(k)) {
+        storageKeys.push(k);
+      }
+    }
+  } catch (_) {}
+
+  storageKeys.forEach((key) => {
+    try {
+      const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((item) => {
+            const itemKey = String(typeof item === 'string' ? item : (item?.orderId || item?.id || '')).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
+            return !targetSet.has(itemKey);
+          });
+          localStorage.setItem(key, JSON.stringify(filtered));
+        } else if (parsed && typeof parsed === 'object') {
+          let changed = false;
+          Object.keys(parsed).forEach((k) => {
+            const cleanK = String(k).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
+            if (targetSet.has(cleanK) || targetSet.has(String(parsed[k]?.id || parsed[k]?.orderId || '').toLowerCase())) {
+              delete parsed[k];
+              changed = true;
+            }
+          });
+          if (changed) localStorage.setItem(key, JSON.stringify(parsed));
+        }
+      }
+    } catch (_) {}
+  });
+
+  // Track deleted order IDs in a blocklist so listCollection never re-ingests them
+  try {
+    let deletedList = [];
+    const rawDel = localStorage.getItem('jaigram_deleted_order_ids');
+    if (rawDel) deletedList = JSON.parse(rawDel);
+    if (!Array.isArray(deletedList)) deletedList = [];
+    targetIds.forEach((id) => {
+      if (!deletedList.includes(id)) deletedList.push(id);
+    });
+    localStorage.setItem('jaigram_deleted_order_ids', JSON.stringify(deletedList.slice(-300)));
+  } catch (_) {}
+
+  emit();
+  saveStoreCache();
+
+  // 3. Delete from Firebase RTDB nodes directly via client SDK
+  targetIds.forEach((cleanId) => {
+    try { remove(ref(db, `orders/${cleanId}`)).catch(() => {}); } catch (_) {}
+    try { remove(ref(db, `events/orders/${cleanId}`)).catch(() => {}); } catch (_) {}
+    try { remove(ref(db, `order_approvals/${cleanId}`)).catch(() => {}); } catch (_) {}
+    try { remove(ref(db, `order_approvals/#${cleanId}`)).catch(() => {}); } catch (_) {}
+  });
+
+  // 4. Also call backend /api/orders with DELETE for server-side auth token cleanup
+  try {
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    const targetUrl = isLocalHost ? 'https://jaigram.shop/api/orders' : '/api/orders';
+    const currentUser = auth.currentUser;
+    const token = currentUser ? await currentUser.getIdToken(false) : '';
+    fetch(targetUrl, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ orderIds: targetIds }),
+    }).catch((err) => console.warn('Backend DELETE error:', err));
+  } catch (apiErr) {
+    console.warn('Backend /api/orders DELETE notice:', apiErr);
+  }
+}
+
+export async function fetchLiveOrders() {
+  try {
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    const targetUrl = isLocalHost ? 'https://jaigram.shop/api/orders' : '/api/orders';
+    const currentUser = auth.currentUser;
+    const token = currentUser ? await currentUser.getIdToken(false) : '';
+    const res = await fetch(targetUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(6000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const ordersList = Array.isArray(data.orders) ? data.orders : (Array.isArray(data) ? data : []);
+      if (ordersList.length > 0) {
+        if (!STORE.orders) STORE.orders = {};
+        let hasNew = false;
+        ordersList.forEach((ord) => {
+          const cleanId = String(ord.id || ord.orderId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+          if (cleanId) {
+            STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
+            hasNew = true;
+          }
+        });
+        if (hasNew) {
+          emit();
+          saveStoreCache();
+        }
+      }
+      return ordersList;
+    }
+  } catch (err) {
+    console.warn('fetchLiveOrders notice:', err?.message || err);
+  }
+  return [];
 }
 
 export async function duplicateRecord(node, id) {
@@ -444,6 +621,16 @@ export function listCollection(node) {
   // 5. Normalizes dates/timestamps so no order displays "365 days ago" or corrupt data
   if (node === 'orders') {
     const ordersMap = new Map();
+    let deletedBlocklist = new Set();
+    try {
+      const rawDel = localStorage.getItem('jaigram_deleted_order_ids');
+      if (rawDel) {
+        const parsedDel = JSON.parse(rawDel);
+        if (Array.isArray(parsedDel)) {
+          parsedDel.forEach((dId) => deletedBlocklist.add(String(dId).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase()));
+        }
+      }
+    } catch (_) {}
 
     const addOrder = (ord, fallbackId = '') => {
       if (!ord || typeof ord !== 'object') return;
@@ -452,6 +639,8 @@ export function listCollection(node) {
       if (!cleanId) return;
 
       const lookupKey = cleanId.toLowerCase();
+      if (deletedBlocklist.has(lookupKey)) return;
+
       const existing = ordersMap.get(lookupKey) || {};
 
       // Sanitize timestamp: if missing or older than 2026, set to current time

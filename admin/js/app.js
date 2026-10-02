@@ -54,9 +54,12 @@ import {
   updateRecord,
   updateRecordsBatch,
   deleteRecord,
+  deleteOrders,
+  fetchLiveOrders,
   duplicateRecord,
   getSnapshot,
 } from './state.js?v=95';
+const selectedOrderIds = new Set();
 import { uploadAsset, deletePublicAsset } from './storage.js';
 import { fetchCurrentSiteCatalog, normalizeCatalogRecords } from './site-import.js';
 import {
@@ -7677,18 +7680,39 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
         </div>
       </div>
 
-      <!-- Orders Table -->
+      <!-- Bulk Actions Floating Bar -->
+      <div class="orders-bulk-bar" style="display: ${selectedOrderIds.size > 0 ? 'flex' : 'none'}; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 14px; margin-bottom: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(12px); flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-weight: 700; color: #818cf8; font-size: 13px;">
+            <span style="display: inline-block; padding: 2px 8px; border-radius: 6px; background: rgba(99, 102, 241, 0.2); margin-right: 6px;">${selectedOrderIds.size}</span>
+            Order(s) Selected
+          </span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-ghost btn-sm" type="button" data-action="clear-selected-orders" style="font-size: 12px; padding: 6px 12px;">
+            Deselect All
+          </button>
+          <button class="btn btn-danger btn-sm" type="button" data-action="bulk-delete-orders" style="font-size: 12px; padding: 6px 14px; background: #dc2626; color: #fff; font-weight: 700;">
+            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Delete Selected (${selectedOrderIds.size})
+          </button>
+        </div>
+      </div>
+
+      <!-- Orders Table (Desktop) -->
       <div class="orders-table-shell">
         <table class="orders-table">
           <thead>
             <tr>
+              <th style="width: 44px; text-align: center;">
+                <input type="checkbox" id="selectAllOrders" class="order-checkbox-custom" title="Select All Orders" ${items.length > 0 && selectedOrderIds.size === items.length ? 'checked' : ''} />
+              </th>
               <th style="min-width: 280px;">Order & Proof</th>
               <th style="min-width: 140px;">Customer</th>
               <th style="min-width: 120px;">Amount</th>
               <th style="min-width: 130px;">Method</th>
               <th style="min-width: 140px;">Status</th>
               <th style="min-width: 140px;">Date</th>
-              <th style="min-width: 160px; text-align: right;">Actions</th>
+              <th style="min-width: 180px; text-align: right;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -7705,7 +7729,12 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
               const formattedAmt = item.amountDisplay || formatCurrencyCompact(item.amount || item.inr || 0);
 
               return `
-                <tr>
+                <tr class="${selectedOrderIds.has(String(item.id)) ? 'row-selected' : ''}">
+                  <!-- Checkbox -->
+                  <td style="text-align: center;">
+                    <input type="checkbox" class="order-item-checkbox order-checkbox-custom" data-order-id="${escapeHtml(item.id)}" ${selectedOrderIds.has(String(item.id)) ? 'checked' : ''} />
+                  </td>
+
                   <!-- Col 1: Order & Proof -->
                   <td>
                     <div class="order-product-cell">
@@ -7785,13 +7814,16 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                           <i data-lucide="x" style="width: 13px; height: 13px;"></i>
                         </button>
                       ` : ''}
+                      <button class="order-quick-btn delete" type="button" data-action="delete-order" data-id="${escapeHtml(item.id)}" title="Delete Order" style="color: #f87171; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.08);">
+                        <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+                      </button>
                     </div>
                   </td>
                 </tr>
               `;
             }).join('') : `
               <tr>
-                <td colspan="7" style="text-align: center; padding: 48px 24px; color: var(--muted);">
+                <td colspan="8" style="text-align: center; padding: 48px 24px; color: var(--muted);">
                   <i data-lucide="inbox" style="width: 44px; height: 44px; opacity: 0.3; margin-bottom: 12px;"></i>
                   <div style="font-size: 15px; font-weight: 600; color: var(--text);">No orders found</div>
                   <div style="font-size: 13px; margin-top: 4px;">${allOrders.length ? 'No orders match your current filter settings.' : 'Customer orders will appear here in real time as they complete checkout.'}</div>
@@ -7800,6 +7832,106 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
             `}
           </tbody>
         </table>
+      </div>
+
+      <!-- Orders Mobile Cards (App-Like Touch Interface) -->
+      <div class="orders-mobile-cards">
+        ${items.length ? items.map((item) => {
+          const proof = orderPaymentProof(item);
+          const isPaid = isPaidOrder(item);
+          const isFailed = isFailedOrder(item);
+          const orderId = item.id || item.orderId || '-';
+          const shortId = orderId.length > 10 ? `${orderId.substring(0, 8)}...` : orderId;
+          const prodTitle = orderProductName(item);
+          const method = orderMethodLabel(item);
+          const methodLower = method.toLowerCase();
+          const methodClass = methodLower.includes('upi') ? 'upi' : methodLower.includes('binance') ? 'binance' : methodLower.includes('paypal') ? 'paypal' : 'crypto';
+          const formattedAmt = item.amountDisplay || formatCurrencyCompact(item.amount || item.inr || 0);
+
+          return `
+            <div class="order-mobile-card ${isPaid ? 'status-approved' : isFailed ? 'status-rejected' : 'status-pending'}">
+              <div class="order-mobile-card-head">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" class="order-item-checkbox order-checkbox-custom" data-order-id="${escapeHtml(item.id)}" ${selectedOrderIds.has(String(item.id)) ? 'checked' : ''} />
+                  <span class="order-id-badge" onclick="copyText('${escapeHtml(orderId)}'); showToast('Order ID copied!');" title="Tap to Copy #${escapeHtml(orderId)}">
+                    <i data-lucide="copy" style="width: 10px; height: 10px;"></i> #${escapeHtml(shortId)}
+                  </span>
+                  <span style="font-size: 11px; color: #fbbf24; font-weight: 600; display: flex; align-items: center; gap: 3px;">
+                    <i data-lucide="store" style="width: 10px; height: 10px;"></i> ${escapeHtml(orderSellerName(item))}
+                  </span>
+                </div>
+                <span class="order-status-pill ${isPaid ? 'approved' : isFailed ? 'rejected' : 'pending'}">
+                  ${isPaid ? '🟢 Approved' : isFailed ? '🔴 Rejected' : '🟡 Pending'}
+                </span>
+              </div>
+
+              <div class="order-mobile-product-box">
+                <div class="order-mobile-proof-wrap" data-action="open-order" data-id="${escapeHtml(item.id)}" title="View Proof & Order">
+                  ${proof ? `
+                    <img src="${escapeHtml(proof)}" alt="Proof" loading="lazy" onerror="this.onerror=null; this.src='/favicon.svg';" />
+                    <span class="order-mobile-proof-tag"><i data-lucide="image" style="width: 8px; height: 8px;"></i> PROOF</span>
+                  ` : `
+                    <div style="width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; font-weight: 800; font-size: 16px;">
+                      ${escapeHtml((prodTitle[0] || 'O').toUpperCase())}
+                    </div>
+                  `}
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div class="order-mobile-title" title="${escapeHtml(prodTitle)}">${escapeHtml(prodTitle)}</div>
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 4px; gap: 6px;">
+                    <div class="order-mobile-amount">${escapeHtml(formattedAmt)}</div>
+                    <span class="order-method-badge ${methodClass}" style="font-size: 11px; padding: 2px 7px;">
+                      <i data-lucide="${methodClass === 'upi' ? 'smartphone' : methodClass === 'binance' ? 'coins' : methodClass === 'paypal' ? 'wallet' : 'shield-check'}" style="width: 11px; height: 11px;"></i>
+                      ${escapeHtml(method)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="order-mobile-meta-grid">
+                <div class="order-mobile-meta-item">
+                  <span class="order-mobile-meta-label">Customer</span>
+                  <span class="order-mobile-meta-val" title="${escapeHtml(orderCustomerLabel(item))}">${escapeHtml(orderCustomerLabel(item))}</span>
+                </div>
+                <div class="order-mobile-meta-item">
+                  <span class="order-mobile-meta-label">Date</span>
+                  <span class="order-mobile-meta-val">${escapeHtml(formatRelativeTime(orderDateValue(item)))}</span>
+                </div>
+                ${item.utr ? `
+                  <div class="order-mobile-meta-item" style="grid-column: span 2; background: rgba(59, 130, 246, 0.08); padding: 5px 8px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                    <span class="order-mobile-meta-label" style="color: #93c5fd;">🔢 UPI UTR</span>
+                    <span class="order-mobile-meta-val" style="font-family: monospace; font-weight: 700; color: #fff;">${escapeHtml(item.utr)}</span>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="order-mobile-actions">
+                <button class="btn btn-ghost btn-sm" type="button" data-action="open-order" data-id="${escapeHtml(item.id)}" style="flex: 1; justify-content: center; font-size: 12px; height: 36px;">
+                  <i data-lucide="eye" style="width: 13px; height: 13px;"></i> View
+                </button>
+                ${!isPaid ? `
+                  <button class="btn btn-sm" type="button" data-action="approve-order" data-id="${escapeHtml(item.id)}" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; font-size: 12px; flex: 1; justify-content: center; height: 36px;">
+                    <i data-lucide="check" style="width: 13px; height: 13px;"></i> Approve
+                  </button>
+                ` : ''}
+                ${!isFailed ? `
+                  <button class="btn btn-ghost btn-sm" type="button" data-action="reject-order" data-id="${escapeHtml(item.id)}" style="color: #f87171; border-color: rgba(239, 68, 68, 0.3); font-size: 12px; height: 36px;">
+                    <i data-lucide="x" style="width: 13px; height: 13px;"></i> Reject
+                  </button>
+                ` : ''}
+                <button class="btn btn-ghost btn-sm" type="button" data-action="delete-order" data-id="${escapeHtml(item.id)}" style="color: #f87171; border-color: rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.05); font-size: 12px; height: 36px; padding: 0 10px;" title="Delete">
+                  <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div style="text-align: center; padding: 36px 18px; color: var(--muted); background: rgba(255, 255, 255, 0.02); border-radius: 16px; border: 1px dashed rgba(255, 255, 255, 0.1);">
+            <i data-lucide="inbox" style="width: 38px; height: 38px; opacity: 0.3; margin-bottom: 8px;"></i>
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">No orders found</div>
+            <div style="font-size: 12px; margin-top: 4px;">Orders will appear here in real time.</div>
+          </div>
+        `}
       </div>
 
     </div>
@@ -13770,28 +13902,47 @@ function attachGlobalHandlers() {
       return;
     }
     if (action === 'delete-order') {
-      if (confirm('Delete this order?')) {
-        await deleteRecord('orders', id);
+      const orderCleanId = String(id || '').trim();
+      if (!orderCleanId) return;
+      if (confirm(`Delete order #${orderCleanId}? This will permanently remove it from database records.`)) {
+        await deleteOrders([orderCleanId]);
+        selectedOrderIds.delete(orderCleanId);
+        selectedOrderIds.delete(orderCleanId.replace(/^#+/, ''));
         closeModal();
-        showToast('Order deleted');
+        renderView(ui.data || {});
+        showToast('Order deleted successfully', 'success');
       }
+      return;
+    }
+    if (action === 'bulk-delete-orders') {
+      if (selectedOrderIds.size === 0) return;
+      const count = selectedOrderIds.size;
+      if (confirm(`Permanently delete all ${count} selected order(s) from database records?`)) {
+        actionBtn.disabled = true;
+        try {
+          await deleteOrders(Array.from(selectedOrderIds));
+          selectedOrderIds.clear();
+          renderView(ui.data || {});
+          showToast(`Deleted ${count} order(s) successfully`, 'success');
+        } catch (err) {
+          showToast('Bulk delete error: ' + (err?.message || err), 'danger');
+        }
+      }
+      return;
+    }
+    if (action === 'clear-selected-orders') {
+      selectedOrderIds.clear();
+      renderView(ui.data || {});
       return;
     }
     if (action === 'sync-orders') {
       actionBtn.disabled = true;
       actionBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Syncing...';
       try {
+        await fetchLiveOrders();
         const unified = getAllUnifiedOrders();
-        if (auth && auth.currentUser) {
-          unified.forEach((ord) => {
-            const safePath = String(ord.id || ord.orderId || '').replace(/[^a-zA-Z0-9_-]/g, '');
-            if (safePath) {
-              set(ref(db, `orders/${safePath}`), ord).catch(() => {});
-            }
-          });
-        }
         renderView(ui.data || {});
-        showToast(`✅ Synced ${unified.length} orders successfully!`, 'success');
+        showToast(`✅ Realtime sync: ${unified.length} orders loaded!`, 'success');
       } catch (err) {
         showToast('Sync error: ' + (err?.message || err), 'danger');
       } finally {
@@ -14859,10 +15010,55 @@ subscribe((data) => {
 initRouteHandling();
 isInitialBoot = false;
 
+// Setup order selection checkbox listener
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'selectAllOrders') {
+    const isChecked = e.target.checked;
+    const allOrders = getAllUnifiedOrders();
+    const items = sortManagementList(filterManagementList(allOrders, 'orders'));
+    if (isChecked) {
+      items.forEach((it) => selectedOrderIds.add(String(it.id)));
+    } else {
+      selectedOrderIds.clear();
+    }
+    renderView(ui.data || {});
+    return;
+  }
+
+  if (e.target && e.target.classList.contains('order-item-checkbox')) {
+    const oId = e.target.dataset.orderId;
+    if (oId) {
+      if (e.target.checked) {
+        selectedOrderIds.add(String(oId));
+      } else {
+        selectedOrderIds.delete(String(oId));
+      }
+      renderView(ui.data || {});
+    }
+    return;
+  }
+});
+
+// Periodic background live order fetch every 12 seconds when on orders or dashboard page
+setInterval(() => {
+  const currentRoute = (window.location.hash.replace(/^#\/?/, '') || 'dashboard').toLowerCase();
+  if (currentRoute === 'orders' || currentRoute === 'dashboard') {
+    fetchLiveOrders().catch(() => {});
+  }
+}, 12000);
+
+window.addEventListener('hashchange', () => {
+  const r = (window.location.hash.replace(/^#\/?/, '') || 'dashboard').toLowerCase();
+  if (r === 'orders') {
+    fetchLiveOrders().catch(() => {});
+  }
+});
+
 // Protect route verifies auth and activates authenticated realtime sync
 protectRoute((user) => {
   syncTopbar(user);
   startRealtime(true);
+  fetchLiveOrders().catch(() => {});
 });
 
 

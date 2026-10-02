@@ -82,7 +82,7 @@ function normalizeOrder(id, raw) {
 }
 
 export default async function handler(req, res) {
-  if (handleCors(req, res, 'GET, POST, PUT, OPTIONS')) return;
+  if (handleCors(req, res, 'GET, POST, PUT, DELETE, OPTIONS')) return;
 
   const token = await getFirebaseAdminToken();
   const authQuery = token ? `?auth=${encodeURIComponent(token)}` : '';
@@ -625,6 +625,77 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error('API orders POST error:', err);
       return res.status(500).json({ success: false, error: err.message || 'Failed to save order.' });
+    }
+  }
+
+  // ━━━ DELETE: REMOVE ORDER(S) FROM ALL RTDB NODES (ADMIN ONLY) ━━━
+  if (req.method === 'DELETE') {
+    try {
+      const isAdmin = await verifyAdminRequest(req);
+      if (!isAdmin) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Master Admin credentials required to delete orders.' });
+      }
+
+      let body = req.body;
+      if (!body && typeof req.on === 'function') {
+        body = await new Promise((resolve) => {
+          let data = '';
+          req.on('data', chunk => { data += chunk; });
+          req.on('end', () => {
+            try { resolve(JSON.parse(data)); } catch (_) { resolve({}); }
+          });
+          req.on('error', () => resolve({}));
+        });
+      } else if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch (_) { body = {}; }
+      }
+      body = body || {};
+
+      const query = req.query || {};
+      const targetIds = [];
+
+      if (body.orderIds && Array.isArray(body.orderIds)) {
+        targetIds.push(...body.orderIds);
+      } else if (body.ids && Array.isArray(body.ids)) {
+        targetIds.push(...body.ids);
+      } else if (body.orderId || body.id) {
+        targetIds.push(body.orderId || body.id);
+      } else if (query.orderIds || query.ids) {
+        targetIds.push(...String(query.orderIds || query.ids).split(','));
+      } else if (query.orderId || query.id) {
+        targetIds.push(query.orderId || query.id);
+      }
+
+      const cleanIds = [...new Set(targetIds.map(s => String(s || '').replace(/[^a-zA-Z0-9_-]/g, '').trim()).filter(Boolean))];
+
+      if (cleanIds.length === 0) {
+        return res.status(400).json({ success: false, error: 'orderId or orderIds array is required to delete.' });
+      }
+
+      const deleteResults = await Promise.allSettled(cleanIds.map(async (cleanId) => {
+        // 1. Delete from /orders/${cleanId}
+        const p1 = fetch(`${RTDB_URL}/orders/${encodeURIComponent(cleanId)}.json${authQuery}`, { method: 'DELETE' }).catch(() => {});
+        // 2. Delete from /events/orders/${cleanId}
+        const p2 = fetch(`${RTDB_URL}/events/orders/${encodeURIComponent(cleanId)}.json${authQuery}`, { method: 'DELETE' }).catch(() => {});
+        // 3. Delete from /order_approvals/${cleanId}
+        const p3 = fetch(`${RTDB_URL}/order_approvals/${encodeURIComponent(cleanId)}.json${authQuery}`, { method: 'DELETE' }).catch(() => {});
+        // 4. Delete from /order_approvals/#${cleanId}
+        const p4 = fetch(`${RTDB_URL}/order_approvals/%23${encodeURIComponent(cleanId)}.json${authQuery}`, { method: 'DELETE' }).catch(() => {});
+        await Promise.allSettled([p1, p2, p3, p4]);
+        return cleanId;
+      }));
+
+      const deletedIds = deleteResults.filter(r => r.status === 'fulfilled').map(r => r.value);
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully deleted ${deletedIds.length} order(s).`,
+        deletedCount: deletedIds.length,
+        deletedIds,
+      });
+    } catch (err) {
+      console.error('API orders DELETE error:', err);
+      return res.status(500).json({ success: false, error: err.message || 'Failed to delete order(s).' });
     }
   }
 

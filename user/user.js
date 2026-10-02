@@ -1222,7 +1222,7 @@
               const ordTitle = String(ord.title || ord.productName || '').toLowerCase().trim();
               const ordCanonical = getCanonicalOrderKey(ordRaw);
 
-              if ((recDigits && ordDigits && recDigits === ordDigits) || (recId && ordRaw.includes(recId)) || (recName && ordTitle && recName === ordTitle && (Date.now() - (rec.approvedAt || 0) < 86400000))) {
+              if ((recDigits && ordDigits && recDigits === ordDigits) || (recId && ordRaw && (recId === ordRaw || getCanonicalOrderKey(recId) === ordCanonical))) {
                 const existing = ordersMap.get(ordCanonical) || ord;
                 const link = existing.downloadLink || rec.downloadLink || 'https://t.me/TRUSTED_BROTHER1234';
                 ordersMap.set(ordCanonical, {
@@ -1269,6 +1269,8 @@
                 id: admOrd.orderId || admRawId,
                 status: isAppr ? 'approved' : (admStatus || existing.status || 'pending'),
                 orderStatus: isAppr ? 'approved' : (admStatus || existing.orderStatus || 'pending'),
+                paymentStatus: isAppr ? 'approved' : (admStatus || existing.paymentStatus || 'pending'),
+                verified: Boolean(isAppr),
                 downloadLink: link,
                 fileUrl: link,
                 orderLink: link
@@ -1283,15 +1285,17 @@
               const admDigits = admRawId.match(/\d{5,8}/)?.[0] || '';
 
               if ((admDigits && ordDigits && admDigits === ordDigits) || (admCanonical && ordCanonical && admCanonical === ordCanonical)) {
+                const admStatus = String(admOrd.status || admOrd.orderStatus || '').toLowerCase();
+                const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(admStatus) || admOrd.verified;
                 const existing = ordersMap.get(ordCanonical) || ord;
-                const link = admOrd.downloadLink || admOrd.telegramLink || admOrd.fileUrl || existing.downloadLink || 'https://t.me/TRUSTED_BROTHER1234';
+                const link = admOrd.downloadLink || admOrd.telegramLink || admOrd.fileUrl || existing.downloadLink || (isAppr ? 'https://t.me/TRUSTED_BROTHER1234' : '');
                 ordersMap.set(ordCanonical, {
                   ...existing,
                   ...admOrd,
-                  status: 'approved',
-                  orderStatus: 'approved',
-                  paymentStatus: 'approved',
-                  verified: true,
+                  status: isAppr ? 'approved' : (admStatus || existing.status || 'pending'),
+                  orderStatus: isAppr ? 'approved' : (admStatus || existing.orderStatus || 'pending'),
+                  paymentStatus: isAppr ? 'approved' : (admStatus || existing.paymentStatus || 'pending'),
+                  verified: Boolean(isAppr),
                   downloadLink: link,
                   fileUrl: link,
                   orderLink: link

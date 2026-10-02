@@ -709,22 +709,49 @@ export function listCollection(node) {
     const addOrder = (ord, fallbackId = '') => {
       if (!ord || typeof ord !== 'object') return;
       const rawId = ord.id || ord.orderId || fallbackId || '';
-      const cleanId = String(rawId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+      const cleanId = String(rawId).replace(/^#+/, '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
       if (!cleanId) return;
 
-      const lookupKey = cleanId.toLowerCase();
-      if (deletedBlocklist.has(lookupKey)) return;
+      const lowerCleanId = cleanId.toLowerCase();
+      // CRITICAL SECURITY: Never ingest products, sellers, categories or non-order items
+      if (lowerCleanId.startsWith('prod_') || lowerCleanId.startsWith('seller_') || lowerCleanId.startsWith('cat_') || lowerCleanId.startsWith('banner_') || lowerCleanId.startsWith('usr_') || lowerCleanId.startsWith('cust_') || lowerCleanId.startsWith('vis_')) return;
+      if (ord.inStock !== undefined || ord.pricing !== undefined || (ord.stock !== undefined && !ord.orderId && !ord.paymentMethod)) return;
+      if (ord.sellerStoreName !== undefined && !ord.orderId && !ord.customerEmail && !ord.paymentMethod) return;
+      if (ord.type === 'category' || ord.type === 'seller' || ord.type === 'product' || ord.type === 'visitor' || ord.type === 'telegram_click' || ord.type === 'review_submission') return;
+      
+      // An order MUST have at least an orderId, paymentMethod, customerEmail, customerUid, or be wallet_topup
+      const hasOrderSignature = Boolean(ord.orderId || ord.paymentMethod || ord.customerEmail || ord.customerUid || ord.utr || ord.type === 'wallet_topup' || ord.pkg === 'wallet_topup');
+      if (!hasOrderSignature && !ord.status) return;
+
+      // Deduplicate prefixes: JG-153831, LA-153831, ORD-153831, 153831 all map to the exact same order
+      const baseKey = lowerCleanId.replace(/^(jg|la|ord)[_-]?/, '');
+      const lookupKey = (baseKey && baseKey.length >= 4) ? baseKey : lowerCleanId;
+      if (deletedBlocklist.has(lookupKey) || deletedBlocklist.has(lowerCleanId)) return;
 
       const existing = ordersMap.get(lookupKey) || {};
 
-      // Sanitize timestamp: if missing or older than 2026, set to current time
+      // Preserve authentic timestamp - do NOT overwrite real timestamps
       let ts = Number(ord.createdAt || ord.timestamp || existing.createdAt || existing.timestamp || 0);
-      if (!ts || ts < 1767225600000) {
-        ts = Date.now();
+      if (!ts) {
+        if (ord.date) {
+          const parsedD = Date.parse(ord.date);
+          if (!isNaN(parsedD)) ts = parsedD;
+        }
+        if (!ts) ts = Date.now();
       }
 
-      const displayOrderId = ord.displayOrderId || (String(rawId).startsWith('#') ? rawId : ('#' + cleanId));
-      const amount = Number(ord.amount || ord.price || existing.amount || 399);
+      const displayOrderId = ord.displayOrderId || (cleanId.startsWith('JG-') ? ('#' + cleanId) : (String(rawId).startsWith('#') ? rawId : ('#JG-' + cleanId.replace(/^JG-/, ''))));
+      const amount = Number(ord.amount !== undefined ? ord.amount : (ord.price !== undefined ? ord.price : (existing.amount || 0)));
+
+      // Title & Type detection
+      const isTopup = ord.type === 'wallet_topup' || ord.pkg === 'wallet_topup' || ord.productId === 'wallet_topup' ||
+        (ord.productName && ord.productName.toLowerCase().includes('wallet recharge')) ||
+        (ord.title && ord.title.toLowerCase().includes('wallet recharge')) ||
+        existing.type === 'wallet_topup';
+
+      const prodTitle = ord.productName || ord.title || ord.displayTitle || ord.productTitle || existing.productName || existing.title || (isTopup ? 'JaiGram Wallet Recharge' : 'Digital Media Pass');
+      const prodImage = ord.image || ord.productImage || ord.thumbnail || existing.image || existing.productImage || '';
+      const utrVal = ord.utr || ord.utrNumber || ord.upiRef || ord.transactionId || ord.txnId || ord.refId || ord.referenceId || ord.paymentUtr || ord.bankRef || existing.utr || '';
 
       const merged = {
         ...existing,
@@ -735,18 +762,23 @@ export function listCollection(node) {
         amount,
         amountDisplay: ord.amountDisplay || `₹${amount.toFixed(2)}`,
         status: ord.status || ord.orderStatus || existing.status || 'pending',
+        type: isTopup ? 'wallet_topup' : (ord.type || existing.type || 'product_purchase'),
+        pkg: isTopup ? 'wallet_topup' : (ord.pkg || existing.pkg || 'product'),
         createdAt: ts,
         timestamp: ts,
         date: ord.date || new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        productName: ord.productName || ord.title || ord.displayTitle || existing.productName || 'VIP Digital Media Pass',
-        title: ord.title || ord.productName || ord.displayTitle || existing.title || 'VIP Digital Media Pass',
+        productName: prodTitle,
+        title: prodTitle,
+        image: prodImage,
+        productImage: prodImage,
+        thumbnail: prodImage,
         sellerName: (() => {
           const rawSeller = ord.sellerName || ord.seller || existing.sellerName || '';
           if (rawSeller && rawSeller !== 'JaiGram Verified' && rawSeller !== 'LinkAdda Verified' && rawSeller !== 'JaiGram Official' && rawSeller !== 'LinkAdda Official') {
             return rawSeller;
           }
           const prodId = String(ord.productId || ord.pId || ord.product_id || existing.productId || '').trim();
-          const pTitle = String(ord.productName || ord.title || ord.displayTitle || existing.productName || '').trim().toLowerCase();
+          const pTitle = String(prodTitle).trim().toLowerCase();
           const prods = STORE.products || {};
           const matchedProd = Object.values(prods).find(p => {
             if (!p || typeof p !== 'object') return false;
@@ -769,7 +801,7 @@ export function listCollection(node) {
             return rawSeller;
           }
           const prodId = String(ord.productId || ord.pId || ord.product_id || existing.productId || '').trim();
-          const pTitle = String(ord.productName || ord.title || ord.displayTitle || existing.productName || '').trim().toLowerCase();
+          const pTitle = String(prodTitle).trim().toLowerCase();
           const prods = STORE.products || {};
           const matchedProd = Object.values(prods).find(p => {
             if (!p || typeof p !== 'object') return false;
@@ -787,12 +819,17 @@ export function listCollection(node) {
           return 'Trusted brother';
         })(),
         customerName: ord.customerName || ord.buyerName || ord.name || ord.customerEmail || existing.customerName || 'Customer',
+        customerEmail: ord.customerEmail || ord.email || ord.buyerEmail || existing.customerEmail || '',
+        customerUid: ord.customerUid || ord.buyerUid || ord.uid || existing.customerUid || '',
         paymentMethod: ord.paymentMethod || ord.method || existing.paymentMethod || 'UPI',
         screenshot: ord.screenshot || ord.screenshotUrl || ord.paymentProof || ord.proofUrl || existing.screenshot || '',
         screenshotUrl: ord.screenshotUrl || ord.screenshot || ord.paymentProof || ord.proofUrl || existing.screenshotUrl || '',
         paymentProof: ord.paymentProof || ord.screenshotUrl || ord.proofUrl || ord.screenshot || existing.paymentProof || '',
         proofUrl: ord.proofUrl || ord.paymentProof || ord.screenshotUrl || ord.screenshot || existing.proofUrl || '',
-        utr: ord.utr || ord.utrNumber || ord.upiRef || existing.utr || '',
+        utr: utrVal,
+        utrNumber: utrVal,
+        upiRef: utrVal,
+        transactionId: utrVal,
       };
 
       ordersMap.set(lookupKey, merged);
@@ -820,21 +857,12 @@ export function listCollection(node) {
       });
     }
 
-    // 3. Scan all localStorage and sessionStorage keys
+    // 3. Scan ONLY explicit orders storage keys (never scan raw jaigram/linkadda keys that contain products/sellers!)
     const storageKeys = [
       'jaigram_user_orders', 'jaigram_customer_orders', 'linkadda_user_orders',
       'linkadda_customer_orders', 'linkadda_orders', 'jaigram_orders_backup',
       'linkadda_admin_orders_local'
     ];
-
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.includes('order') || k.includes('jaigram') || k.includes('linkadda')) && !storageKeys.includes(k)) {
-          storageKeys.push(k);
-        }
-      }
-    } catch (_) {}
 
     storageKeys.forEach((key) => {
       try {
@@ -842,7 +870,11 @@ export function listCollection(node) {
         if (raw) {
           const parsed = JSON.parse(raw);
           const items = Array.isArray(parsed) ? parsed : (typeof parsed === 'object' ? Object.values(parsed) : []);
-          items.forEach((item) => addOrder(item));
+          items.forEach((item) => {
+            if (item && typeof item === 'object' && (item.orderId || item.id || item.paymentMethod || item.type === 'wallet_topup')) {
+              addOrder(item);
+            }
+          });
         }
       } catch (_) {}
     });

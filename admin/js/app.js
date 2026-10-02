@@ -5857,12 +5857,50 @@ function orderStatusValue(item = {}) {
 }
 
 function orderPaymentProof(item = {}) {
-  const raw = pickFirstValue(item, ['paymentProof', 'screenshotUrl', 'proofUrl', 'proof', 'screenshot', 'receiptUrl', 'receipt', 'image', 'screenshotBase64', 'payment_proof'], '');
+  const raw = pickFirstValue(item, ['screenshot', 'screenshotUrl', 'paymentProof', 'proofUrl', 'proof', 'screenshotBase64', 'payment_proof', 'receiptUrl', 'receipt'], '');
   if (!raw) return '';
   if (raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('http://') || raw.startsWith('https://')) return raw;
   if (raw.startsWith('/')) return raw;
   if (raw.startsWith('images/')) return `/${raw}`;
   return resolveMediaSource(raw) || (raw.startsWith('/') ? raw : `/${raw}`);
+}
+
+function orderProductImage(item = {}) {
+  let raw = pickFirstValue(item, ['image', 'productImage', 'thumbnail', 'thumb', 'coverImage', 'picture', 'product_image'], '');
+  if (!raw) {
+    const prodId = String(item.productId || item.pId || item.product_id || '').trim();
+    const pTitle = String(item.productName || item.title || '').trim().toLowerCase();
+    const prods = (typeof STORE !== 'undefined' && STORE.products) ? STORE.products : {};
+    const matched = Object.values(prods).find(p => {
+      if (!p || typeof p !== 'object') return false;
+      if (prodId && (String(p.id || p.key || '') === prodId || String(p.productId || '') === prodId)) return true;
+      if (pTitle && pTitle !== 'vip digital access' && pTitle !== 'vip digital media pass') {
+        const t = String(p.title || p.name || p.productName || '').trim().toLowerCase();
+        if (t && (t === pTitle || t.includes(pTitle) || pTitle.includes(t))) return true;
+      }
+      return false;
+    });
+    if (matched) {
+      raw = pickFirstValue(matched, ['image', 'productImage', 'thumbnail', 'thumb', 'coverImage', 'picture'], '');
+    }
+  }
+  if (!raw) return '';
+  if (raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.startsWith('/')) return raw;
+  if (raw.startsWith('images/')) return `/${raw}`;
+  return resolveMediaSource(raw) || (raw.startsWith('/') ? raw : `/${raw}`);
+}
+
+function orderUtr(item = {}) {
+  const val = candidateText(item, [
+    'utr', 'utrNumber', 'utr_number', 'utr_no', 'upiRef', 'upi_ref', 'txnId', 'txn_id',
+    'transactionId', 'transaction_id', 'paymentUtr', 'payment_utr', 'refId', 'ref_id',
+    'referenceId', 'reference_no', 'bankRef', 'bank_ref', 'utrVal'
+  ], '');
+  if (val && String(val).trim() && String(val).trim() !== '-' && String(val).trim().length >= 4) {
+    return String(val).trim();
+  }
+  return '';
 }
 
 function orderDeliveryInfo(item = {}) {
@@ -7455,6 +7493,7 @@ window.handlePaymentUrlInput = function(input, previewId) {
 
 function renderOrderDetailsModal(item = {}) {
   const proof = orderPaymentProof(item);
+  const prodImg = orderProductImage(item);
   const delivery = orderDeliveryInfo(item);
   const isPaid = isPaidOrder(item);
   const isFailed = isFailedOrder(item);
@@ -7463,7 +7502,7 @@ function renderOrderDetailsModal(item = {}) {
   const orderId = item.id || item.orderId || '-';
   const prodName = orderProductName(item);
   const sellerName = orderSellerName(item);
-  const utrVal = item.utr || '';
+  const utrVal = orderUtr(item);
 
   return `
     <div class="order-inspector-container" style="width: 100%; max-width: 960px; margin: 0 auto; padding: 4px 4px 30px 4px; box-sizing: border-box;">
@@ -7491,7 +7530,7 @@ function renderOrderDetailsModal(item = {}) {
         <!-- Left: Proof Screenshot / Product Media -->
         <div style="display: flex; flex-direction: column; gap: 12px;">
           <div style="font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
-            <span>Payment Screenshot Proof</span>
+            <span>Payment Proof & Media</span>
             ${proof ? `<a href="${escapeHtml(proof)}" target="_blank" rel="noreferrer" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 2px 8px;"><i data-lucide="external-link" style="width: 12px; height: 12px;"></i> Open Full Size</a>` : ''}
           </div>
           
@@ -7500,6 +7539,11 @@ function renderOrderDetailsModal(item = {}) {
               <a href="${escapeHtml(proof)}" target="_blank" rel="noreferrer" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                 <img src="${escapeHtml(proof)}" alt="Payment Proof" style="max-width: 100%; max-height: 360px; object-fit: contain; display: block; cursor: zoom-in;" />
               </a>
+            ` : prodImg ? `
+              <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px;">
+                <img src="${escapeHtml(prodImg)}" alt="Product Image" style="max-width: 100%; max-height: 280px; object-fit: contain; border-radius: 8px; display: block;" />
+                <span style="font-size: 11px; color: var(--muted); margin-top: 8px;">Product Media (No screenshot attached)</span>
+              </div>
             ` : `
               <div style="text-align: center; color: var(--muted); padding: 30px;">
                 <i data-lucide="image-off" style="width: 40px; height: 40px; opacity: 0.4; margin-bottom: 8px;"></i>
@@ -7737,6 +7781,8 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
           <tbody>
             ${items.length ? items.map((item) => {
               const proof = orderPaymentProof(item);
+              const prodImg = orderProductImage(item);
+              const displayThumb = proof || prodImg;
               const isPaid = isPaidOrder(item);
               const isFailed = isFailedOrder(item);
               const orderId = item.id || item.orderId || '-';
@@ -7746,6 +7792,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
               const methodLower = method.toLowerCase();
               const methodClass = methodLower.includes('upi') ? 'upi' : methodLower.includes('binance') ? 'binance' : methodLower.includes('paypal') ? 'paypal' : 'crypto';
               const formattedAmt = item.amountDisplay || formatCurrencyCompact(item.amount || item.inr || 0);
+              const itemUtr = orderUtr(item);
 
               return `
                 <tr class="${selectedOrderIds.has(String(item.id)) ? 'row-selected' : ''}">
@@ -7757,10 +7804,10 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                   <!-- Col 1: Order & Proof -->
                   <td>
                     <div class="order-product-cell">
-                      <div class="order-proof-thumb-wrap" data-action="open-order" data-id="${escapeHtml(item.id)}" title="${proof ? 'View Payment Screenshot' : 'View Order Details'}">
-                        ${proof ? `
-                          <img src="${escapeHtml(proof)}" alt="Proof" loading="lazy" onerror="this.onerror=null; this.style.opacity='0.6'; this.src='/favicon.svg';" />
-                          <span class="order-proof-badge"><i data-lucide="image" style="width: 8px; height: 8px; vertical-align: middle;"></i> PROOF</span>
+                      <div class="order-proof-thumb-wrap" data-action="open-order" data-id="${escapeHtml(item.id)}" title="${proof ? 'View Payment Screenshot' : (prodImg ? 'View Product Media' : 'View Order Details')}">
+                        ${displayThumb ? `
+                          <img src="${escapeHtml(displayThumb)}" alt="Media" loading="lazy" onerror="this.onerror=null; this.style.opacity='0.6'; this.src='/favicon.svg';" />
+                          <span class="order-proof-badge"><i data-lucide="${proof ? 'image' : 'package'}" style="width: 8px; height: 8px; vertical-align: middle;"></i> ${proof ? 'PROOF' : 'ITEM'}</span>
                         ` : `
                           <div style="width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; font-weight: 800; font-size: 16px;">
                             ${escapeHtml((prodTitle[0] || 'O').toUpperCase())}
@@ -7778,7 +7825,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                           <span class="order-id-badge" onclick="copyText('${escapeHtml(orderId)}'); showToast('Order ID copied!');" title="Click to Copy #${escapeHtml(orderId)}">
                             <i data-lucide="copy" style="width: 10px; height: 10px;"></i> #${escapeHtml(shortId)}
                           </span>
-                          ${item.utr ? `<span style="font-size: 10px; color: #60a5fa; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); padding: 1px 5px; border-radius: 4px; font-family: monospace;">UTR: ${escapeHtml(item.utr)}</span>` : ''}
+                          ${itemUtr ? `<span style="font-size: 10px; color: #60a5fa; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); padding: 1px 5px; border-radius: 4px; font-family: monospace;">UTR: ${escapeHtml(itemUtr)}</span>` : ''}
                         </div>
                       </div>
                     </div>
@@ -7868,6 +7915,8 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
         <div class="orders-mobile-cards">
         ${items.length ? items.map((item) => {
           const proof = orderPaymentProof(item);
+          const prodImg = orderProductImage(item);
+          const displayThumb = proof || prodImg;
           const isPaid = isPaidOrder(item);
           const isFailed = isFailedOrder(item);
           const orderId = item.id || item.orderId || '-';
@@ -7877,6 +7926,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
           const methodLower = method.toLowerCase();
           const methodClass = methodLower.includes('upi') ? 'upi' : methodLower.includes('binance') ? 'binance' : methodLower.includes('paypal') ? 'paypal' : 'crypto';
           const formattedAmt = item.amountDisplay || formatCurrencyCompact(item.amount || item.inr || 0);
+          const itemUtr = orderUtr(item);
 
           return `
             <div class="order-mobile-card ${isPaid ? 'status-approved' : isFailed ? 'status-rejected' : 'status-pending'}">
@@ -7897,9 +7947,9 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
 
               <div class="order-mobile-product-box">
                 <div class="order-mobile-proof-wrap" data-action="open-order" data-id="${escapeHtml(item.id)}" title="View Proof & Order">
-                  ${proof ? `
-                    <img src="${escapeHtml(proof)}" alt="Proof" loading="lazy" onerror="this.onerror=null; this.src='/favicon.svg';" />
-                    <span class="order-mobile-proof-tag"><i data-lucide="image" style="width: 8px; height: 8px;"></i> PROOF</span>
+                  ${displayThumb ? `
+                    <img src="${escapeHtml(displayThumb)}" alt="Media" loading="lazy" onerror="this.onerror=null; this.src='/favicon.svg';" />
+                    <span class="order-mobile-proof-tag"><i data-lucide="${proof ? 'image' : 'package'}" style="width: 8px; height: 8px;"></i> ${proof ? 'PROOF' : 'ITEM'}</span>
                   ` : `
                     <div style="width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; font-weight: 800; font-size: 16px;">
                       ${escapeHtml((prodTitle[0] || 'O').toUpperCase())}
@@ -7908,6 +7958,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
                 </div>
                 <div style="flex: 1; min-width: 0;">
                   <div class="order-mobile-title" title="${escapeHtml(prodTitle)}">${escapeHtml(prodTitle)}</div>
+                  ${itemUtr ? `<div style="font-size: 10px; color: #60a5fa; font-family: monospace; margin-top: 2px;">UTR: ${escapeHtml(itemUtr)}</div>` : ''}
                   <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 4px; gap: 6px;">
                     <div class="order-mobile-amount">${escapeHtml(formattedAmt)}</div>
                     <span class="order-method-badge ${methodClass}" style="font-size: 11px; padding: 2px 7px;">
@@ -13507,39 +13558,20 @@ function attachGlobalHandlers() {
           reviewedBy: userEmail?.textContent || userName?.textContent || APP_CONFIG.appName,
         };
 
-        // Collect all ID variants so every client lookup variant succeeds
-        const idVariants = new Set();
-        if (id) idVariants.add(String(id).trim());
-        if (order.id) idVariants.add(String(order.id).trim());
-        if (order.orderId) idVariants.add(String(order.orderId).trim());
-        if (order.displayOrderId) idVariants.add(String(order.displayOrderId).trim());
+        const cleanId = String(order.id || order.orderId || id).replace(/^#+/, '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+        const rawNum = cleanId.replace(/^JG-/, '');
+        const displayId = order.displayOrderId || ('#JG-' + rawNum);
 
-        Array.from(idVariants).forEach(raw => {
-          const stripped = raw.replace(/^#+/, '').trim();
-          if (stripped) {
-            idVariants.add(stripped);
-            if (stripped.toUpperCase().startsWith('JG-')) {
-              const d = stripped.slice(3).trim();
-              if (d) idVariants.add(d);
-            } else {
-              idVariants.add('JG-' + stripped);
-            }
-          }
-          const numMatch = raw.match(/\d{5,8}/);
-          if (numMatch) {
-            idVariants.add(numMatch[0]);
-            idVariants.add('JG-' + numMatch[0]);
-            idVariants.add('#JG-' + numMatch[0]);
-          }
-        });
+        // 1. Update primary order record in admin store & RTDB (only on cleanId)
+        await updateRecord('orders', cleanId, { ...approvedPayload, displayOrderId: displayId });
 
-        // 1. Update primary order record in admin store & RTDB
-        await updateRecord('orders', id, approvedPayload);
-
-        // 2. Write to order_approvals and orders for all ID variants in RTDB
+        // 2. Write to order_approvals and orders on canonical cleanId in RTDB
         const approvalData = {
-          orderId: order.orderId || order.displayOrderId || id,
+          orderId: cleanId,
+          displayOrderId: displayId,
+          id: cleanId,
           productName: orderTitle,
+          title: orderTitle,
           downloadLink: productLink,
           telegramLink: productLink,
           channelLink: productLink,
@@ -13552,11 +13584,14 @@ function attachGlobalHandlers() {
           customerEmail: order.customerEmail || order.email || order.buyerEmail || ''
         };
 
-        for (const k of idVariants) {
-          if (!k) continue;
-          try { await update(ref(db, `orders/${k}`), approvedPayload); } catch (_) {}
-          try { await update(ref(db, `events/orders/${k}`), approvedPayload); } catch (_) {}
-          try { await set(ref(db, `order_approvals/${k}`), { ...approvalData, orderId: k }); } catch (_) {}
+        try { await update(ref(db, `orders/${cleanId}`), approvedPayload); } catch (_) {}
+        try { await update(ref(db, `events/orders/${cleanId}`), approvedPayload); } catch (_) {}
+        try { await set(ref(db, `order_approvals/${cleanId}`), approvalData); } catch (_) {}
+
+        // Clean up any historical duplicate non-canonical node (e.g. if orders/153831 existed alongside orders/JG-153831)
+        if (rawNum && rawNum !== cleanId) {
+          try { await remove(ref(db, `orders/${rawNum}`)); } catch (_) {}
+          try { await remove(ref(db, `order_approvals/${rawNum}`)); } catch (_) {}
         }
 
         // 3. Immediately sync customer local storage if testing on same domain/browser
@@ -13579,9 +13614,8 @@ function attachGlobalHandlers() {
             if (Array.isArray(list)) {
               let changed = false;
               list.forEach(item => {
-                const itemRaw = String(item.orderId || item.id || item.displayOrderId || '');
-                const itemNum = itemRaw.match(/\d{5,8}/)?.[0];
-                if (idVariants.has(itemRaw) || (itemNum && idVariants.has(itemNum))) {
+                const itemRaw = String(item.orderId || item.id || item.displayOrderId || '').replace(/^#+/, '');
+                if (itemRaw === cleanId || itemRaw === rawNum || itemRaw.includes(rawNum)) {
                   Object.assign(item, approvedPayload);
                   changed = true;
                 }
@@ -13603,10 +13637,10 @@ function attachGlobalHandlers() {
           notifKeys.push('linkadda_notifs_' + order.customerUid);
         }
         const apprvNotif = {
-          id: 'notif_order_' + (order.displayOrderId || id) + '_approved',
+          id: 'notif_order_' + cleanId + '_approved',
           type: 'order_confirmed',
-          orderId: order.displayOrderId || order.orderId || id,
-          title: `Order #${String(order.displayOrderId || id).replace(/^#+/, '')} Approved! 🎉`,
+          orderId: displayId,
+          title: `Order ${displayId} Approved! 🎉`,
           message: `Your payment for "${orderTitle}" has been verified & approved. Tap to unlock access.`,
           desc: `Your payment for "${orderTitle}" has been verified & approved. Tap to unlock access.`,
           actionUrl: productLink,
@@ -13627,23 +13661,92 @@ function attachGlobalHandlers() {
           } catch (_) {}
         });
 
-        // If order was a wallet top-up, credit the customer wallet balance in database and dispatch official receipt email!
-        if (order.type === 'wallet_topup' || order.pkg === 'wallet_topup') {
+        // 5. If order was a wallet top-up, credit the customer wallet balance in database and dispatch official receipt email!
+        const isWalletTopup = order.type === 'wallet_topup' || order.pkg === 'wallet_topup' || order.productId === 'wallet_topup' ||
+          (order.productName && order.productName.toLowerCase().includes('wallet recharge')) ||
+          (order.title && order.title.toLowerCase().includes('wallet recharge'));
+
+        if (isWalletTopup) {
           try {
-            const bEmail = order.customerEmail || order.email || order.buyerEmail || '';
-            const cUid = order.customerUid || (bEmail ? 'cust_' + bEmail.toLowerCase().replace(/[^a-z0-9]/gi, '_') : '');
+            const bEmail = (order.customerEmail || order.email || order.buyerEmail || '').toLowerCase().trim();
             const topupAmount = Number(order.amount || order.amountINR || order.price || 0);
-            if (cUid && topupAmount > 0) {
-              const custSnap = await get(ref(db, `customers/${cUid}`));
-              const currentCust = custSnap.exists() ? custSnap.val() : {};
-              const currentBal = Number(currentCust.walletBalance) || 0;
-              const newBal = currentBal + topupAmount;
-              await update(ref(db, `customers/${cUid}`), { walletBalance: newBal, updatedAt: Date.now() });
-              try { await update(ref(db, `events/customers/${cUid}`), { walletBalance: newBal, updatedAt: Date.now() }); } catch (_) {}
+
+            // Collect all matching customer UIDs
+            const targetUids = new Set();
+            if (order.customerUid && order.customerUid !== 'guest') {
+              targetUids.add(order.customerUid);
+            }
+            if (bEmail) {
+              targetUids.add('cust_' + bEmail.replace(/[^a-z0-9]/gi, '_'));
+              const storeCusts = STORE.customers || {};
+              Object.entries(storeCusts).forEach(([cKey, cObj]) => {
+                if (cObj && String(cObj.email || '').toLowerCase().trim() === bEmail) {
+                  targetUids.add(cKey);
+                  if (cObj.uid) targetUids.add(cObj.uid);
+                }
+              });
+            }
+
+            if (targetUids.size > 0 && topupAmount > 0) {
+              let latestBalance = topupAmount;
+              let foundCustomerName = order.customerName || order.buyerName || 'Valued Member';
+
+              for (const cUid of targetUids) {
+                const custSnap = await get(ref(db, `customers/${cUid}`));
+                const currentCust = custSnap.exists() ? custSnap.val() : {};
+                if (currentCust.displayName) foundCustomerName = currentCust.displayName;
+                const currentBal = Number(currentCust.walletBalance) || 0;
+                const newBal = currentBal + topupAmount;
+                latestBalance = newBal;
+                await update(ref(db, `customers/${cUid}`), {
+                  walletBalance: newBal,
+                  updatedAt: Date.now(),
+                  email: bEmail || currentCust.email || '',
+                  uid: cUid
+                });
+                try {
+                  await update(ref(db, `events/customers/${cUid}`), {
+                    walletBalance: newBal,
+                    updatedAt: Date.now(),
+                    email: bEmail || currentCust.email || '',
+                    uid: cUid
+                  });
+                } catch (_) {}
+
+                // Sync locally if running on same client
+                try {
+                  localStorage.setItem('jaigram_wallet_' + cUid, newBal.toFixed(2));
+                  localStorage.setItem('linkadda_wallet_' + cUid, newBal.toFixed(2));
+                } catch (_) {}
+              }
+
+              if (bEmail) {
+                try {
+                  localStorage.setItem('jaigram_wallet_' + bEmail, latestBalance.toFixed(2));
+                  localStorage.setItem('linkadda_wallet_' + bEmail, latestBalance.toFixed(2));
+                } catch (_) {}
+              }
+
+              // Also post to /api/orders so serverless database and Brevo email are triggered
+              try {
+                fetch('/api/orders', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    orderId: cleanId,
+                    type: 'wallet_topup',
+                    amount: topupAmount,
+                    customerEmail: bEmail,
+                    customerUid: order.customerUid || Array.from(targetUids)[0] || '',
+                    customerName: foundCustomerName,
+                    status: 'approved'
+                  })
+                }).catch(() => {});
+              } catch (_) {}
 
               // ━━ DISPATCH OFFICIAL WALLET RECEIPT EMAIL TO CUSTOMER VIA LINKADDA SHOP ━━
               if (bEmail) {
-                const buyerDispName = currentCust.displayName || order.customerName || order.buyerName || 'Valued Member';
+                const buyerDispName = foundCustomerName || order.customerName || order.buyerName || 'Valued Member';
                 const formattedDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
                 const orderReceiptId = order.orderId || id;
                 const payMethod = order.paymentMethod || order.method || 'Instant UPI / Online Payment';
@@ -13671,7 +13774,7 @@ function attachGlobalHandlers() {
                         <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">Amount Credited</div>
                         <div style="font-size: 32px; font-weight: 850; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 8px;">₹${topupAmount.toFixed(2)}</div>
                         <div style="display: inline-block; padding: 3px 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); font-size: 12px; color: #e2e8f0;">
-                          New Wallet Balance: <strong style="color: #34d399;">₹${newBal.toFixed(2)}</strong>
+                          New Wallet Balance: <strong style="color: #34d399;">₹${latestBalance.toFixed(2)}</strong>
                         </div>
                       </div>
 

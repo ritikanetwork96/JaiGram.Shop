@@ -524,6 +524,20 @@
       }
     } catch (_) {}
 
+    // Direct RTDB live fallback if API endpoint unreachable
+    if (!remoteCust && uid) {
+      try {
+        const snap = await fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(uid)}.json?_t=${Date.now()}`);
+        if (snap.ok) remoteCust = await snap.json();
+      } catch (_) {}
+      if (!remoteCust) {
+        try {
+          const snap2 = await fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/events/customers/${encodeURIComponent(uid)}.json?_t=${Date.now()}`);
+          if (snap2.ok) remoteCust = await snap2.json();
+        } catch (_) {}
+      }
+    }
+
     if (remoteCust && typeof remoteCust === 'object') {
       let changed = false;
 
@@ -543,14 +557,6 @@
           const wKey = getWalletStorageKey();
           localStorage.setItem(wKey, userWallet.toFixed(2));
           renderWalletDisplay();
-        }
-        // If remote DB still has the bloated test fund, force sync 0.00 back to DB!
-        if (Number(remoteCust.walletBalance) >= 50000 || Number(remoteCust.walletBalance) === 120 || String(remoteCust.walletBalance).includes('11220') || String(remoteCust.walletBalance).includes('100011')) {
-          if (currentCustomer) {
-            currentCustomer.walletBalance = 0.00;
-            localStorage.setItem(SESSION_KEY, JSON.stringify(currentCustomer));
-          }
-          syncCustomerRemote();
         }
       }
 
@@ -572,11 +578,7 @@
 
   function sanitizeWalletFund(raw) {
     const num = parseFloat(raw);
-    if (isNaN(num) || num <= 0) return 0.00;
-    // Wipe fake, bloated, or corrupted test balances (e.g. 100011220, 120, >= 50000)
-    if (num === 120 || num >= 50000 || String(raw).includes('11220') || String(raw).includes('100011')) {
-      return 0.00;
-    }
+    if (isNaN(num) || num < 0) return 0.00;
     return num;
   }
 
@@ -586,14 +588,14 @@
     const sanitizedSaved = sanitizeWalletFund(saved);
     const sanitizedCust = sanitizeWalletFund(currentCustomer?.walletBalance);
 
-    if (sanitizedSaved > 0) {
-      userWallet = sanitizedSaved;
-      localStorage.setItem(key, userWallet.toFixed(2));
-    } else if (sanitizedCust > 0) {
+    if (sanitizedCust > 0) {
       userWallet = sanitizedCust;
       localStorage.setItem(key, userWallet.toFixed(2));
+    } else if (sanitizedSaved > 0) {
+      userWallet = sanitizedSaved;
+      localStorage.setItem(key, userWallet.toFixed(2));
     } else {
-      userWallet = 0.00; // Strictly 0.00 real funds!
+      userWallet = 0.00;
       localStorage.setItem(key, '0.00');
     }
 
@@ -607,9 +609,22 @@
 
     renderWalletDisplay();
 
-    // If bloated / fake fund (e.g. 100011220 or 120) was in localStorage or session, immediately sync 0.00 with server!
-    if (parseFloat(saved) >= 50000 || parseFloat(saved) === 120 || String(saved).includes('11220') || String(saved).includes('100011')) {
-      syncCustomerRemote();
+    // Live sync directly with RTDB so admin approval reflects immediately
+    if (currentCustomer?.uid) {
+      fetch(`https://linkadda-cd1da-default-rtdb.firebaseio.com/customers/${encodeURIComponent(currentCustomer.uid)}.json?_t=${Date.now()}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(custDb => {
+          if (custDb && custDb.walletBalance !== undefined) {
+            const bal = sanitizeWalletFund(custDb.walletBalance);
+            if (bal !== userWallet) {
+              userWallet = bal;
+              localStorage.setItem(key, userWallet.toFixed(2));
+              if (currentCustomer) currentCustomer.walletBalance = bal;
+              renderWalletDisplay();
+            }
+          }
+        })
+        .catch(() => {});
     }
   }
 
@@ -1084,7 +1099,7 @@
               const canonicalKey = getCanonicalOrderKey(remId);
               const loc = ordersMap.get(canonicalKey) || {};
               const rStatus = String(rem.status || rem.orderStatus || '').toLowerCase();
-              const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(rStatus);
+              const isAppr = (rStatus === 'approved' || rStatus === 'completed' || rem.verified === true) && rStatus !== 'pending';
               const isRej = ['rejected', 'failed', 'cancelled'].includes(rStatus);
 
               const mergedLink = isAppr ? (rem.downloadLink || rem.fileUrl || rem.orderLink || loc.downloadLink || '') : (loc.downloadLink || '');
@@ -1093,8 +1108,8 @@
                 ...loc,
                 ...rem,
                 orderId: loc.orderId || rem.orderId || remId,
-                status: isAppr ? 'approved' : (isRej ? 'rejected' : (loc.status || rem.status || 'pending')),
-                orderStatus: isAppr ? 'approved' : (isRej ? 'rejected' : (loc.orderStatus || rem.orderStatus || 'pending')),
+                status: isAppr ? 'approved' : (isRej ? 'rejected' : 'pending'),
+                orderStatus: isAppr ? 'approved' : (isRej ? 'rejected' : 'pending'),
                 downloadLink: mergedLink,
                 fileUrl: mergedLink,
                 orderLink: mergedLink
@@ -1130,7 +1145,7 @@
               const appUid = String(appData.customerUid || appData.uid || appData.buyerUid || '').trim();
 
               const aStatus = String(appData.status || appData.orderStatus || 'pending').toLowerCase();
-              const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(aStatus) || appData.verified === true;
+              const isAppr = (aStatus === 'approved' || aStatus === 'completed' || appData.verified === true) && aStatus !== 'pending';
               const isRej = ['rejected', 'failed', 'cancelled'].includes(aStatus);
               const computedStatus = isAppr ? 'approved' : (isRej ? 'rejected' : 'pending');
 
@@ -1204,40 +1219,11 @@
         console.warn('Bulk order_approvals check note:', bulkErr);
       }
 
-      // 3b. Check public settings.recentApproved list (contains real admin-approved orders pool)
+      // 3b. Public settings node check (purely for store analytics/social proof, never for order authorization)
       try {
         const setRes = await fetch(`${RTDB_URL}/settings.json?_t=${Date.now()}`);
         if (setRes.ok) {
-          const settingsData = await setRes.json();
-          const recentApproved = Array.isArray(settingsData?.recentApproved) ? settingsData.recentApproved : [];
-
-          recentApproved.forEach(rec => {
-            const recId = String(rec.id || rec.orderId || '').trim();
-            const recDigits = recId.match(/\d{5,8}/)?.[0] || '';
-            const recName = String(rec.productName || rec.name || '').toLowerCase().trim();
-
-            pendingOrders.forEach(ord => {
-              const ordRaw = String(ord.orderId || ord.id || ord.displayOrderId || '').trim();
-              const ordDigits = ordRaw.match(/\d{5,8}/)?.[0] || '';
-              const ordTitle = String(ord.title || ord.productName || '').toLowerCase().trim();
-              const ordCanonical = getCanonicalOrderKey(ordRaw);
-
-              if ((recDigits && ordDigits && recDigits === ordDigits) || (recId && ordRaw && (recId === ordRaw || getCanonicalOrderKey(recId) === ordCanonical))) {
-                const existing = ordersMap.get(ordCanonical) || ord;
-                const link = existing.downloadLink || rec.downloadLink || 'https://t.me/TRUSTED_BROTHER1234';
-                ordersMap.set(ordCanonical, {
-                  ...existing,
-                  status: 'approved',
-                  orderStatus: 'approved',
-                  paymentStatus: 'approved',
-                  verified: true,
-                  downloadLink: link,
-                  fileUrl: link,
-                  orderLink: link
-                });
-              }
-            });
-          });
+          // Storefront settings synced without mutating customer order authorization
         }
       } catch (_) {}
 
@@ -1259,7 +1245,7 @@
 
             if (isCustMatch && admCanonical) {
               const admStatus = String(admOrd.status || admOrd.orderStatus || '').toLowerCase();
-              const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(admStatus) || admOrd.verified;
+              const isAppr = (admStatus === 'approved' || admStatus === 'completed' || admOrd.verified === true) && admStatus !== 'pending';
               const existing = ordersMap.get(admCanonical) || {};
               const link = admOrd.downloadLink || admOrd.telegramLink || admOrd.fileUrl || existing.downloadLink || (isAppr ? 'https://t.me/TRUSTED_BROTHER1234' : '');
               ordersMap.set(admCanonical, {
@@ -1267,9 +1253,9 @@
                 ...admOrd,
                 orderId: admOrd.orderId || admRawId,
                 id: admOrd.orderId || admRawId,
-                status: isAppr ? 'approved' : (admStatus || existing.status || 'pending'),
-                orderStatus: isAppr ? 'approved' : (admStatus || existing.orderStatus || 'pending'),
-                paymentStatus: isAppr ? 'approved' : (admStatus || existing.paymentStatus || 'pending'),
+                status: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
+                orderStatus: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
+                paymentStatus: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
                 verified: Boolean(isAppr),
                 downloadLink: link,
                 fileUrl: link,
@@ -1286,15 +1272,15 @@
 
               if ((admDigits && ordDigits && admDigits === ordDigits) || (admCanonical && ordCanonical && admCanonical === ordCanonical)) {
                 const admStatus = String(admOrd.status || admOrd.orderStatus || '').toLowerCase();
-                const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(admStatus) || admOrd.verified;
+                const isAppr = (admStatus === 'approved' || admStatus === 'completed' || admOrd.verified === true) && admStatus !== 'pending';
                 const existing = ordersMap.get(ordCanonical) || ord;
                 const link = admOrd.downloadLink || admOrd.telegramLink || admOrd.fileUrl || existing.downloadLink || (isAppr ? 'https://t.me/TRUSTED_BROTHER1234' : '');
                 ordersMap.set(ordCanonical, {
                   ...existing,
                   ...admOrd,
-                  status: isAppr ? 'approved' : (admStatus || existing.status || 'pending'),
-                  orderStatus: isAppr ? 'approved' : (admStatus || existing.orderStatus || 'pending'),
-                  paymentStatus: isAppr ? 'approved' : (admStatus || existing.paymentStatus || 'pending'),
+                  status: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
+                  orderStatus: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
+                  paymentStatus: isAppr ? 'approved' : (admStatus === 'rejected' ? 'rejected' : 'pending'),
                   verified: Boolean(isAppr),
                   downloadLink: link,
                   fileUrl: link,
@@ -1378,7 +1364,7 @@
                 const appData = await appRes.json();
                 if (appData && typeof appData === 'object') {
                   const aStatus = String(appData.status || appData.orderStatus || '').toLowerCase();
-                  if (['approved', 'completed', 'paid', 'confirmed'].includes(aStatus) || appData.verified) {
+                  if ((aStatus === 'approved' || aStatus === 'completed' || appData.verified === true) && aStatus !== 'pending') {
                     const link = appData.downloadLink || appData.telegramLink || appData.channelLink || appData.fileUrl || ord.downloadLink || 'https://t.me/TRUSTED_BROTHER1234';
                     const existing = ordersMap.get(canonicalKey) || ord;
                     ordersMap.set(canonicalKey, {
@@ -1409,7 +1395,7 @@
                 const ordData = await ordRes.json();
                 if (ordData && typeof ordData === 'object') {
                   const oStatus = String(ordData.status || ordData.orderStatus || '').toLowerCase();
-                  if (['approved', 'completed', 'paid', 'confirmed'].includes(oStatus) || ordData.verified === true) {
+                  if ((oStatus === 'approved' || oStatus === 'completed' || ordData.verified === true) && oStatus !== 'pending') {
                     const link = ordData.downloadLink || ordData.fileUrl || ordData.orderLink || ordData.telegramLink || ord.downloadLink || 'https://t.me/TRUSTED_BROTHER1234';
                     const existing = ordersMap.get(canonicalKey) || ord;
                     ordersMap.set(canonicalKey, {
@@ -1471,7 +1457,7 @@
                 const d = await res.json();
                 if (d && typeof d === 'object') {
                   const dStatus = String(d.status || d.orderStatus || 'pending').toLowerCase();
-                  const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(dStatus) || d.verified;
+                  const isAppr = (dStatus === 'approved' || dStatus === 'completed' || d.verified === true) && dStatus !== 'pending';
                   const isRej = ['rejected', 'failed', 'cancelled'].includes(dStatus);
                   const st = isAppr ? 'approved' : (isRej ? 'rejected' : 'pending');
                   const link = isAppr ? (d.downloadLink || d.telegramLink || d.channelLink || d.fileUrl || 'https://t.me/TRUSTED_BROTHER1234') : '';
@@ -1509,7 +1495,7 @@
                 const d = await res.json();
                 if (d && typeof d === 'object') {
                   const dStatus = String(d.status || d.orderStatus || 'pending').toLowerCase();
-                  const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(dStatus) || d.verified;
+                  const isAppr = (dStatus === 'approved' || dStatus === 'completed' || d.verified === true) && dStatus !== 'pending';
                   const isRej = ['rejected', 'failed', 'cancelled'].includes(dStatus);
                   const st = isAppr ? 'approved' : (isRej ? 'rejected' : 'pending');
                   const link = isAppr ? (d.downloadLink || d.telegramLink || d.channelLink || d.fileUrl || 'https://t.me/TRUSTED_BROTHER1234') : '';
@@ -1709,7 +1695,7 @@
           const size = ord.specDelivery || ord.fileSize || 'Instant Cloud Access';
           const dlLink = ord.downloadLink || ord.fileUrl || ord.orderLink || '';
           const status = (ord.status || ord.orderStatus || 'pending').toLowerCase();
-          const isApproved = status === 'approved' || status === 'completed' || status === 'paid' || status === 'confirmed';
+          const isApproved = (status === 'approved' || status === 'completed' || ord.verified === true) && status !== 'pending' && status !== 'rejected';
           const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
 
           let actionBtn;
@@ -1800,7 +1786,7 @@
           const amt = getCleanOrderAmount(ord);
           const dlLink = ord.downloadLink || ord.fileUrl || ord.orderLink || '';
           const status = (ord.status || ord.orderStatus || 'pending').toLowerCase();
-          const isApproved = status === 'approved' || status === 'completed' || status === 'paid' || status === 'confirmed';
+          const isApproved = (status === 'approved' || status === 'completed' || ord.verified === true) && status !== 'pending' && status !== 'rejected';
           const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
 
           const statusBadge = isApproved
@@ -1846,7 +1832,7 @@
           const img = (rawImg && !rawImg.includes('prod_indian_model') && !rawImg.includes('placeholder.svg')) ? rawImg : '';
           const dlLink = ord.downloadLink || ord.fileUrl || ord.orderLink || '';
           const status = (ord.status || ord.orderStatus || 'pending').toLowerCase();
-          const isApproved = status === 'approved' || status === 'completed' || status === 'paid' || status === 'confirmed';
+          const isApproved = (status === 'approved' || status === 'completed' || ord.verified === true) && status !== 'pending' && status !== 'rejected';
           const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
 
           const statusBadge = isApproved
@@ -3213,12 +3199,18 @@
       sessionStorage.setItem('linkadda_checkout_return_url', returnUrl);
     } catch (_) {}
 
+    const pCover = (typeof extractProductCoverImage === 'function') ? extractProductCoverImage(p) : (p.image || p.imageUrl || p.thumbnail || '');
+    const pSeller = (typeof normalizeSellerInfo === 'function') ? normalizeSellerInfo(p) : { storeName: p.sellerName || p.seller || 'Trusted brother', sellerId: p.sellerId || '' };
+
     const queryParams = new URLSearchParams({
       productId: p.id || productId,
       title: p.title || p.name || 'VIP Digital Media Pass',
       inr: pricing.inr || pricing.amount || 399,
       usd: pricing.usd || 4.4,
-      currency: pricing.currency || 'INR'
+      currency: pricing.currency || 'INR',
+      image: pCover,
+      sellerName: pSeller.storeName || pSeller.sellerName || 'Trusted brother',
+      sellerId: pSeller.sellerId || ''
     });
     if (returnUrl) {
       queryParams.set('returnUrl', returnUrl);
@@ -4195,7 +4187,7 @@
     const sInfo = normalizeSellerInfo(p);
     const sellerName = sInfo.storeName || sInfo.sellerName || 'Trusted brother';
     const sellerId = sInfo.sellerId || '';
-    const buyUrl = `../payment.html?productId=${encodeURIComponent(p.id)}&title=${encodeURIComponent(p.title || 'Digital Product')}&price=${encodeURIComponent(pricing.amount)}&currency=${encodeURIComponent(pricing.currency)}&inr=${encodeURIComponent(pricing.inr)}&usd=${encodeURIComponent(pricing.usd)}&method=${pricing.currency === 'USD' ? 'binancepay' : 'upi'}&sellerId=${encodeURIComponent(sellerId)}&sellerName=${encodeURIComponent(sellerName)}`;
+    const buyUrl = `../payment.html?productId=${encodeURIComponent(p.id)}&title=${encodeURIComponent(p.title || 'Digital Product')}&price=${encodeURIComponent(pricing.amount)}&currency=${encodeURIComponent(pricing.currency)}&inr=${encodeURIComponent(pricing.inr)}&usd=${encodeURIComponent(pricing.usd)}&method=${pricing.currency === 'USD' ? 'binancepay' : 'upi'}&sellerId=${encodeURIComponent(sellerId)}&sellerName=${encodeURIComponent(sellerName)}&image=${encodeURIComponent(thumb)}`;
     const safeId = escapeHtml(p.id);
     const inCart = (typeof isProductInCart === 'function') && isProductInCart(p.id);
     const isSaved = (typeof isProductInWishlist === 'function') && isProductInWishlist(p.id);
@@ -4423,7 +4415,7 @@
       const sName = sInfo.storeName || sInfo.sellerName || p.sellerName || p.seller || 'JaiGram Verified';
       const sId = sInfo.sellerId || p.sellerId || '';
       const safeId = escapeHtml(p.id);
-      const buyUrl = `../payment.html?productId=${encodeURIComponent(p.id)}&title=${encodeURIComponent(p.title || 'Digital Product')}&price=${encodeURIComponent(pricing.amount)}&currency=${encodeURIComponent(pricing.currency)}&inr=${encodeURIComponent(pricing.inr)}&usd=${encodeURIComponent(pricing.usd)}&method=${pricing.currency === 'USD' ? 'binancepay' : 'upi'}&sellerId=${encodeURIComponent(sId)}&sellerName=${encodeURIComponent(sName)}`;
+      const buyUrl = `../payment.html?productId=${encodeURIComponent(p.id)}&title=${encodeURIComponent(p.title || 'Digital Product')}&price=${encodeURIComponent(pricing.amount)}&currency=${encodeURIComponent(pricing.currency)}&inr=${encodeURIComponent(pricing.inr)}&usd=${encodeURIComponent(pricing.usd)}&method=${pricing.currency === 'USD' ? 'binancepay' : 'upi'}&sellerId=${encodeURIComponent(sId)}&sellerName=${encodeURIComponent(sName)}&image=${encodeURIComponent(thumb)}`;
 
       return `
         <div class="flash-deal-item" onclick="openProductDetailModal('${safeId}')">

@@ -11905,6 +11905,8 @@ function attachGlobalHandlers() {
     const rect = target.getBoundingClientRect();
     const ripple = document.createElement('span');
     ripple.className = 'click-ripple';
+    ripple.style.pointerEvents = 'none';
+    ripple.setAttribute('aria-hidden', 'true');
     const size = Math.max(rect.width, rect.height) * 1.6;
     ripple.style.width = `${size}px`;
     ripple.style.height = `${size}px`;
@@ -11918,7 +11920,9 @@ function attachGlobalHandlers() {
     target.style.overflow = 'hidden';
     
     target.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 420);
+    setTimeout(() => {
+      try { ripple.remove(); } catch (_) {}
+    }, 380);
   });
 
   document.getElementById('themeBtn')?.addEventListener('click', toggleTheme);
@@ -14974,76 +14978,28 @@ function syncRealApprovedOrdersToSettings(data) {
   }, 1000);
 }
 
-let syncApprovalsPoolDebounce = null;
-function syncAllOrdersToOrderApprovalsPool(data) {
-  if (syncApprovalsPoolDebounce) return;
-  syncApprovalsPoolDebounce = setTimeout(async () => {
-    syncApprovalsPoolDebounce = null;
-    try {
-      const rawOrders = data.orders || {};
-      const entries = Object.entries(rawOrders);
-      if (!entries.length) return;
-
-      for (const [rawKey, ord] of entries) {
-        if (!ord || typeof ord !== 'object') continue;
-        const cleanId = String(ord.orderId || ord.id || rawKey).replace(/[^a-zA-Z0-9_-]/g, '').trim();
-        if (!cleanId) continue;
-
-        const title = orderProductName(ord) || ord.productName || ord.title || ord.name || 'Digital VIP Pack';
-        const st = String(ord.status || ord.orderStatus || 'pending').toLowerCase();
-        const isAppr = ['approved', 'completed', 'paid', 'confirmed'].includes(st) || ord.verified;
-        const computedStatus = isAppr ? 'approved' : (st === 'rejected' ? 'rejected' : 'pending');
-        const dl = isAppr ? (ord.downloadLink || ord.fileUrl || ord.orderLink || 'https://t.me/TRUSTED_BROTHER1234') : '';
-        const email = (ord.customerEmail || ord.buyerEmail || ord.email || '').toLowerCase().trim();
-
-        const approvalPayload = {
-          orderId: ord.orderId || cleanId,
-          id: ord.id || cleanId,
-          displayOrderId: ord.displayOrderId || ('#' + cleanId),
-          productName: title,
-          title: title,
-          name: title,
-          status: computedStatus,
-          orderStatus: computedStatus,
-          paymentStatus: computedStatus,
-          verified: isAppr,
-          customerName: ord.customerName || ord.buyerName || 'Customer',
-          customerEmail: email,
-          email: email,
-          amount: ord.amount || ord.price || 399,
-          amountDisplay: ord.amountDisplay || (ord.amount ? `₹${ord.amount}` : '₹399.00'),
-          paymentMethod: (ord.paymentMethod || ord.method || 'UPI').toUpperCase(),
-          utr: ord.utr || '',
-          downloadLink: dl,
-          fileUrl: dl,
-          orderLink: dl,
-          sellerName: ord.sellerName || '༒•*̥TRUSTED BROTHER•*̥',
-          createdAt: ord.createdAt || ord.timestamp || Date.now(),
-          timestamp: ord.timestamp || ord.createdAt || Date.now(),
-          date: ord.date || (ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently')
-        };
-
-        try {
-          await set(ref(db, `order_approvals/${cleanId}`), approvalPayload);
-        } catch (_) {}
-      }
-    } catch (_) {}
-  }, 2000);
-}
-
 // Instant initial render from cache (0ms - data never disappears on refresh)
 initTheme();
 attachGlobalHandlers();
 ui.data = getSnapshot();
 
-// Subscribe to state updates for seamless live sync
+// Subscribe to state updates for seamless live sync with smart debouncing
 let isInitialBoot = true;
+let subscribeDebounceTimer = null;
 subscribe((data) => {
   ui.data = data;
   if (!isInitialBoot) {
-    renderView(data);
-    syncRealApprovedOrdersToSettings(data);
-    syncAllOrdersToOrderApprovalsPool(data);
+    if (subscribeDebounceTimer) clearTimeout(subscribeDebounceTimer);
+    subscribeDebounceTimer = setTimeout(() => {
+      subscribeDebounceTimer = null;
+      // Do not re-render if user is currently typing in an input or a modal editor is open
+      const activeEl = document.activeElement;
+      const isUserTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+      const isModalOpen = modalBackdrop && modalBackdrop.classList.contains('open');
+      if (!isUserTyping && !isModalOpen) {
+        renderView(data);
+      }
+    }, 280);
   }
 });
 

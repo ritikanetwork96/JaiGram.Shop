@@ -16,6 +16,7 @@ function loadCachedStore() {
     settings: {},
     payment: {},
     orders: {},
+    order_approvals: {},
     analytics: {},
     media: {},
     visitors: {},
@@ -88,6 +89,7 @@ function saveStoreCache() {
         categories: STORE.categories || {},
         products: STORE.products || {},
         orders: STORE.orders || {},
+        order_approvals: STORE.order_approvals || {},
         events: STORE.events || {},
         visitors: STORE.visitors || {},
         customers: STORE.customers || {},
@@ -214,7 +216,9 @@ function attachNode(key, mode = 'collection') {
           (snap) => {
             const val = snap.val();
             if (val && typeof val === 'object') {
+              if (!STORE.order_approvals) STORE.order_approvals = {};
               if (!STORE.orders) STORE.orders = {};
+              STORE.order_approvals = val;
               Object.entries(val).forEach(([oId, ord]) => {
                 if (ord && typeof ord === 'object') {
                   const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '');
@@ -463,6 +467,14 @@ export async function deleteOrders(ids) {
       }
     });
   }
+  if (STORE.order_approvals) {
+    Object.keys(STORE.order_approvals).forEach((k) => {
+      const cleanK = String(k).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
+      if (targetSet.has(cleanK) || targetSet.has(String(STORE.order_approvals[k]?.id || '').toLowerCase()) || targetSet.has(String(STORE.order_approvals[k]?.orderId || '').toLowerCase())) {
+        delete STORE.order_approvals[k];
+      }
+    });
+  }
   if (STORE.events && STORE.events.orders) {
     Object.keys(STORE.events.orders).forEach((k) => {
       const cleanK = String(k).replace(/[^a-zA-Z0-9_-]/g, '').trim().toLowerCase();
@@ -558,37 +570,99 @@ export async function deleteOrders(ids) {
 export async function fetchLiveOrders() {
   try {
     const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
-    const targetUrl = isLocalHost ? 'https://jaigram.shop/api/orders' : '/api/orders';
-    const currentUser = auth.currentUser;
-    const token = currentUser ? await currentUser.getIdToken(false) : '';
-    const res = await fetch(targetUrl, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(6000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const ordersList = Array.isArray(data.orders) ? data.orders : (Array.isArray(data) ? data : []);
-      if (ordersList.length > 0) {
-        if (!STORE.orders) STORE.orders = {};
-        let hasNew = false;
-        ordersList.forEach((ord) => {
-          const cleanId = String(ord.id || ord.orderId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
-          if (cleanId) {
-            STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
-            hasNew = true;
-          }
-        });
-        if (hasNew) {
-          emit();
-          saveStoreCache();
+    let hasNew = false;
+
+    // 1. Direct Firebase SDK real-time query (Fast, reliable, zero cross-origin timeouts on localhost)
+    try {
+      const snap = await get(ref(db, 'orders'));
+      if (snap.exists()) {
+        const val = snap.val();
+        if (val && typeof val === 'object') {
+          if (!STORE.orders) STORE.orders = {};
+          Object.entries(val).forEach(([oId, ord]) => {
+            if (ord && typeof ord === 'object') {
+              const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+              if (cleanId) {
+                STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
+                hasNew = true;
+              }
+            }
+          });
         }
       }
-      return ordersList;
+    } catch (_) {}
+
+    try {
+      const appSnap = await get(ref(db, 'order_approvals'));
+      if (appSnap.exists()) {
+        const appVal = appSnap.val();
+        if (appVal && typeof appVal === 'object') {
+          if (!STORE.order_approvals) STORE.order_approvals = {};
+          if (!STORE.orders) STORE.orders = {};
+          STORE.order_approvals = appVal;
+          Object.entries(appVal).forEach(([oId, ord]) => {
+            if (ord && typeof ord === 'object') {
+              const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+              if (cleanId) {
+                STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
+                hasNew = true;
+              }
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const evSnap = await get(ref(db, 'events/orders'));
+      if (evSnap.exists()) {
+        const evVal = evSnap.val();
+        if (evVal && typeof evVal === 'object') {
+          if (!STORE.orders) STORE.orders = {};
+          Object.entries(evVal).forEach(([oId, ord]) => {
+            if (ord && typeof ord === 'object') {
+              const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+              if (cleanId) {
+                STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
+                hasNew = true;
+              }
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
+    // 2. In production, also query /api/orders?all=true with silent fallback
+    if (!isLocalHost) {
+      try {
+        const currentUser = auth.currentUser;
+        const token = currentUser ? await currentUser.getIdToken(false) : '';
+        const res = await fetch('/api/orders?all=true', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: AbortSignal.timeout(8000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const ordersList = Array.isArray(data.orders) ? data.orders : (Array.isArray(data) ? data : []);
+          if (ordersList.length > 0) {
+            ordersList.forEach((ord) => {
+              const cleanId = String(ord.id || ord.orderId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+              if (cleanId) {
+                STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
+                hasNew = true;
+              }
+            });
+          }
+        }
+      } catch (_) {}
     }
-  } catch (err) {
-    console.warn('fetchLiveOrders notice:', err?.message || err);
-  }
-  return [];
+
+    if (hasNew) {
+      emit();
+      saveStoreCache();
+    }
+  } catch (_) {}
+  return listCollection('orders');
 }
 
 export async function duplicateRecord(node, id) {
@@ -726,6 +800,11 @@ export function listCollection(node) {
 
     // 1. Ingest base STORE.orders
     list.forEach((o) => addOrder(o, o.id));
+
+    // 1b. Ingest STORE.order_approvals (Direct public RTDB order stream)
+    if (STORE.order_approvals && typeof STORE.order_approvals === 'object') {
+      Object.entries(STORE.order_approvals).forEach(([id, o]) => addOrder(o, id));
+    }
 
     // 2. Ingest STORE.events.orders if present
     if (STORE.events && typeof STORE.events === 'object') {

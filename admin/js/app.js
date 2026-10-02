@@ -3784,18 +3784,30 @@ function resolveMediaSource(value) {
   
   if (/^(https?:)?\/\//i.test(raw) || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
   
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:');
+  const basePrefix = isLocal ? 'https://jaigram.shop' : '';
+
   const normalized = normalizeAssetValue(raw);
   const match = listCollection('media').find((item) => mediaMatchesReference(item, normalized) || mediaMatchesReference(item, raw));
   if (match?.publicUrl) {
-    return match.publicUrl;
+    let pUrl = match.publicUrl;
+    if (isLocal && pUrl.startsWith('/')) {
+      pUrl = `${basePrefix}${pUrl}`;
+    }
+    return pUrl;
   }
   if (raw.startsWith('products/') || raw.startsWith('categories/') || raw.startsWith('logos/') || raw.startsWith('hero/') || raw.startsWith('banners/') || raw.startsWith('testimonials/')) {
-    return `/media/${raw}`;
+    return `${basePrefix}/media/${raw}`;
+  }
+  if (raw.startsWith('media/') || raw.startsWith('/media/')) {
+    const cleanMedia = raw.startsWith('/') ? raw : `/${raw}`;
+    return `${basePrefix}${cleanMedia}`;
   }
   if (raw.startsWith('images/') || raw.startsWith('/images/')) {
-    return raw.startsWith('/') ? raw : `/${raw}`;
+    const cleanImg = raw.startsWith('/') ? raw : `/${raw}`;
+    return isLocal ? `${basePrefix}${cleanImg}` : cleanImg;
   }
-  return `/media/products/${raw.replace(/^\/+/, '')}`;
+  return `${basePrefix}/media/products/${raw.replace(/^\/+/, '')}`;
 }
 
 function mediaPreview(item) {
@@ -7588,6 +7600,7 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
   const items = sortManagementList(filterManagementList(allOrders, 'orders'));
   const totals = managementTotals(allOrders);
   const activeTab = ui.management.status || 'all';
+  const ordersViewMode = localStorage.getItem('jaigram_orders_view_mode') || 'auto';
 
   const methods = [...new Set(allOrders.map((item) => orderMethodLabel(item)).filter((value) => value && value !== 'Unknown'))];
 
@@ -7603,6 +7616,10 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
             <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 13px;">Manage real customer transactions, verify payment screenshot proofs, and approve orders.</p>
           </div>
           <div class="toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-ghost" type="button" data-action="toggle-orders-view-mode" title="Toggle Layout View Mode">
+              <i data-lucide="${ordersViewMode === 'cards' ? 'layout-grid' : ordersViewMode === 'table' ? 'table' : 'smartphone'}"></i>
+              <span>${ordersViewMode === 'cards' ? '📱 App Cards' : ordersViewMode === 'table' ? '📋 Table View' : '📱 Layout: Auto'}</span>
+            </button>
             <button class="btn btn-ghost" type="button" data-action="sync-orders" title="Sync & Recover Orders"><i data-lucide="refresh-cw"></i> Sync Orders</button>
             <button class="btn btn-ghost" type="button" data-action="export-orders-csv" title="Export all orders to CSV"><i data-lucide="download"></i> Export CSV</button>
             <button class="btn btn-ghost" type="button" data-action="goto" data-route="payment"><i data-lucide="credit-card"></i> Payment Hub</button>
@@ -7698,14 +7715,16 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
         </div>
       </div>
 
-      <!-- Orders Table (Desktop) -->
-      <div class="orders-table-shell">
-        <table class="orders-table">
-          <thead>
-            <tr>
-              <th style="width: 44px; text-align: center;">
-                <input type="checkbox" id="selectAllOrders" class="order-checkbox-custom" title="Select All Orders" ${items.length > 0 && selectedOrderIds.size === items.length ? 'checked' : ''} />
-              </th>
+      <!-- Orders Display Container -->
+      <div class="orders-display-container ${ordersViewMode === 'cards' ? 'orders-view-cards' : (ordersViewMode === 'table' ? 'orders-view-table' : 'orders-view-auto')}">
+        <!-- Orders Table (Desktop) -->
+        <div class="orders-table-shell">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th style="width: 44px; text-align: center;">
+                  <input type="checkbox" id="selectAllOrders" class="order-checkbox-custom" title="Select All Orders" ${items.length > 0 && selectedOrderIds.size === items.length ? 'checked' : ''} />
+                </th>
               <th style="min-width: 280px;">Order & Proof</th>
               <th style="min-width: 140px;">Customer</th>
               <th style="min-width: 120px;">Amount</th>
@@ -7832,10 +7851,21 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
             `}
           </tbody>
         </table>
-      </div>
+        </div>
 
-      <!-- Orders Mobile Cards (App-Like Touch Interface) -->
-      <div class="orders-mobile-cards">
+        <!-- Orders Mobile Select-All Bar -->
+        <div class="orders-mobile-select-bar">
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--text); cursor: pointer; user-select: none;">
+            <input type="checkbox" id="selectAllOrdersMobile" class="order-checkbox-custom" ${items.length > 0 && selectedOrderIds.size === items.length ? 'checked' : ''} />
+            <span>Select All (${items.length})</span>
+          </label>
+          <span style="font-size: 12px; color: ${selectedOrderIds.size > 0 ? '#818cf8' : 'var(--muted)'}; font-weight: 600;">
+            ${selectedOrderIds.size} selected
+          </span>
+        </div>
+
+        <!-- Orders Mobile Cards (App-Like Touch Interface) -->
+        <div class="orders-mobile-cards">
         ${items.length ? items.map((item) => {
           const proof = orderPaymentProof(item);
           const isPaid = isPaidOrder(item);
@@ -7932,7 +7962,9 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
             <div style="font-size: 12px; margin-top: 4px;">Orders will appear here in real time.</div>
           </div>
         `}
-      </div>
+        </div>
+
+      </div> <!-- .orders-display-container -->
 
     </div>
   `;
@@ -13935,6 +13967,15 @@ function attachGlobalHandlers() {
       renderView(ui.data || {});
       return;
     }
+    if (action === 'toggle-orders-view-mode') {
+      const current = localStorage.getItem('jaigram_orders_view_mode') || 'auto';
+      const next = current === 'auto' ? 'cards' : current === 'cards' ? 'table' : 'auto';
+      localStorage.setItem('jaigram_orders_view_mode', next);
+      renderView(ui.data || {});
+      const label = next === 'cards' ? '📱 Mobile App Cards' : next === 'table' ? '📋 Desktop Table' : '🔄 Auto Responsive';
+      showToast(`Orders layout: ${label}`, 'info');
+      return;
+    }
     if (action === 'sync-orders') {
       actionBtn.disabled = true;
       actionBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Syncing...';
@@ -15012,7 +15053,7 @@ isInitialBoot = false;
 
 // Setup order selection checkbox listener
 document.addEventListener('change', (e) => {
-  if (e.target && e.target.id === 'selectAllOrders') {
+  if (e.target && (e.target.id === 'selectAllOrders' || e.target.id === 'selectAllOrdersMobile')) {
     const isChecked = e.target.checked;
     const allOrders = getAllUnifiedOrders();
     const items = sortManagementList(filterManagementList(allOrders, 'orders'));

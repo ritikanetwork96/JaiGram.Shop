@@ -12823,19 +12823,64 @@ button {
   animation: slideDownBulk 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.orders-mobile-select-bar {
+  display: none;
+}
+
+.orders-view-cards .orders-table-shell {
+  display: none !important;
+}
+.orders-view-cards .orders-mobile-cards {
+  display: flex !important;
+  flex-direction: column;
+  gap: 12px;
+}
+.orders-view-cards .orders-mobile-select-bar {
+  display: flex !important;
+}
+
+.orders-view-table .orders-table-shell {
+  display: block !important;
+}
+.orders-view-table .orders-mobile-cards {
+  display: none !important;
+}
+.orders-view-table .orders-mobile-select-bar {
+  display: none !important;
+}
+
 @keyframes slideDownBulk {
   from { opacity: 0; transform: translateY(-12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 768px) {
-  .orders-table-shell {
+@keyframes slideUpBulk {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 860px) {
+  .orders-view-auto .orders-table-shell {
     display: none !important;
   }
-  .orders-mobile-cards {
+  .orders-view-auto .orders-mobile-cards {
     display: flex !important;
     flex-direction: column;
     gap: 12px;
+  }
+  .orders-view-auto .orders-mobile-select-bar {
+    display: flex !important;
+  }
+  .orders-bulk-bar {
+    position: fixed !important;
+    bottom: 20px !important;
+    top: auto !important;
+    left: 14px !important;
+    right: 14px !important;
+    z-index: 9999 !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(99, 102, 241, 0.45);
+    background: rgba(15, 23, 42, 0.98) !important;
+    animation: slideUpBulk 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 }
 

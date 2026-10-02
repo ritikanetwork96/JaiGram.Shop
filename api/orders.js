@@ -406,6 +406,8 @@ export default async function handler(req, res) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload),
         });
+      } catch (_) {}
+
       // 2b. Sync status changes to order_approvals node for real-time customer access
       if (status === 'approved' || status === 'rejected' || status === 'completed' || status === 'paid') {
         try {

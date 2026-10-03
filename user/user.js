@@ -6844,24 +6844,22 @@
 
     // Restore bottom bar active tab indicator based on active tab
     const activeView = document.querySelector('.tab-view-content.active');
-    if (activeView) {
-      const tabId = activeView.id.replace('tab-', '');
-      const profileSubTabs = ['profile', 'edit-profile', 'settings', 'support', 'messages', 'refer'];
-      const parentTab = profileSubTabs.includes(tabId) ? 'profile' : tabId;
-      document.querySelectorAll('.mob-nav-item, .bottom-tab-btn').forEach(btn => {
-        const btnTab = btn.getAttribute('data-tab');
-        if (btnTab === parentTab || btnTab === tabId) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
-        }
-      });
-      try {
-        if (history && history.replaceState) {
-          history.replaceState(null, '', `#${tabId}`);
-        }
-      } catch (_) {}
-    }
+    const tabId = activeView ? activeView.id.replace('tab-', '') : 'dashboard';
+    const profileSubTabs = ['profile', 'edit-profile', 'settings', 'support', 'messages', 'refer'];
+    const parentTab = profileSubTabs.includes(tabId) ? 'profile' : tabId;
+    document.querySelectorAll('.mob-nav-item, .bottom-tab-btn').forEach(btn => {
+      const btnTab = btn.getAttribute('data-tab');
+      if (btnTab === parentTab || btnTab === tabId) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+    try {
+      if (history && history.replaceState) {
+        history.replaceState(null, '', `#${tabId}`);
+      }
+    } catch (_) {}
   }
   window.closeCartDrawer = closeCartDrawer;
 

@@ -5542,54 +5542,44 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .management-table-shell,
+  .management-table-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    border-radius: 14px !important;
+    box-sizing: border-box !important;
+  }
+
   .management-table {
-    min-width: 0;
-    width: 100%;
-    display: block;
+    min-width: 600px !important;
+    width: 100% !important;
+    display: table !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
   }
 
   .management-table thead {
-    display: none;
+    display: table-header-group !important;
   }
 
   .management-table tbody {
-    display: grid;
-    gap: 12px;
+    display: table-row-group !important;
   }
 
   .management-table tr {
-    display: grid;
-    gap: 0;
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    overflow: hidden;
-    background: var(--panel-soft);
+    display: table-row !important;
   }
 
+  .management-table th,
   .management-table td {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-    width: 100%;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .management-table td:last-child {
-    border-bottom: 0;
-  }
-
-  .management-table td::before {
-    content: attr(data-label);
-    color: var(--muted);
-    font-size: 0.76rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    flex: 0 0 86px;
-  }
-
-  .management-table td > * {
-    min-width: 0;
+    display: table-cell !important;
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
   }
 
   .single-editor-summary-grid,
@@ -13020,25 +13010,42 @@ button {
 }
 
 @media (max-width: 768px) {
+  /* ━━ 1. Z-INDEX LAYERING HIERARCHY ━━ */
+  .mobile-app-dock {
+    z-index: 900 !important;
+  }
+  .sidebar-overlay {
+    z-index: 1100 !important;
+  }
+  .sidebar {
+    z-index: 1110 !important;
+  }
+  .modal-backdrop {
+    z-index: 1200 !important;
+  }
+  .toast-host {
+    z-index: 2000 !important;
+  }
+
+  /* ━━ 2. MOBILE APP BOTTOM DOCK ━━ */
   .mobile-app-dock {
     display: flex !important;
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    height: 64px !important;
+    height: 62px !important;
     padding-bottom: env(safe-area-inset-bottom, 8px) !important;
-    background: rgba(12, 12, 16, 0.88) !important;
+    background: rgba(12, 12, 16, 0.94) !important;
     backdrop-filter: blur(28px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
     border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-left: none !important;
     border-right: none !important;
     border-bottom: none !important;
-    z-index: 9990 !important;
     align-items: center !important;
     justify-content: space-around !important;
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45) !important;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.55) !important;
   }
 
   .dock-item {
@@ -13089,27 +13096,406 @@ button {
     color: #0A84FF !important;
   }
 
-  /* Padding so bottom navigation dock never covers content */
-  .management-page-shell,
-  .view-root {
-    padding-bottom: 96px !important;
+  /* ━━ 3. SHELL & CONTENT RESPONSIVENESS ━━ */
+  .admin-shell {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-height: 100vh !important;
+    overflow-x: hidden !important;
   }
 
-  /* Compact native topbar */
+  .main {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    display: block !important;
+  }
+
+  .content,
+  .view-root,
+  .management-page-shell,
+  .page,
+  .dashboard-root,
+  .orders-display-container,
+  .catalog-shell,
+  .single-editor-shell,
+  .analytics-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 12px 12px calc(80px + env(safe-area-inset-bottom, 16px)) 12px !important;
+  }
+
+  /* ━━ 4. TOPBAR RESPONSIVENESS ━━ */
   .topbar {
-    padding: 0 14px !important;
-    height: 52px !important;
-    background: rgba(12, 12, 16, 0.88) !important;
+    padding: 0 12px !important;
+    height: 54px !important;
+    background: rgba(10, 10, 14, 0.94) !important;
     backdrop-filter: blur(24px) !important;
     -webkit-backdrop-filter: blur(24px) !important;
+    border-bottom: 1px solid var(--border) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
   }
 
-  .topbar-right .admin-profile div span:last-child {
+  .topbar-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .admin-mobile-toggle {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid var(--border) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .topbar-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .topbar-right #logoutBtn {
     display: none !important;
+  }
+
+  .topbar-right .admin-profile {
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .topbar-right .admin-profile > div {
+    display: none !important;
+  }
+
+  .topbar-right .admin-profile .avatar {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    font-size: 13px !important;
+  }
+
+  .realtime-badge {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+    border-radius: 999px !important;
+    gap: 4px !important;
+  }
+
+  .realtime-badge .pulse {
+    width: 6px !important;
+    height: 6px !important;
   }
 
   .topbar .searchbox {
     display: none !important;
+  }
+
+  #quickPaletteBtn,
+  #notifyBtn {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 9px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--border) !important;
+  }
+
+  /* ━━ 5. SIDEBAR DRAWER ━━ */
+  .sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: min(85vw, 300px) !important;
+    max-width: 300px !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    background: rgba(14, 14, 18, 0.98) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    z-index: 1110 !important;
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.75) !important;
+    transform: translateX(-102%) !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 16px 14px !important;
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .sidebar.open {
+    transform: translateX(0) !important;
+  }
+
+  .sidebar-close {
+    display: flex !important;
+    position: absolute !important;
+    top: 14px !important;
+    right: 14px !important;
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 9px !important;
+    border: 1px solid var(--border) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: var(--text) !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .sidebar-overlay {
+    display: none !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.65) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+    z-index: 1100 !important;
+    opacity: 0;
+    transition: opacity 0.24s ease !important;
+  }
+
+  .sidebar-overlay.open {
+    display: block !important;
+    opacity: 1 !important;
+  }
+
+  /* ━━ 6. TABLES & LISTS SCROLLING ━━ */
+  .table-shell,
+  .table-wrap,
+  .management-table-shell,
+  .orders-table-shell,
+  .card-table-wrap,
+  .management-table-wrap,
+  .data-table-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--border) !important;
+    background: var(--panel-soft) !important;
+    box-sizing: border-box !important;
+    margin-bottom: 16px !important;
+  }
+
+  .management-table,
+  .orders-table,
+  .data-table,
+  .table {
+    width: 100% !important;
+    min-width: 600px !important;
+    display: table !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+  }
+
+  .management-table thead,
+  .orders-table thead,
+  .data-table thead,
+  .table thead {
+    display: table-header-group !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+  }
+
+  .management-table tbody,
+  .orders-table tbody,
+  .data-table tbody,
+  .table tbody {
+    display: table-row-group !important;
+  }
+
+  .management-table tr,
+  .orders-table tr,
+  .data-table tr,
+  .table tr {
+    display: table-row !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+
+  .management-table th,
+  .orders-table th,
+  .data-table th,
+  .table th,
+  .management-table td,
+  .orders-table td,
+  .data-table td,
+  .table td {
+    display: table-cell !important;
+    padding: 10px 12px !important;
+    font-size: 12.5px !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+  }
+
+  /* ━━ 7. ACTION HEADERS & TOOLBARS ━━ */
+  .management-header,
+  .page-head,
+  .section-head,
+  .panel-head,
+  .catalog-toolbar-top,
+  .dashboard-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .management-header-actions,
+  .page-actions,
+  .hero-actions,
+  .catalog-toolbar-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .management-header-actions .btn,
+  .page-actions .btn,
+  .hero-actions .btn,
+  .catalog-toolbar-actions .btn {
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+    min-height: 40px !important;
+    font-size: 13px !important;
+  }
+
+  .management-filterbar,
+  .filter-row,
+  .catalog-toolbar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+    padding: 10px !important;
+  }
+
+  .management-filterbar input,
+  .management-filterbar select,
+  .filter-row input,
+  .filter-row select,
+  .catalog-toolbar input,
+  .catalog-toolbar select {
+    width: 100% !important;
+    min-height: 42px !important;
+    font-size: 14px !important;
+  }
+
+  /* ━━ 8. KPI GRIDS & STATS ━━ */
+  .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .dashboard-secondary-grid,
+  .analytics-kpi-grid,
+  .management-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .kpi-card,
+  .compact-stat,
+  .metric-card {
+    padding: 12px 10px !important;
+    border-radius: 14px !important;
+  }
+
+  .kpi-value {
+    font-size: 1.35rem !important;
+  }
+
+  .kpi-label {
+    font-size: 11px !important;
+  }
+
+  /* ━━ 9. MODALS & FORMS ━━ */
+  .modal-backdrop {
+    padding: 10px !important;
+    align-items: flex-end !important;
+  }
+
+  .modal-backdrop > .panel,
+  .modal-backdrop > .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 86vh !important;
+    max-height: 86dvh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding: 18px 14px !important;
+    margin: 0 !important;
+  }
+
+  .modal-footer,
+  .panel-footer,
+  .form-actions {
+    display: flex !important;
+    flex-direction: column-reverse !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .modal-footer .btn,
+  .panel-footer .btn,
+  .form-actions .btn {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+
+  .form-grid,
+  .form-row,
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* ━━ 10. TOAST NOTIFICATIONS ABOVE DOCK ━━ */
+  .toast-host {
+    bottom: calc(64px + env(safe-area-inset-bottom, 8px) + 12px) !important;
+    left: 12px !important;
+    right: 12px !important;
+  }
+
+  .toast {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .dashboard-kpi-grid,
+  .dashboard-secondary-grid,
+  .analytics-kpi-grid,
+  .management-summary-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

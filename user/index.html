@@ -2540,6 +2540,9 @@
       <div class="sheet-drag-handle"></div>
       
       <div class="cart-drawer-header">
+        <button type="button" class="cart-back-btn" onclick="closeCartDrawer()" aria-label="Go back" title="Back">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
         <div class="cart-drawer-title">
           <div class="cart-title-icon-badge">
             <i class="fa-solid fa-bag-shopping"></i>
@@ -2551,7 +2554,7 @@
         </div>
         <div class="cart-drawer-actions">
           <button type="button" class="cart-clear-btn" onclick="clearCart()" title="Clear all items">
-            <i class="fa-solid fa-trash-can"></i> Clear
+            <i class="fa-solid fa-trash-can"></i> <span>Clear</span>
           </button>
           <button type="button" class="cart-close-btn" onclick="closeCartDrawer()" aria-label="Close cart">
             <i class="fa-solid fa-xmark"></i>

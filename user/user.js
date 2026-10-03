@@ -48,7 +48,7 @@
       // Deep link support: If page opened with #profile, #settings, #orders, #marketplace, etc.
       const urlParams = new URLSearchParams(window.location.search);
       const initialTab = (window.location.hash || '').replace('#', '').trim() || urlParams.get('tab');
-      const validTabs = ['dashboard', 'profile', 'edit-profile', 'orders', 'wallet', 'stores', 'wishlist', 'settings', 'support', 'messages', 'refer', 'marketplace'];
+      const validTabs = ['dashboard', 'profile', 'edit-profile', 'orders', 'wallet', 'stores', 'wishlist', 'settings', 'support', 'messages', 'refer', 'marketplace', 'cart'];
       if (initialTab && validTabs.includes(initialTab)) {
         switchTab(initialTab);
       }
@@ -5374,6 +5374,21 @@
 
   // ━━ 8. SPA TAB SWITCHING (Full Native App Page System) ━━
   window.switchTab = function (tabId) {
+    if (tabId === 'cart') {
+      if (typeof openCartDrawer === 'function') {
+        openCartDrawer();
+      }
+      return;
+    }
+
+    // Auto-close cart drawer if switching to another tab
+    const cartDrawerEl = document.getElementById('cartDrawerOverlay');
+    if (cartDrawerEl && cartDrawerEl.classList.contains('active')) {
+      cartDrawerEl.classList.remove('active');
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+
     const profileSubTabs = ['profile', 'edit-profile', 'settings', 'support', 'messages', 'refer'];
     const parentTab = profileSubTabs.includes(tabId) ? 'profile' : tabId;
 
@@ -6686,9 +6701,11 @@
 
     let totalINR = 0;
     let totalUSD = 0;
+    let totalItemsCount = 0;
 
-    body.innerHTML = cart.map(item => {
+    const itemsHtml = cart.map(item => {
       const qty = item.qty || 1;
+      totalItemsCount += qty;
       const inrVal = Number(String(item.inr || item.price || 0).replace(/[^\d.]/g, '')) || 0;
       const usdVal = Number(String(item.usd || 0).replace(/[^\d.]/g, '')) || Math.max(2, Math.round(inrVal / 85));
 
@@ -6735,6 +6752,44 @@
       `;
     }).join('');
 
+    const isUsd = (currentCurrency === 'USD');
+    const billTotalDisplay = isUsd ? `$${totalUSD.toLocaleString('en-US')}` : `₹${totalINR.toLocaleString('en-IN')}`;
+
+    const assuranceHtml = `
+      <div class="cart-assurance-pill">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>100% Instant Digital Access &bull; Verified Downloads</span>
+      </div>
+    `;
+
+    const billSummaryHtml = `
+      <div class="cart-bill-summary-card">
+        <div class="cart-bill-header">
+          <i class="fa-solid fa-receipt"></i>
+          <span>Bill Details</span>
+        </div>
+        <div class="cart-bill-row">
+          <span>Items Total (${totalItemsCount} item${totalItemsCount > 1 ? 's' : ''})</span>
+          <span>${billTotalDisplay}</span>
+        </div>
+        <div class="cart-bill-row">
+          <span>Instant Download Access</span>
+          <span class="text-free"><i class="fa-solid fa-bolt"></i> FREE</span>
+        </div>
+        <div class="cart-bill-row">
+          <span>Taxes &amp; Platform Fee</span>
+          <span class="text-free">Included</span>
+        </div>
+        <div class="cart-bill-divider"></div>
+        <div class="cart-bill-row total-row">
+          <span class="bill-total-label">Total Payable</span>
+          <span class="bill-total-val">${billTotalDisplay}</span>
+        </div>
+      </div>
+    `;
+
+    body.innerHTML = assuranceHtml + itemsHtml + billSummaryHtml;
+
     const totalInrEl = document.getElementById('cartTotalINR');
     const totalUsdEl = document.getElementById('cartTotalUSD');
     if (totalInrEl) totalInrEl.textContent = `₹${totalINR.toLocaleString('en-IN')}`;
@@ -6748,6 +6803,20 @@
     updateCartUI();
     drawer.classList.add('active');
     document.body.style.overflow = 'hidden';
+
+    // Highlight cart item in mobile bottom navigation dock
+    const mobCartBtn = document.getElementById('bottomTabCartBtn');
+    if (mobCartBtn) {
+      document.querySelectorAll('.mob-nav-item, .bottom-tab-btn').forEach(btn => btn.classList.remove('active'));
+      mobCartBtn.classList.add('active');
+    }
+
+    // Push history state so native mobile back button closes the cart smoothly
+    try {
+      if (history && history.pushState && (!history.state || !history.state.cartOpen)) {
+        history.pushState({ cartOpen: true }, '', '#cart');
+      }
+    } catch (_) {}
   }
   window.openCartDrawer = openCartDrawer;
 
@@ -6761,8 +6830,37 @@
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
     }
+
+    // Restore bottom bar active tab indicator based on active tab
+    const activeView = document.querySelector('.tab-view-content.active');
+    if (activeView) {
+      const tabId = activeView.id.replace('tab-', '');
+      const profileSubTabs = ['profile', 'edit-profile', 'settings', 'support', 'messages', 'refer'];
+      const parentTab = profileSubTabs.includes(tabId) ? 'profile' : tabId;
+      document.querySelectorAll('.mob-nav-item, .bottom-tab-btn').forEach(btn => {
+        const btnTab = btn.getAttribute('data-tab');
+        if (btnTab === parentTab || btnTab === tabId) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+      try {
+        if (history && history.replaceState) {
+          history.replaceState(null, '', `#${tabId}`);
+        }
+      } catch (_) {}
+    }
   }
   window.closeCartDrawer = closeCartDrawer;
+
+  // Listen for mobile back button navigation
+  window.addEventListener('popstate', function (e) {
+    const drawer = document.getElementById('cartDrawerOverlay');
+    if (drawer && drawer.classList.contains('active')) {
+      closeCartDrawer();
+    }
+  });
 
   function handleCartOverlayClick(e) {
     if (e.target && e.target.id === 'cartDrawerOverlay') {

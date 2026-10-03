@@ -7818,8 +7818,8 @@ function renderOrdersManagementView(data = {}, fullData = {}) {
         
         <!-- Orders Table (Desktop View like User section) -->
         <section class="panel glass orders-desktop-table" style="border-radius: 16px; border: 1px solid var(--border); overflow: hidden; padding: 0; width: 100%; max-width: 100%; min-width: 0;">
-          <div class="table-wrap orders-table-shell" id="ordersTableShell" style="margin: 0; max-height: 720px; overflow-y: auto; overflow-x: hidden; width: 100%; max-width: 100%; min-width: 0;">
-            <table class="table orders-table" style="width: 100%; border-collapse: collapse;">
+          <div class="table-wrap orders-table-shell" id="ordersTableShell" style="margin: 0; max-height: 720px; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; max-width: 100%; min-width: 0;">
+            <table class="table orders-table" style="width: 100%; min-width: 780px; border-collapse: collapse;">
               <thead>
                 <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
                   <th style="width: 44px; min-width: 44px; text-align: center; padding: 14px 16px;">

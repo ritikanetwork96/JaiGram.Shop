@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="/admin/assets/admin.css?v=48" />
+  <link rel="stylesheet" href="/admin/assets/admin.css?v=50" />
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
@@ -54,7 +54,7 @@
       <header class="topbar glass">
         <div class="topbar-left">
           <button class="btn btn-ghost admin-mobile-toggle" id="mobileMenuBtn" type="button" aria-label="Open navigation menu">
-            <i data-lucide="menu"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>
           </button>
           <div class="searchbox">
             <i data-lucide="search"></i>
@@ -66,10 +66,10 @@
             <span class="pulse"></span> Connected
           </div>
           <button class="btn btn-ghost icon-only" id="quickPaletteBtn" type="button" title="Quick Search (Ctrl+K)">
-            <i data-lucide="command"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
           </button>
           <button class="btn btn-ghost icon-only" id="notifyBtn" type="button" title="Recent Activity" style="position: relative;">
-            <i data-lucide="bell"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
             <span class="badge badge-primary" id="notifyCount" style="position: absolute; top: -4px; right: -4px; font-size: 10px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center;">0</span>
           </button>
           <div class="admin-profile" id="adminProfile">
@@ -133,14 +133,14 @@
           }
         });
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
-          var dock = document.getElementById('mobileAppDock');
-          if (dock) window.lucide.createIcons({ node: dock });
+          window.lucide.createIcons();
         }
       }
       window.addEventListener('hashchange', syncDock);
       window.addEventListener('DOMContentLoaded', syncDock);
-      setTimeout(syncDock, 150);
-      setTimeout(syncDock, 600);
+      setTimeout(syncDock, 50);
+      setTimeout(syncDock, 200);
+      setTimeout(syncDock, 800);
     })();
   </script>
 

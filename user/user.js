@@ -5471,6 +5471,9 @@
     }
 
     if (tabId === 'marketplace') {
+      if (!allMarketplaceProducts || allMarketplaceProducts.length === 0) {
+        if (typeof loadUserFollowedStores === 'function') loadUserFollowedStores();
+      }
       renderMarketplaceCatalog();
     }
 

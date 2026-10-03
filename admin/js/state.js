@@ -163,31 +163,34 @@ function saveStoreCache() {
   if (saveCacheTimer) return;
   saveCacheTimer = setTimeout(() => {
     saveCacheTimer = null;
-    try {
-      const updatedCache = {
-        settings: STORE.settings || {},
-        payment: STORE.payment || {},
-        hero: STORE.hero || {},
-        banner: STORE.banner || {},
-        faq: STORE.faq || {},
-        testimonials: STORE.testimonials || {},
-        categories: STORE.categories || {},
-        products: STORE.products || {},
-        orders: STORE.orders || {},
-        order_approvals: STORE.order_approvals || {},
-        events: STORE.events || {},
-        visitors: STORE.visitors || {},
-        customers: STORE.customers || {},
-        analytics: STORE.analytics || {},
-        sellers: STORE.sellers || {},
-        seller_applications: STORE.seller_applications || {},
-        reports: STORE.reports || {},
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(CACHE_KEY, JSON.stringify(updatedCache));
-      syncWebsiteCache();
-    } catch (_) {}
-  }, 250);
+    const scheduleWrite = typeof window !== 'undefined' && window.requestIdleCallback ? window.requestIdleCallback : ((fn) => setTimeout(fn, 50));
+    scheduleWrite(() => {
+      try {
+        const updatedCache = {
+          settings: STORE.settings || {},
+          payment: STORE.payment || {},
+          hero: STORE.hero || {},
+          banner: STORE.banner || {},
+          faq: STORE.faq || {},
+          testimonials: STORE.testimonials || {},
+          categories: STORE.categories || {},
+          products: STORE.products || {},
+          orders: STORE.orders || {},
+          order_approvals: STORE.order_approvals || {},
+          events: STORE.events || {},
+          visitors: STORE.visitors || {},
+          customers: STORE.customers || {},
+          analytics: STORE.analytics || {},
+          sellers: STORE.sellers || {},
+          seller_applications: STORE.seller_applications || {},
+          reports: STORE.reports || {},
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(updatedCache));
+        syncWebsiteCache();
+      } catch (_) {}
+    });
+  }, 800);
 }
 
 function emit() {
@@ -249,18 +252,6 @@ function attachNode(key, mode = 'collection') {
       }
     );
     activeUnsubs.set(key, unsub);
-
-    // Initial query to fetch live data immediately
-    get(ref(db, nodeName))
-      .then((snap) => {
-        if (snap.exists()) {
-          STORE[key] = snap.val() || (mode === 'singleton' ? {} : {});
-        } else {
-          STORE[key] = mode === 'singleton' ? {} : {};
-        }
-        emit();
-      })
-      .catch(() => {});
 
     // For orders: also listen directly to events/orders and order_approvals where web checkout posts directly
     if (key === 'orders') {
@@ -698,63 +689,38 @@ export async function fetchLiveOrders() {
     const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
     let hasNew = false;
 
-    // 1. Direct Firebase SDK real-time query (Fast, reliable, zero cross-origin timeouts on localhost)
-    try {
-      const snap = await get(ref(db, 'orders'));
-      if (snap.exists()) {
-        const val = snap.val();
-        if (val && typeof val === 'object') {
-          if (!STORE.orders) STORE.orders = {};
-          Object.entries(val).forEach(([oId, ord]) => {
-            if (ord && typeof ord === 'object') {
-              const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
-              if (cleanId) {
-                STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
-                hasNew = true;
-              }
-            }
-          });
+    // 1. Parallel Firebase SDK real-time queries (Concurrent, fast, zero blocking chain)
+    const ingestOrdersObj = (val) => {
+      if (!val || typeof val !== 'object') return;
+      if (!STORE.orders) STORE.orders = {};
+      Object.entries(val).forEach(([oId, ord]) => {
+        if (ord && typeof ord === 'object') {
+          const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+          if (cleanId) {
+            STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
+            hasNew = true;
+          }
         }
-      }
-    } catch (_) {}
+      });
+    };
 
     try {
-      const appSnap = await get(ref(db, 'order_approvals'));
-      if (appSnap.exists()) {
-        const appVal = appSnap.val();
-        if (appVal && typeof appVal === 'object') {
-          if (!STORE.order_approvals) STORE.order_approvals = {};
-          if (!STORE.orders) STORE.orders = {};
-          STORE.order_approvals = appVal;
-          Object.entries(appVal).forEach(([oId, ord]) => {
-            if (ord && typeof ord === 'object') {
-              const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
-              if (cleanId) {
-                STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
-                hasNew = true;
-              }
-            }
-          });
-        }
-      }
-    } catch (_) {}
+      const [ordersSnap, approvalsSnap, eventsSnap] = await Promise.allSettled([
+        get(ref(db, 'orders')),
+        get(ref(db, 'order_approvals')),
+        get(ref(db, 'events/orders'))
+      ]);
 
-    try {
-      const evSnap = await get(ref(db, 'events/orders'));
-      if (evSnap.exists()) {
-        const evVal = evSnap.val();
-        if (evVal && typeof evVal === 'object') {
-          if (!STORE.orders) STORE.orders = {};
-          Object.entries(evVal).forEach(([oId, ord]) => {
-            if (ord && typeof ord === 'object') {
-              const cleanId = String(ord.id || ord.orderId || oId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
-              if (cleanId) {
-                STORE.orders[cleanId] = { ...(STORE.orders[cleanId] || {}), ...ord, id: cleanId };
-                hasNew = true;
-              }
-            }
-          });
-        }
+      if (ordersSnap.status === 'fulfilled' && ordersSnap.value?.exists()) {
+        ingestOrdersObj(ordersSnap.value.val());
+      }
+      if (approvalsSnap.status === 'fulfilled' && approvalsSnap.value?.exists()) {
+        const appVal = approvalsSnap.value.val();
+        STORE.order_approvals = appVal;
+        ingestOrdersObj(appVal);
+      }
+      if (eventsSnap.status === 'fulfilled' && eventsSnap.value?.exists()) {
+        ingestOrdersObj(eventsSnap.value.val());
       }
     } catch (_) {}
 

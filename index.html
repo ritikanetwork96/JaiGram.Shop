@@ -60,6 +60,15 @@
 </head>
 <body class="lp-body">
 
+  <!-- ━━ 0. DYNAMIC ANNOUNCEMENT BANNER (Controlled via Admin Showcase Section) ━━ -->
+  <div class="lp-top-announcement-bar" id="lpAnnouncementBanner" style="display: none;">
+    <div class="lp-container lp-banner-inner">
+      <span class="lp-banner-badge"><i class="fa-solid fa-bullhorn"></i> Notice</span>
+      <span class="lp-banner-text" id="lpBannerText">Special discounts on all digital bundles today!</span>
+      <a href="product.html?filter=offers" class="lp-banner-link" id="lpBannerLink">Explore Deals →</a>
+    </div>
+  </div>
+
   <!-- ━━ 1. WHITE TOP NAVBAR ━━ -->
   <header class="lp-navbar">
     <div class="lp-container lp-nav-content">
@@ -844,6 +853,64 @@
           bBadge.style.display = count > 0 ? 'inline-flex' : 'none';
         }
       } catch (_) {}
+    })();
+
+    // ━━ REAL-TIME SHOWCASE SYNC (Connects Admin Showcase edits to Landing Page) ━━
+    (function syncShowcaseFromAdmin() {
+      var RTDB_URL = 'https://linkadda-cd1da-default-rtdb.firebaseio.com';
+      var CACHE_KEY = 'jaigram_showcase_cache';
+
+      function applyShowcaseData(data) {
+        if (!data || typeof data !== 'object') return;
+        if (data.hero && typeof data.hero === 'object') {
+          var h = data.hero;
+          var eyebrow = document.querySelector('.lp-hero-eyebrow');
+          if (eyebrow && h.eyebrow) eyebrow.textContent = h.eyebrow;
+
+          var desc = document.querySelector('.lp-hero-desc');
+          if (desc && (h.subtitle || h.description)) desc.textContent = h.subtitle || h.description;
+
+          var statNum = document.querySelector('.lp-hfc-stat-number');
+          if (statNum && h.statsNumber) statNum.textContent = h.statsNumber;
+
+          var statLbl = document.querySelector('.lp-hfc-stat-label');
+          if (statLbl && h.statsLabel) statLbl.textContent = h.statsLabel;
+        }
+
+        if (data.banner && typeof data.banner === 'object') {
+          var b = data.banner;
+          var bannerEl = document.getElementById('lpAnnouncementBanner');
+          var bText = document.getElementById('lpBannerText');
+          var bLink = document.getElementById('lpBannerLink');
+          if (bannerEl && b.active !== false && b.text) {
+            if (bText) bText.textContent = b.text;
+            if (bLink && b.link) bLink.setAttribute('href', b.link);
+            bannerEl.style.display = 'block';
+          } else if (bannerEl && b.active === false) {
+            bannerEl.style.display = 'none';
+          }
+        }
+      }
+
+      try {
+        var rawCache = localStorage.getItem(CACHE_KEY);
+        if (rawCache) applyShowcaseData(JSON.parse(rawCache));
+      } catch (_) {}
+
+      fetch(RTDB_URL + '/.json?shallow=false')
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(val) {
+          if (!val || typeof val !== 'object') return;
+          var showcaseData = {
+            hero: val.hero || null,
+            banner: val.banner || null
+          };
+          applyShowcaseData(showcaseData);
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(showcaseData));
+          } catch (_) {}
+        })
+        .catch(function() {});
     })();
   </script>
 

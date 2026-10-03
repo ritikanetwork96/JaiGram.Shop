@@ -1,4 +1,4 @@
-import { APP_CONFIG, NAV_ITEMS } from './config.js';
+import { APP_CONFIG, NAV_ITEMS, STORE_NAV_ITEMS, SHOWCASE_NAV_ITEMS } from './config.js';
 import { auth, db, ref, get, set, update, remove } from './firebase.js';
 import {
   protectRoute,
@@ -522,12 +522,42 @@ function renderPalette() {
 }
 
 function navMarkup() {
-  return NAV_ITEMS.map((item) => `
-    <a class="nav-link ${ui.route === item.key ? 'active' : ''}" href="#/${item.key}" data-route="${item.key}">
-      <i data-lucide="${escapeHtml(item.icon)}"></i>
-      <span>${escapeHtml(item.label)}</span>
-    </a>
-  `).join('');
+  const storeList = Array.isArray(STORE_NAV_ITEMS) && STORE_NAV_ITEMS.length ? STORE_NAV_ITEMS : NAV_ITEMS.slice(0, 9);
+  const showcaseList = Array.isArray(SHOWCASE_NAV_ITEMS) && SHOWCASE_NAV_ITEMS.length ? SHOWCASE_NAV_ITEMS : NAV_ITEMS.slice(9);
+
+  const pendingOrdersCount = typeof getAllUnifiedOrders === 'function'
+    ? getAllUnifiedOrders().filter(o => o.status === 'pending' || o.orderStatus === 'pending').length
+    : 0;
+  const pendingReportsCount = Object.values(ui.data?.reports || {}).filter(r => (r.status || 'pending') === 'pending').length;
+
+  const renderItem = (item) => {
+    let badgeHtml = '';
+    if (item.key === 'orders' && pendingOrdersCount > 0) {
+      badgeHtml = `<span class="badge badge-warning" style="margin-left: auto; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 9999px; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4);">${pendingOrdersCount}</span>`;
+    } else if (item.key === 'reports' && pendingReportsCount > 0) {
+      badgeHtml = `<span class="badge badge-danger" style="margin-left: auto; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 9999px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);">${pendingReportsCount}</span>`;
+    }
+    return `
+      <a class="nav-link ${ui.route === item.key ? 'active' : ''}" href="#/${item.key}" data-route="${item.key}" style="display: flex; align-items: center; gap: 9px;">
+        <i data-lucide="${escapeHtml(item.icon)}"></i>
+        <span>${escapeHtml(item.label)}</span>
+        ${badgeHtml}
+      </a>
+    `;
+  };
+
+  return `
+    <div class="nav-section-label" style="font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: #94a3b8; padding: 10px 14px 4px; display: flex; align-items: center; gap: 6px;">
+      <i data-lucide="store" style="width: 12px; height: 12px; color: #38bdf8;"></i>
+      <span>User Dashboard & Store</span>
+    </div>
+    ${storeList.map(renderItem).join('')}
+    <div class="nav-section-label" style="font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: #94a3b8; padding: 16px 14px 4px; display: flex; align-items: center; gap: 6px; border-top: 1px solid rgba(255, 255, 255, 0.08); margin-top: 8px;">
+      <i data-lucide="sparkles" style="width: 12px; height: 12px; color: #ff2a85;"></i>
+      <span>Showcase & Landing Page</span>
+    </div>
+    ${showcaseList.map(renderItem).join('')}
+  `;
 }
 
 function collectionRowBadge(item) {

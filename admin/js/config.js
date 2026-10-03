@@ -56,24 +56,29 @@ export const RTDB_NODES = {
   reports: 'reports',
 };
 
-export const NAV_ITEMS = [
+export const STORE_NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
-  { key: 'catalog', label: 'Catalog', icon: 'package' },
-  { key: 'orders', label: 'Orders', icon: 'receipt-text' },
+  { key: 'catalog', label: 'Products & Catalog', icon: 'package' },
+  { key: 'orders', label: 'Orders & Approvals', icon: 'receipt-text' },
+  { key: 'users', label: 'Customers & Wallets', icon: 'users' },
+  { key: 'sellers', label: 'Sellers & Stores', icon: 'store' },
+  { key: 'payment', label: 'Payments & UPI', icon: 'credit-card' },
   { key: 'reports', label: 'Reports', icon: 'flag' },
-  { key: 'reviews', label: 'Reviews', icon: 'star' },
-  { key: 'media', label: 'Media', icon: 'image-plus' },
-  { key: 'hero', label: 'Hero', icon: 'sparkles' },
-  { key: 'banner', label: 'Banner', icon: 'badge-percent' },
-  { key: 'faq', label: 'FAQ', icon: 'help-circle' },
-  { key: 'testimonials', label: 'Testimonials', icon: 'messages-square' },
-  { key: 'settings', label: 'Settings', icon: 'settings-2' },
-  { key: 'payment', label: 'Payment', icon: 'credit-card' },
-  { key: 'users', label: 'Users', icon: 'users' },
-  { key: 'sellers', label: 'Sellers', icon: 'store' },
-  { key: 'screenshots', label: 'Screenshots', icon: 'image' },
+  { key: 'screenshots', label: 'Payment Proofs', icon: 'image' },
   { key: 'analytics', label: 'Analytics', icon: 'bar-chart-3' },
 ];
+
+export const SHOWCASE_NAV_ITEMS = [
+  { key: 'hero', label: 'Hero Showcase', icon: 'sparkles' },
+  { key: 'banner', label: 'Announcement Banner', icon: 'badge-percent' },
+  { key: 'faq', label: 'Public FAQs', icon: 'help-circle' },
+  { key: 'testimonials', label: 'Testimonials', icon: 'messages-square' },
+  { key: 'reviews', label: 'Product Reviews', icon: 'star' },
+  { key: 'media', label: 'Media Library', icon: 'image-plus' },
+  { key: 'settings', label: 'Storefront Settings', icon: 'settings-2' },
+];
+
+export const NAV_ITEMS = [...STORE_NAV_ITEMS, ...SHOWCASE_NAV_ITEMS];
 
 export const DEFAULT_EMPTY = {
   title: '',

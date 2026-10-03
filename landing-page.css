@@ -1836,12 +1836,114 @@ body.lp-body {
   text-decoration: underline;
 }
 
-/* ━━ 11. COMPREHENSIVE ALL-DEVICE RESPONSIVE BREAKPOINTS ━━ */
+/* ━━ 11. MOBILE APP NATIVE BOTTOM DOCK ━━ */
+.lp-mobile-app-bottom-dock {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.08);
+  z-index: 99999;
+  align-items: center;
+  justify-content: space-around;
+  padding: 4px 10px max(8px, env(safe-area-inset-bottom, 8px)) 10px;
+  border-radius: 20px 20px 0 0;
+}
 
-/* Tablet & Smaller Laptops */
-@media (max-width: 1024px) {
+.lp-dock-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+  color: #64748b;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lp-dock-icon {
+  position: relative;
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s;
+}
+
+.lp-dock-item:active {
+  transform: scale(0.92);
+}
+
+.lp-dock-item.active {
+  color: #e11d48;
+  font-weight: 700;
+}
+
+.lp-dock-item.active .lp-dock-icon {
+  transform: translateY(-2px) scale(1.12);
+  color: #e11d48;
+  filter: drop-shadow(0 2px 8px rgba(225, 29, 72, 0.35));
+}
+
+.lp-dock-badge {
+  position: absolute;
+  top: -4px;
+  right: -9px;
+  background: linear-gradient(135deg, #ff2a85, #e11d48);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.4);
+}
+
+/* ━━ 12. COMPREHENSIVE ALL-DEVICE RESPONSIVE BREAKPOINTS ━━ */
+
+/* Tablet & Smaller Laptops (769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .lp-container {
+    padding: 0 20px;
+    max-width: 100%;
+  }
+  .lp-hero-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    align-items: center;
+  }
   .lp-hero-title {
-    font-size: 42px;
+    font-size: 38px;
+    line-height: 1.18;
+  }
+  .lp-hero-desc {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .lp-hero-trust-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 10px;
   }
   .lp-cat-grid-6 {
     grid-template-columns: repeat(3, 1fr);
@@ -1849,84 +1951,155 @@ body.lp-body {
   }
   .lp-why-cards-4 {
     grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .lp-metrics-dark-bar {
+    grid-template-columns: repeat(4, 1fr);
+    padding: 22px 16px;
+    gap: 16px;
   }
 }
 
 /* Tablets & Mobile Screens (<= 768px) */
 @media (max-width: 768px) {
+  body.lp-body {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .lp-mobile-app-bottom-dock {
+    display: flex !important;
+  }
+
+  /* Refined Mobile Header Bar */
   .lp-navbar {
-    padding: 10px 0;
+    padding: 8px 0 !important;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
   }
   .lp-nav-content {
-    flex-wrap: wrap;
-    gap: 10px;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
   }
   .lp-brand-col {
-    flex: 1;
+    flex: 1 1 auto !important;
   }
   .lp-logo {
-    font-size: 21px;
+    font-size: 19px !important;
   }
   .lp-brand-tagline {
-    font-size: 8.5px;
+    display: none !important; /* Keep mobile header uncluttered */
   }
   .lp-nav-actions {
-    gap: 16px;
+    gap: 8px !important;
+    display: flex !important;
+    align-items: center !important;
   }
-  .lp-nav-icon-link {
-    font-size: 10.5px;
+  /* On mobile header, show only notifications & VIP chip since bottom dock has Home, Explore, Cart, VIP & Account */
+  .lp-nav-icon-link#lpCartBtn,
+  .lp-nav-icon-link#lpLoginBtn {
+    display: none !important;
   }
-  .lp-nav-icon-link i {
-    font-size: 17px;
+  .lp-nav-icon-link.premium {
+    padding: 5px 11px !important;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(251, 191, 36, 0.18)) !important;
+    border-radius: 999px !important;
+    color: #d97706 !important;
+    border: 1px solid rgba(245, 158, 11, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
   }
-  /* On mobile: keep search bar full width below logo & action icons */
+  .lp-nav-icon-link.premium span {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    display: inline-block !important;
+  }
+  .lp-nav-icon-link#lpNotifBtn {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 50% !important;
+    background: #f1f5f9 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    position: relative !important;
+  }
+  .lp-nav-icon-link#lpNotifBtn span:not(.lp-nav-badge) {
+    display: none !important;
+  }
+  /* Full-width sleek search pill */
   .lp-search-wrap {
-    order: 3;
-    flex: 1 1 100%;
-    max-width: 100%;
-    margin-top: 4px;
+    order: 3 !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    margin-top: 2px !important;
   }
   .lp-search-form {
-    padding: 2px 4px 2px 14px;
+    height: 38px !important;
+    background: #f8fafc !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 999px !important;
+    padding: 0 4px 0 14px !important;
   }
   .lp-search-input {
-    font-size: 13px;
+    font-size: 13px !important;
+  }
+  .lp-search-btn {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
   }
 
   /* Hero Section */
   .lp-hero-section {
-    padding: 38px 0 34px;
+    padding: 32px 0 28px !important;
   }
   .lp-hero-grid {
     grid-template-columns: 1fr;
     text-align: center;
-    gap: 30px;
+    gap: 26px;
   }
   .lp-hero-title {
-    font-size: 34px;
-    letter-spacing: -0.8px;
+    font-size: 32px;
+    letter-spacing: -0.6px;
   }
   .lp-hero-desc {
-    font-size: 14px;
-    margin: 0 auto 24px;
+    font-size: 13.5px;
+    margin: 0 auto 20px;
+    max-width: 520px;
   }
   .lp-hero-trust-row {
-    margin: 0 auto 28px;
+    margin: 0 auto 24px;
     justify-content: center;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-width: 440px;
+    text-align: left;
   }
   .lp-hero-actions {
     margin: 0 auto;
     justify-content: center;
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 440px;
   }
-  .lp-hero-mockup-wrap {
-    max-width: 330px;
-    margin: 0 auto;
-  }
-  .lp-hero-annotation {
-    font-size: 20px;
-    top: -5px;
-    right: -10px;
+  .lp-btn-browse,
+  .lp-btn-how {
+    flex: 1;
+    justify-content: center;
+    padding: 12px 16px;
+    font-size: 13.5px;
   }
 
   /* Popular Categories 2-Column Responsive Layout */
@@ -1934,17 +2107,25 @@ body.lp-body {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
-  .lp-cat-card-title {
-    font-size: 12px;
+
+  /* Ribbon Mobile */
+  .lp-ribbon-section {
+    padding: 14px 0 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
-  .lp-cat-card-count {
-    font-size: 10px;
-    padding-left: 25px;
+  .lp-ribbon-section::-webkit-scrollbar {
+    display: none;
   }
-  .lp-cat-card-pill-icon {
-    width: 19px;
-    height: 19px;
-    font-size: 9px;
+  .lp-ribbon-row {
+    gap: 12px;
+    padding: 0 14px 4px;
+    flex-wrap: nowrap;
+  }
+  .lp-ribbon-item {
+    min-width: 78px;
+    flex-shrink: 0;
   }
 
   /* Metrics Bar */

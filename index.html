@@ -47,7 +47,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" />
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="landing-page.css?v=20260927_color_footer_v11" />
+  <link rel="stylesheet" href="landing-page.css?v=20261003_mobile_app_dock" />
   <link rel="stylesheet" href="auth-modal.css?v=20260916a" />
   <link rel="stylesheet" href="pwa.css" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -807,7 +807,73 @@
       }, { threshold: 0.3 });
       if (counters[0]) observer.observe(counters[0].closest('.lp-metrics-dark-bar'));
     })();
+
+    // ━━ MOBILE BOTTOM DOCK EVENT LISTENERS ━━
+    document.getElementById('lpBottomCartBtn')?.addEventListener('click', function(e) {
+      gatekeepAction(e, 'product.html?openCart=true');
+    });
+    document.getElementById('lpDockExplore')?.addEventListener('click', function(e) {
+      gatekeepAction(e, 'product.html');
+    });
+    document.getElementById('lpDockVip')?.addEventListener('click', function(e) {
+      gatekeepAction(e, 'product.html?category=vip');
+    });
+    document.getElementById('lpBottomLoginBtn')?.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (isCustomerLoggedIn()) {
+        window.location.href = 'user/index.html';
+      } else {
+        redirectToLogin('user/index.html');
+      }
+    });
+
+    // Enhance syncUserState for bottom dock
+    (function syncBottomDockState() {
+      if (isCustomerLoggedIn()) {
+        var bLabel = document.getElementById('lpBottomLoginLabel');
+        if (bLabel) bLabel.textContent = 'Account';
+        var bIcon = document.getElementById('lpBottomLoginIcon');
+        if (bIcon) bIcon.className = 'fa-solid fa-circle-user';
+      }
+      try {
+        var cartData = JSON.parse(localStorage.getItem('jaigram_cart') || localStorage.getItem('linkadda_cart') || '[]');
+        var count = Array.isArray(cartData) ? cartData.length : 0;
+        var bBadge = document.getElementById('lpBottomCartBadge');
+        if (bBadge) {
+          bBadge.textContent = String(count);
+          bBadge.style.display = count > 0 ? 'inline-flex' : 'none';
+        }
+      } catch (_) {}
+    })();
   </script>
+
+  <!-- ━━ MOBILE APP NATIVE BOTTOM NAVIGATION DOCK ━━ -->
+  <nav class="lp-mobile-app-bottom-dock" aria-label="Mobile Navigation">
+    <a href="index.html" class="lp-dock-item active">
+      <div class="lp-dock-icon"><i class="fa-solid fa-house"></i></div>
+      <span class="lp-dock-label">Home</span>
+    </a>
+    <a href="product.html" class="lp-dock-item" id="lpDockExplore">
+      <div class="lp-dock-icon"><i class="fa-solid fa-compass"></i></div>
+      <span class="lp-dock-label">Explore</span>
+    </a>
+    <button type="button" class="lp-dock-item" id="lpBottomCartBtn" aria-label="Cart">
+      <div class="lp-dock-icon">
+        <i class="fa-solid fa-cart-shopping"></i>
+        <span class="lp-dock-badge" id="lpBottomCartBadge" style="display: none;">0</span>
+      </div>
+      <span class="lp-dock-label">Cart</span>
+    </button>
+    <a href="product.html?category=vip" class="lp-dock-item" id="lpDockVip">
+      <div class="lp-dock-icon"><i class="fa-solid fa-crown"></i></div>
+      <span class="lp-dock-label">VIP</span>
+    </a>
+    <button type="button" class="lp-dock-item" id="lpBottomLoginBtn" aria-label="Account">
+      <div class="lp-dock-icon"><i class="fa-regular fa-user" id="lpBottomLoginIcon"></i></div>
+      <span class="lp-dock-label" id="lpBottomLoginLabel">Account</span>
+    </button>
+  </nav>
+
   <script src="pwa-controller.js"></script>
 </body>
 </html>

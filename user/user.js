@@ -2080,10 +2080,12 @@
           </div>
         `;
       } else {
-        prodGrid.innerHTML = userOrders.map(ord => {
+        // Display maximum 3 recent items on dashboard home page as requested
+        prodGrid.innerHTML = userOrders.slice(0, 3).map(ord => {
           const title = getCleanOrderTitle(ord);
           const seller = getCleanOrderSeller(ord);
           const date = getCleanOrderDate(ord);
+          const amt = getCleanOrderAmount(ord);
           const rawImg = ord.image || ord.thumbnail || ord.productImage || '';
           const img = (rawImg && !rawImg.includes('prod_indian_model') && !rawImg.includes('placeholder.svg')) ? rawImg : '';
           const badge = ord.badge || ord.category || 'Digital Content';
@@ -2104,40 +2106,49 @@
               actionBtn = `<button type="button" class="btn-access-now" onclick="openAccessModal('${escapeHtml(title)}', '${escapeHtml(badge)}', '${escapeHtml(seller)}', 'Verified Digital Product', '${escapeHtml(size)}', '${encodeURIComponent(dlLink)}')"><i class="fa-solid fa-play"></i> Access Now</button>`;
             }
           } else if (isRejected) {
-            actionBtn = `<button type="button" class="btn-access-now" style="background: #ef4444;" onclick="showAppToast('Payment proof rejected: ${escapeHtml(rejectionReason || 'Screenshot/UTR invalid')}')" title="${escapeHtml(rejectionReason || 'Payment rejected')}"><i class="fa-solid fa-circle-xmark"></i> Rejected</button>`;
+            actionBtn = `<button type="button" class="btn-access-now btn-rejected" onclick="showAppToast('Payment proof rejected: ${escapeHtml(rejectionReason || 'Screenshot/UTR invalid')}')" title="${escapeHtml(rejectionReason || 'Payment rejected')}"><i class="fa-solid fa-circle-xmark"></i> Rejected</button>`;
           } else {
-            actionBtn = `<button type="button" class="btn-access-now" style="background: #f59e0b;" onclick="showAppToast('Order under verification. You will receive access once approved!')"><i class="fa-solid fa-clock"></i> Pending Review</button>`;
+            actionBtn = `<button type="button" class="btn-access-now btn-pending" onclick="showAppToast('Order under verification. You will receive access once approved!')"><i class="fa-solid fa-clock"></i> In Review</button>`;
           }
 
           return `
-            <div class="purchased-product-card">
-              <div class="product-thumb-wrap">
-                ${img ? `
-                  <img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" class="product-thumb-img mp-card-thumb-img" loading="lazy" decoding="async" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
-                ` : ''}
-                <div class="product-thumb-fallback-disc" style="${img ? 'display:none;' : 'display:flex;'} width:100%; height:100%; align-items:center; justify-content:center; background:linear-gradient(135deg, rgba(255,42,141,0.12), rgba(99,102,241,0.12));">
-                  <i class="fa-solid ${icon}" style="font-size:32px; color:var(--primary-pink);"></i>
-                </div>
+            <div class="purchased-product-card compact-app-card">
+              <div class="ppc-header-strip">
                 <span class="product-type-badge">
                   <i class="fa-solid ${icon}"></i> ${escapeHtml(badge)}
                 </span>
+                <span class="product-purchase-date"><i class="fa-regular fa-clock"></i> ${date}</span>
               </div>
-              <div class="product-card-body">
-                <div class="product-info-top">
+
+              <div class="ppc-content-row">
+                <div class="product-thumb-wrap">
+                  ${img ? `
+                    <img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" class="product-thumb-img mp-card-thumb-img" loading="lazy" decoding="async" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                  ` : ''}
+                  <div class="product-thumb-fallback-disc" style="${img ? 'display:none;' : 'display:flex;'}">
+                    <i class="fa-solid ${icon}"></i>
+                  </div>
+                </div>
+
+                <div class="ppc-info-column">
                   <h3 class="product-title" title="${escapeHtml(title)}">${escapeHtml(title)}</h3>
-                  ${isRejected && rejectionReason ? `<div style="font-size: 11.5px; color: #ef4444; font-weight: 600; margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Reason: ${escapeHtml(rejectionReason)}</div>` : ''}
+                  ${isRejected && rejectionReason ? `<div class="ppc-reject-badge"><i class="fa-solid fa-triangle-exclamation"></i> Reason: ${escapeHtml(rejectionReason)}</div>` : ''}
                   <div class="product-seller">
                     <span>By ${escapeHtml(seller)}</span>
                     <i class="fa-solid fa-circle-check verified-icon"></i>
                   </div>
-                  <span class="product-purchase-date">Purchased on ${date}</span>
+                  <div class="ppc-meta-line">
+                    <span class="ppc-spec-pill"><i class="fa-solid fa-bolt"></i> ${escapeHtml(size)}</span>
+                    ${amt ? `<span class="ppc-price-pill">${escapeHtml(amt)}</span>` : ''}
+                  </div>
                 </div>
-                <div class="product-card-actions">
-                  ${actionBtn}
-                  <button type="button" class="btn-more-dots" onclick="openProductMenu(this, '${escapeHtml(title)}', '${encodeURIComponent(dlLink)}')" aria-label="More Options">
-                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                  </button>
-                </div>
+              </div>
+
+              <div class="product-card-actions">
+                ${actionBtn}
+                <button type="button" class="btn-more-dots" onclick="openProductMenu(this, '${escapeHtml(title)}', '${encodeURIComponent(dlLink)}')" aria-label="More Options" title="More Options">
+                  <i class="fa-solid fa-ellipsis-vertical"></i>
+                </button>
               </div>
             </div>
           `;

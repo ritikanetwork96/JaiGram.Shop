@@ -558,6 +558,62 @@ button {
   50% { opacity: 0.5; transform: scale(0.75); }
 }
 
+/* ─── Topbar Icon Buttons (Prevent .btn padding from squishing icons) ─── */
+.btn.icon-only,
+#quickPaletteBtn,
+#notifyBtn,
+.admin-mobile-toggle,
+#mobileMenuBtn {
+  padding: 0 !important;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+}
+
+.btn.icon-only svg,
+#quickPaletteBtn svg,
+#notifyBtn svg {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  stroke: #f5f5f7 !important;
+  color: #f5f5f7 !important;
+  display: block !important;
+  margin: auto !important;
+  flex-shrink: 0 !important;
+  pointer-events: none !important;
+}
+
+.admin-mobile-toggle svg,
+#mobileMenuBtn svg {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  stroke: #f5f5f7 !important;
+  color: #f5f5f7 !important;
+  display: block !important;
+  margin: auto !important;
+  flex-shrink: 0 !important;
+  pointer-events: none !important;
+}
+
+[data-theme="light"] .btn.icon-only svg,
+[data-theme="light"] #quickPaletteBtn svg,
+[data-theme="light"] #notifyBtn svg,
+[data-theme="light"] .admin-mobile-toggle svg,
+[data-theme="light"] #mobileMenuBtn svg {
+  stroke: #0f172a !important;
+  color: #0f172a !important;
+}
+
 /* ─── Smooth View Root Transition ─── */
 .view-root {
   min-width: 0;
@@ -13169,16 +13225,34 @@ button {
     min-width: 0 !important;
   }
 
-  .admin-mobile-toggle {
+  .admin-mobile-toggle,
+  #mobileMenuBtn {
     width: 38px !important;
     height: 38px !important;
+    min-width: 38px !important;
+    padding: 0 !important;
     border-radius: 10px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    background: rgba(255, 255, 255, 0.06) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
     border: 1px solid var(--border) !important;
     flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .admin-mobile-toggle svg,
+  #mobileMenuBtn svg {
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    min-height: 22px !important;
+    stroke: #ffffff !important;
+    color: #ffffff !important;
+    display: block !important;
+    margin: auto !important;
+    flex-shrink: 0 !important;
+    pointer-events: none !important;
   }
 
   .topbar-right {
@@ -13227,14 +13301,32 @@ button {
 
   #quickPaletteBtn,
   #notifyBtn {
-    width: 34px !important;
-    height: 34px !important;
-    border-radius: 9px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    background: rgba(255, 255, 255, 0.05) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
     border: 1px solid var(--border) !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  #quickPaletteBtn svg,
+  #notifyBtn svg {
+    width: 19px !important;
+    height: 19px !important;
+    min-width: 19px !important;
+    min-height: 19px !important;
+    stroke: #ffffff !important;
+    color: #ffffff !important;
+    display: block !important;
+    margin: auto !important;
+    flex-shrink: 0 !important;
+    pointer-events: none !important;
   }
 
   /* ━━ 5. SIDEBAR DRAWER ━━ */

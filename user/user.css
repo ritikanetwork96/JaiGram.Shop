@@ -9599,65 +9599,46 @@ body.dark-theme .cart-item-title,
   font-weight: 500;
 }
 
-.cart-item-qty-controls {
-  display: inline-flex;
-  align-items: center;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  padding: 2px 4px;
-  gap: 2px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-body.dark-theme .cart-item-qty-controls,
-[data-theme="dark"] .cart-item-qty-controls {
-  background: #0b0f19;
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-}
-
-.btn-qty-mini {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--text-main, #0f172a);
-  font-size: 11px;
+/* Clean Single-Product Remove Button (Strict 1 quantity for digital items) */
+.btn-cart-item-remove {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-body.dark-theme .btn-qty-mini,
-[data-theme="dark"] .btn-qty-mini {
-  color: #f1f5f9;
-}
-
-.btn-qty-mini:hover {
-  background: rgba(255, 45, 85, 0.15);
-  color: var(--primary-pink, #ff2d55);
-}
-
-.btn-qty-mini .fa-trash {
-  color: #ef4444 !important;
-}
-
-.cart-qty-value {
-  min-width: 22px;
-  text-align: center;
+  transition: all 0.16s ease;
   font-size: 13px;
-  font-weight: 800;
-  color: var(--text-main, #0f172a);
-  font-family: 'Outfit', sans-serif;
-  user-select: none;
+  padding: 0;
 }
 
-body.dark-theme .cart-qty-value,
-[data-theme="dark"] .cart-qty-value {
+.btn-cart-item-remove:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+}
+
+.btn-cart-item-remove:active {
+  transform: scale(0.92);
+}
+
+body.dark-theme .btn-cart-item-remove,
+[data-theme="dark"] .btn-cart-item-remove {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+body.dark-theme .btn-cart-item-remove:hover,
+[data-theme="dark"] .btn-cart-item-remove:hover {
+  background: #ef4444;
   color: #ffffff;
 }
 

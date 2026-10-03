@@ -6491,7 +6491,35 @@
   function getCart() {
     try {
       const raw = localStorage.getItem(CART_KEY);
-      return raw ? JSON.parse(raw) : [];
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        // Enforce strict single-quantity per unique product for digital items
+        const seen = new Set();
+        const uniqueCart = [];
+        let needsResave = false;
+        parsed.forEach(i => {
+          if (i && i.id) {
+            const key = String(i.id).toLowerCase().trim();
+            if (!seen.has(key)) {
+              seen.add(key);
+              if (i.qty !== 1) {
+                i.qty = 1;
+                needsResave = true;
+              }
+              uniqueCart.push(i);
+            } else {
+              needsResave = true;
+            }
+          }
+        });
+        if (needsResave) {
+          try {
+            localStorage.setItem(CART_KEY, JSON.stringify(uniqueCart));
+          } catch (_) {}
+        }
+        return uniqueCart;
+      }
+      return [];
     } catch (e) {
       console.warn('Error reading cart:', e);
       return [];
@@ -6525,25 +6553,30 @@
     const seller = product.sellerName || product.sellerStoreName || 'JaiGram Official';
 
     if (existingIndex > -1) {
-      cart[existingIndex].qty = (cart[existingIndex].qty || 1) + 1;
-      showAppToast(`Updated quantity in cart (${cart[existingIndex].qty}) 🛒`);
-    } else {
-      cart.push({
-        id: String(product.id),
-        name: product.title || product.name || 'Digital Pack',
-        title: product.title || product.name || 'Digital Pack',
-        inr: pricing.inr,
-        usd: pricing.usd,
-        price: pricing.amount,
-        currency: pricing.currency,
-        category: product.category || 'Digital Pack',
-        image: thumb,
-        sellerName: seller,
-        qty: 1
-      });
-      showAppToast('Added to Cart 🛒');
+      // Digital product can only be added once!
+      cart[existingIndex].qty = 1;
+      saveCart(cart);
+      showAppToast('Product is already in your cart! 🛒');
+      if (openDrawer) {
+        openCartDrawer();
+      }
+      return;
     }
 
+    cart.push({
+      id: String(product.id),
+      name: product.title || product.name || 'Digital Pack',
+      title: product.title || product.name || 'Digital Pack',
+      inr: pricing.inr,
+      usd: pricing.usd,
+      price: pricing.amount,
+      currency: pricing.currency,
+      category: product.category || 'Digital Pack',
+      image: thumb,
+      sellerName: seller,
+      qty: 1
+    });
+    showAppToast('Added to Cart 🛒');
     saveCart(cart);
     if (openDrawer) {
       openCartDrawer();
@@ -6560,16 +6593,11 @@
   window.removeFromCart = removeFromCart;
 
   function updateCartQty(productId, delta) {
-    const cart = getCart();
-    const item = cart.find(i => String(i.id).toLowerCase() === String(productId).toLowerCase());
-    if (!item) return;
-
-    item.qty = (item.qty || 1) + delta;
-    if (item.qty <= 0) {
+    if (delta <= 0) {
       removeFromCart(productId);
       return;
     }
-    saveCart(cart);
+    showAppToast('Digital products can only be added once per order.');
   }
   window.updateCartQty = updateCartQty;
 
@@ -6715,17 +6743,15 @@
     let totalItemsCount = 0;
 
     const itemsHtml = cart.map(item => {
-      const qty = item.qty || 1;
-      totalItemsCount += qty;
+      totalItemsCount += 1;
       const inrVal = Number(String(item.inr || item.price || 0).replace(/[^\d.]/g, '')) || 0;
       const usdVal = Number(String(item.usd || 0).replace(/[^\d.]/g, '')) || Math.max(2, Math.round(inrVal / 85));
 
-      totalINR += (inrVal * qty);
-      totalUSD += (usdVal * qty);
+      totalINR += inrVal;
+      totalUSD += usdVal;
 
       const isUsd = (currentCurrency === 'USD');
-      const unitDisplay = isUsd ? `$${usdVal}` : `₹${inrVal.toLocaleString('en-IN')}`;
-      const lineTotal = isUsd ? `$${(usdVal * qty)}` : `₹${(inrVal * qty).toLocaleString('en-IN')}`;
+      const lineTotal = isUsd ? `$${usdVal}` : `₹${inrVal.toLocaleString('en-IN')}`;
 
       const safeId = escapeHtml(item.id);
       const safeTitle = escapeHtml(item.name || item.title || 'Digital Product');
@@ -6746,17 +6772,10 @@
             <div class="cart-item-bottom">
               <div class="cart-item-price-wrap">
                 <span class="cart-item-price">${lineTotal}</span>
-                ${qty > 1 ? `<span class="cart-item-unit-hint">(${unitDisplay} each)</span>` : ''}
               </div>
-              <div class="cart-item-qty-controls">
-                <button type="button" class="btn-qty-mini" onclick="updateCartQty('${safeId}', -1)" aria-label="${qty === 1 ? 'Remove item' : 'Decrease quantity'}" title="${qty === 1 ? 'Remove from cart' : 'Decrease'}">
-                  <i class="fa-solid ${qty === 1 ? 'fa-trash' : 'fa-minus'}"></i>
-                </button>
-                <span class="cart-qty-value">${qty}</span>
-                <button type="button" class="btn-qty-mini" onclick="updateCartQty('${safeId}', 1)" aria-label="Increase quantity" title="Increase">
-                  <i class="fa-solid fa-plus"></i>
-                </button>
-              </div>
+              <button type="button" class="btn-cart-item-remove" onclick="removeFromCart('${safeId}')" aria-label="Remove item" title="Remove from cart">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
             </div>
           </div>
         </div>
